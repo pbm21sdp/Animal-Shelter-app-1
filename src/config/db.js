@@ -1,6 +1,15 @@
-// src/config/db.js
-// Dummy database functions for testing
+const { Pool } = require('pg');
+require('dotenv').config();
+
+const pool = new Pool({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    port: process.env.DB_PORT || 5432,
+});
+
 module.exports = {
-    query: () => console.log("Database is disabled for testing"),
-    connect: () => Promise.resolve("Database disabled"),
+    query: (text, params) => pool.query(text, params),
+    connect: () => pool.connect(),
 };
