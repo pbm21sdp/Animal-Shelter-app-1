@@ -2,8 +2,12 @@ const express = require('express');
 const swaggerUi = require('swagger-ui-express');
 const cors = require('cors');
 const specs = require('./swagger.js');
-// const db = require('./config/db');
-require('dotenv').config();
+const { pool } = require('./config/db');
+
+// Load .env file only in non-Docker environment
+if (!process.env.DOCKER_ENV) {
+    require('dotenv').config();
+}
 
 // Import routes
 const animalRoutes = require('./routes/animals');
@@ -13,10 +17,14 @@ const adoptionRoutes = require('./routes/adoptions');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Database connection
-// db.connect()
-//     .then(() => console.log('Connected to PostgreSQL'))
-//     .catch(err => console.error('Connection error', err));
+// Database connection check
+pool.query('SELECT NOW()', (err) => {
+    if (err) {
+        console.error('Database connection error:', err);
+    } else {
+        console.log('Database connected successfully');
+    }
+});
 
 // Middleware
 app.use(cors());
