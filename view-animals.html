@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Our Animals</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f7f5f1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 50px;
+      margin: 0;
+      color: #333;
+    }
+
+    .title-section {
+        position: relative;
+        text-align: center;
+        margin-bottom: 80px;
+        padding-top: 120px;
+    }
+
+    .circle-blue {
+        position: absolute;
+        width: 444px;
+        height: 444px;
+        background-color: #c4d6f8;
+        border-radius: 50%;
+        top: 0;
+        left: 322px; /* exact ca în Figma */
+        z-index: 1;
+}
+
+    .title-section h2 {
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+
+    .charlie-section {
+        background-color: #d6aaf7;
+        display: inline-block;
+        padding: 15px 30px;
+        border-radius: 30px;
+        color: #333;
+        position: relative;
+        margin-top: 80px;
+        font-size: 18px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        z-index: 1;
+    }
+
+    .charlie-img-container {
+        background-color: #c4d6f8;
+        width: 170px;
+        height: 170px;
+        border-radius: 50%;
+        position: absolute;
+        top: -80px;
+        left: -20px;
+        z-index: 1; 
+    }
+
+    .charlie-img {
+        position: absolute;
+        width: 268px;
+        height: 376px;
+        object-fit: cover;
+        top: 21px;
+        left: 410px; 
+        z-index: 3; 
+    }
+
+    .pets-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      max-width: 1000px;
+    }
+
+    .pet-card {
+      background-color: #fff;
+      border-radius: 15px;
+      overflow: hidden;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      transition: transform 0.2s;
+      width: 200px;
+      height: 260px;
+    }
+
+    .pet-card:hover {
+      transform: translateY(-10px);
+    }
+
+    .pet-image {
+      width: 100%;
+      height: 160px;
+      object-fit: cover;
+    }
+
+    .pet-info {
+      padding: 15px;
+    }
+
+    .pet-name {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .pet-breed {
+      font-size: 14px;
+      color: #777;
+    }
+
+    .pet-birthday {
+        font-size: 14px;
+        color: #777;
+    }
+
+    .pet-age {
+        font-size: 14px;
+        color: #777;
+    }
+  </style>
+</head>
+<body>
+  <section class="title-section">
+    <h2>OUR ANIMALS</h2>
+    <div class="charlie-section">
+        <div class="charlie-img-container"></div>
+      <img src="proiect/charlie.png" alt="Charlie" class="charlie-img">
+      And now I'll introduce you to our pets
+    </div>
+  </section>
+
+  <section class="pets-grid">
+
+    <div class="pet-card">
+      <img src="proiect/hera.jpg" class="pet-image" alt="Hera">
+      <div class="pet-info">
+        <div class="pet-name">Hera (female)</div>
+        <div class="pet-breed">European cat</div>
+        <div class="pet-age">1 year 5 months</div>
+        <div class="pet-birthday">September 1st</div>
+      </div>
+    </div>
+
+    <div class="pet-card">
+      <img src="proiect/thor.jpg" class="pet-image" alt="Thor">
+      <div class="pet-info">
+        <div class="pet-name">Thor (male)</div>
+        <div class="pet-breed">European cat</div>
+        <div class="pet-age">1 year 5 months</div>
+        <div class="pet-birthday">September 1st</div>
+      </div>
+    </div>
+
+    <div class="pet-card">
+        <img src="proiect/nala.jpg" class="pet-image" alt="Nala">
+        <div class="pet-info">
+          <div class="pet-name">Nala (female)</div>
+          <div class="pet-breed">Scottish Fold</div>
+          <div class="pet-age">1 year 11 months</div>
+          <div class="pet-birthday">April 12th</div>
+        </div>
+      </div>
+
+    <div class="pet-card">
+        <img src="proiect/syssy2.jpg" class="pet-image" alt="Syssy">
+        <div class="pet-info">
+          <div class="pet-name">Syssy (female)</div>
+          <div class="pet-breed">Bichon Maltese</div>
+          <div class="pet-age">14 years 5 months</div>
+          <div class="pet-birthday">September 1st</div>
+        </div>
+      </div>
+    
+    <div class="pet-card">
+        <img src="proiect/skie.jpg" class="pet-image" alt="Skie">
+        <div class="pet-info">
+          <div class="pet-name">Skie (female)</div>
+          <div class="pet-breed">Siamese cat</div>
+          <div class="pet-age">1 year 9 months</div>
+          <div class="pet-birthday">May 25th</div>
+        </div>
+      </div>
+
+    <div class="pet-card">
+        <img src="proiect/oreo2.jpg" class="pet-image" alt="Oreo">
+        <div class="pet-info">
+          <div class="pet-name">Oreo (male)</div>
+          <div class="pet-breed">European cat</div>
+          <div class="pet-age">3 years 7 months</div>
+          <div class="pet-birthday">August 9th</div>
+        </div>
+      </div>
+    
+
+  
+  </section>
+</body>
+</html>
