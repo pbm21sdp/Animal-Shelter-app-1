@@ -8,9 +8,9 @@ COPY package*.json ./
 # Install root dependencies
 RUN npm install
 
-# Copy backend code
-COPY backend/ ./backend/
+# Copy frontend code
+COPY frontend/ ./frontend/
 
-WORKDIR /app/backend
+WORKDIR /app/frontend
 
-CMD ["node", "src/app.js"]
+CMD ["npm", "start"]
