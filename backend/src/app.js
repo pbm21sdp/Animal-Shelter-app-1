@@ -1,7 +1,7 @@
 import express from 'express';
 import swaggerUi from 'swagger-ui-express';
 import cors from 'cors';
-import specs from './swagger.js';
+import specs from './config/swagger.js';
 
 import { pool } from './config/db.js';
 import { config } from 'dotenv';
@@ -16,7 +16,9 @@ import adoptionRoutes from './routes/adoptions.js';
 
 // Load .env only in non-Docker environment
 if (!process.env.DOCKER_ENV) {
-    config();
+    config({ path: './.env' });
+} else {
+    console.log('Running in Docker environment');
 }
 
 const app = express();

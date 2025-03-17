@@ -20,12 +20,8 @@ services:
     build:
       context: ../
       dockerfile: backend/Dockerfile
-    environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - DB_NAME=animal_shelter
+    env_file:
+      - ./.env.docker
     ports:
       - "3000:3000"
     depends_on:
