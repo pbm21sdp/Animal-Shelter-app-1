@@ -1,18 +1,23 @@
-const express = require('express');
-const swaggerUi = require('swagger-ui-express');
-const cors = require('cors');
-const specs = require('./swagger.js');
-const { pool } = require('./config/db');
+import express from 'express';
+import swaggerUi from 'swagger-ui-express';
+import cors from 'cors';
+import specs from './swagger.js';
 
-// Load .env file only in non-Docker environment
-if (!process.env.DOCKER_ENV) {
-    require('dotenv').config();
-}
+import { pool } from './config/db.js';
+import { config } from 'dotenv';
+import { connectDB } from "./mongodb/connectDB.js";
+
+import { authRoutes } from "./routes/auth/auth.routes.js"
 
 // Import routes
-const animalRoutes = require('./routes/animals');
-const userRoutes = require('./routes/users');
-const adoptionRoutes = require('./routes/adoptions');
+import animalRoutes from './routes/animals.js';
+import userRoutes from './routes/users.js';
+import adoptionRoutes from './routes/adoptions.js';
+
+// Load .env only in non-Docker environment
+if (!process.env.DOCKER_ENV) {
+    config();
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -33,17 +38,33 @@ app.use(express.json());
 // Swagger documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
-// Routes
+// Routes (keep these before error handler)
 app.use('/api/animals', animalRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/adoptions', adoptionRoutes);
 
-// Error handling
+// Root route
+app.get("/", (req, res) => {
+    res.send("Hello app!");
+});
+
+app.use("/api/auth", authRoutes);
+
+// Error handler (MUST come after all routes)
 app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(500).send('Server error!');
 });
 
+console.log('Environment:', { // Only for local dev, remove for prod
+    DB_HOST: process.env.DB_HOST,
+    DB_PORT: process.env.DB_PORT,
+    DB_USER: process.env.DB_USER,
+    DB_NAME: process.env.DB_NAME
+});
+
+
 app.listen(PORT, () => {
+    connectDB();
     console.log(`Server running on port ${PORT}`);
 });
