@@ -1,4 +1,4 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
 
 /**
@@ -22,4 +22,4 @@ router.post('/', (req, res) => {
     res.send('Adoption request submitted');
 });
 
-module.exports = router;
+export default router;
