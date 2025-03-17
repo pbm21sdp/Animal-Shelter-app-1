@@ -2,10 +2,15 @@ FROM node:18-alpine
 
 WORKDIR /app
 
+# Copy root package files
 COPY package*.json ./
+
+# Install root dependencies
 RUN npm install
 
-COPY .. .
+# Copy backend code
+COPY backend/ ./backend/
 
-# Use environment variables from .env.docker
-CMD ["sh", "-c", "node src/app.js"]
+WORKDIR /app/backend
+
+CMD ["node", "src/app.js"]
