@@ -1,0 +1,11 @@
+services:
+  frontend:
+    build:
+      context: ../
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "3001:3000"
+    volumes:
+      - ../package.json:/app/package.json
+      - ../package-lock.json:/app/package-lock.json
+      - ./src:/app/frontend/src

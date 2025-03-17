@@ -1,6 +1,6 @@
-const express = require('express');
+import express from "express";
 const router = express.Router();
-const { pool } = require('../config/db'); // Import the pool
+import { pool } from '../config/db.js';
 
 /**
  * @swagger
@@ -52,4 +52,4 @@ router.get('/', async (req, res) => {
  *           type: string
  *           example: "Labrador"
  */
-module.exports = router;
+export default router;
