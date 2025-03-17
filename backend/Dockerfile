@@ -8,6 +8,9 @@ COPY package*.json ./
 # Install root dependencies
 RUN npm install
 
+# Copy environment file
+COPY .env.docker ./
+
 # Copy backend code
 COPY backend/ ./backend/
 
