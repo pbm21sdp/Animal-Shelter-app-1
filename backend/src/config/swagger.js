@@ -1,7 +1,10 @@
-// src/swagger.js
-import router from "./routes/users.js";
-
 import swaggerJsdoc from 'swagger-jsdoc';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Get directory name
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const options = {
     definition: {
@@ -15,7 +18,10 @@ const options = {
             { url: 'http://localhost:3000' },
         ],
     },
-    apis: ['./src/routes/*.js'], // Path to your route files
+    apis: [
+        path.join(__dirname, '../routes/*.js'),
+        path.join(__dirname, '../routes/**/*.js')
+    ],
 };
 
 const specs = swaggerJsdoc(options);
