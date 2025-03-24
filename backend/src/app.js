@@ -22,7 +22,7 @@ if (!process.env.DOCKER_ENV) {
 }
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 
 // Database connection check
 pool.query('SELECT NOW()', (err) => {
@@ -35,7 +35,7 @@ pool.query('SELECT NOW()', (err) => {
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json()); // allow ud to parse incoming requests:req.body
 
 // Swagger documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
