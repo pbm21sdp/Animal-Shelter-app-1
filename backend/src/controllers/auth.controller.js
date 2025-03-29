@@ -2,6 +2,7 @@ import { User } from '../models/user.model.js';
 import bcryptjs from 'bcryptjs';
 import {generateVerificationToken} from "../utils/generateVerificationToken.js";
 import {generateTokenAndSetCookie} from "../utils/generateTokenAndSetCookie.js";
+import {sendVerficationEmail} from "../config/mailtrap/emails.js";
 
 export const signup = async (req, res) => {
 
@@ -13,6 +14,8 @@ export const signup = async (req, res) => {
         }
 
         const userAlreadyExists = await User.findOne({email});
+        console.log("userAlreadyExists", userAlreadyExists);
+
         if(userAlreadyExists){
             return res.status(400).json({success:false, message: "User already exists"});
         }
@@ -31,6 +34,8 @@ export const signup = async (req, res) => {
 
         // jwt
         generateTokenAndSetCookie(res, user._id);
+
+        await sendVerficationEmail(user.email, verificationToken);
 
         res.status(201).json({
             success:true,
