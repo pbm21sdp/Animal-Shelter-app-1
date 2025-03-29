@@ -2,6 +2,7 @@ import express from 'express';
 import swaggerUi from 'swagger-ui-express';
 import cors from 'cors';
 import specs from './config/swagger.js';
+import cookieParser from 'cookie-parser';
 
 import { pool } from './config/db.js';
 import { config } from 'dotenv';
@@ -35,7 +36,8 @@ pool.query('SELECT NOW()', (err) => {
 
 // Middleware
 app.use(cors());
-app.use(express.json()); // allow ud to parse incoming requests:req.body
+app.use(express.json()); // allow us to parse incoming requests:req.body
+app.use(cookieParser()); // allow us to parse incoming cookies
 
 // Swagger documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
