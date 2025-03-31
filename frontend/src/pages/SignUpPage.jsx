@@ -12,12 +12,19 @@ const SignUpPage = () => {
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
+
     const navigate = useNavigate();
 
     const {signup, error, isLoading} = useAuthStore();
 
     const handleSignUp = async (e) => {
         e.preventDefault();
+
+        if (password !== confirmPassword) {
+            alert("Passwords do not match");
+            return;
+        }
 
         try{
             await signup(email, password, name);
@@ -63,6 +70,15 @@ const SignUpPage = () => {
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+        />
+
+        <Input
+            icon={Lock}
+            type='password'
+            placeholder='Confirm New Password'
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            required
         />
         {/* Password strength meter*/}
         {error && <p className='text-red-500 font-semibold mt-2'>{error}</p>}
