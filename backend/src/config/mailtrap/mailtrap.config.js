@@ -15,7 +15,7 @@ export const mailtrapClient = new MailtrapClient({
 
 export const sender = {
     email: process.env.MAILTRAP_SENDER_EMAIL, // Use verified sender
-    name: "Clingo Team"
+    name: "Animal Shelter app"
 };
 
 const recipients = [ /// Only here i can send
