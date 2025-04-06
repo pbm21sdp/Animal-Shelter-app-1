@@ -1,3 +1,46 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Blob shape animations */
+@layer components {
+    .blob-shape {
+        border-radius: 60% 40% 50% 50% / 60% 50% 50% 40%;
+        animation: blob-morph 8s ease-in-out infinite;
+    }
+
+    @keyframes blob-morph {
+        0% {
+            border-radius: 60% 40% 50% 50% / 60% 50% 50% 40%;
+        }
+        25% {
+            border-radius: 50% 60% 40% 50% / 40% 60% 50% 60%;
+        }
+        50% {
+            border-radius: 40% 60% 50% 40% / 50% 40% 60% 50%;
+        }
+        75% {
+            border-radius: 55% 45% 55% 45% / 45% 55% 45% 55%;
+        }
+        100% {
+            border-radius: 60% 40% 50% 50% / 60% 50% 50% 40%;
+        }
+    }
+
+    /* Add slight variations for each blob */
+    .animal-dog {
+        animation-delay: 0s;
+    }
+
+    .animal-cat {
+        animation-delay: -2s;
+    }
+
+    .animal-bird {
+        animation-delay: -4s;
+    }
+
+    .animal-other {
+        animation-delay: -6s;
+    }
+}
