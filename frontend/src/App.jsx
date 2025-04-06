@@ -4,6 +4,7 @@ import {Navigate, Route, Routes} from "react-router-dom";
 import SignUpPage from "./pages/SignUpPage";
 import LoginPage from "./pages/LoginPage";
 import HomePage from "./pages/HomePage";
+import PawsHomePage from "./pages/PawsHomePage"
 import EmailVerificationPage from "./pages/EmailVerificationPage";
 
 import {Toaster} from "react-hot-toast";
@@ -66,7 +67,7 @@ function App() {
             <Routes>
                 <Route path='/' element={
                     <ProtectedRoute>
-                    <HomePage />
+                    <PawsHomePage />
                     </ProtectedRoute>
                     }
                 />
