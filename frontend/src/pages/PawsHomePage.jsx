@@ -117,7 +117,7 @@ export default function PawsHomepage() {
                         <img
                             src={maindog}
                             alt="maindog"
-                            className="absolute bottom-0 right-0 h-1/2 transform translate-x-[-230px] translate-y-[-20px]"
+                            className="absolute bottom-0 right-0 h-4/3 transform translate-x-[-190px] translate-y-[20px]"
                         />
 
                         <img
