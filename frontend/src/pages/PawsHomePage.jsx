@@ -1,0 +1,457 @@
+import React, {useRef, useState} from 'react';
+import { Search, Heart, ArrowRight, PawPrint, Facebook, Twitter, Instagram, Linkedin, Send } from 'lucide-react';
+import { motion } from "framer-motion";
+import Blob from "../components/Blob";
+import {useAuthStore} from "../store/authStore";
+
+// Images imports
+import info1 from "../assets/PawHomePage/req.jpg"
+import info2 from "../assets/PawHomePage/info2.jpg"
+import info3 from "../assets/PawHomePage/info3.jpg"
+import person from "../assets/PawHomePage/person.png"
+import maindog from "../assets/PawHomePage/maindog.png"
+import leash from "../assets/PawHomePage/leash.png"
+
+
+import DogIcon from "../components/icons/DogIcon";
+import CatIcon from "../components/icons/CatIcon";
+import ParrotIcon from "../components/icons/ParrotIcon.jsx";
+import RabbitIcon from "../components/icons/RabbitIcon.jsx";
+
+const stepImages = import.meta.glob('../assets/PawHomePage/step*.png', { eager: true });
+const steps = Object.values(stepImages).map((mod) => mod.default);
+
+export default function PawsHomepage() {
+
+    const {user, logout} = useAuthStore();
+
+    const handleLogout = () => {
+        logout();
+    };
+
+    const inputRef = useRef(null);
+    const handleSearchClick = () => {
+        if (inputRef.current) {
+            inputRef.current.focus();
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-white font-sans">
+
+            {/* Header/Navigation */}
+            <header className="container mx-auto px-4 py-4 flex items-center justify-between">
+                <div className="flex items-center">
+                    <PawPrint className="text-tealcustom h-6 w-6"/>
+                    <span className="ml-2 text-xl font-bold">Paws</span>
+                </div>
+
+                <nav className="hidden md:flex space-x-6 items-center">
+                    <a href="#" className="text-gray-900 border-b-2 border-gray-900">Home</a>
+                    <a href="#" className="text-gray-500 hover:text-gray-900">Pet search</a>
+                    <a href="#" className="text-gray-500 hover:text-gray-900">Adoption process</a>
+                    <a href="#" className="text-gray-500 hover:text-gray-900">FAQ</a>
+
+                    {/* Search Icon */}
+                    <div className="relative flex items-center">
+                        <button
+                            onClick={handleSearchClick}
+                            className="text-gray-500 hover:text-gray-900"
+                        >
+                            <Search className="h-5 w-5"/>
+                        </button>
+
+                        {/* Search Input */}
+                        <input
+                            ref={inputRef}
+                            type="text"
+                            placeholder="Search..."
+                            className="ml-2 p-2 border border-gray-200 rounded-full"
+                        />
+                    </div>
+                </nav>
+
+                <div className="flex items-center space-x-4">
+                    <div className="flex space-x-4">
+                        <motion.button
+                            whileHover={{scale: 1.05}}
+                            whileTap={{scale: 0.95}}
+                            onClick={handleLogout}
+                            className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900">Logout
+                        </motion.button>
+                    </div>
+                </div>
+            </header>
+
+            {/* Hero Section */}
+            <section className="container mx-auto px-4 py-8 md:py-16 flex flex-col md:flex-row items-center">
+                <div className="w-full md:w-1/2 mb-8 md:mb-0 pl-16">
+                    <div className="mb-6 relative">
+            <span className="absolute -left-6 -top-8 text-pink-200">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1"
+                   strokeLinecap="round" strokeLinejoin="round">
+                <path
+                    d="M12 2L15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2z"/>
+              </svg>
+            </span>
+                        <h1 className="text-4xl md:text-5xl font-bold leading-tight">
+                            Adopt your <span className="text-teal-600">forever</span><br/>best friend
+                        </h1>
+                    </div>
+                    <p className="text-lg mb-8">Give a pet in need a happy home, and<br/>a carefree life!</p>
+                    <button
+                        className="flex items-center bg-tealcustom hover:bg-teal-800 text-white px-6 py-3 rounded-md transition duration-200">
+                        <span className="mr-2 pl-6 pr-6">Find your best friend</span>
+                        <Search className="h-5 w-5"/>
+                    </button>
+                </div>
+
+                <div className="w-full md:w-1/2 relative">
+                    <div
+                        className="bg-yellow-300 rounded-full p-4 aspect-square w-4/5 md:w-5/6 mx-auto relative -mt-16">
+                        <img
+                            src={person}
+                            alt="person"
+                            className="absolute bottom-0 right-0 h-full transform translate-y-[-70px]"
+                        />
+                        <img
+                            src={maindog}
+                            alt="maindog"
+                            className="absolute bottom-0 right-0 h-1/2 transform translate-x-[-230px] translate-y-[-20px]"
+                        />
+
+                        <img
+                            src={leash}
+                            alt="leash"
+                            className="absolute bottom-0 right-0 h-1/2 transform translate-x-[-210px] translate-y-[-220px]"
+                        />
+
+
+                        <span className="absolute top-1/4 left-1/4">
+                          <Heart className="text-pink-400 h-8 w-8"/>
+                        </span>
+                        <span className="absolute top-1/3 right-1/4">
+                          <Heart className="text-teal-700 h-6 w-6"/>
+                        </span>
+                    </div>
+                </div>
+            </section>
+
+            {/* Animal Categories */}
+            <section className="container mx-auto px-4 py-8 md:py-16">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
+                    {/* Dog Category */}
+                    <div className="flex flex-col items-center justify-center">
+                        <Blob type="dog" className="w-full aspect-square flex items-center justify-center">
+                            <div className="flex flex-col items-center justify-center">
+                                <div className="mb-4">
+                                    <DogIcon className="w-32 h-32"/>
+                                </div>
+                                <span className="text-lg font-medium">Dogs</span>
+                            </div>
+                        </Blob>
+                    </div>
+
+                    {/* Cat Category */}
+                    <div className="flex flex-col items-center justify-center">
+                        <Blob type="cat" className="w-full aspect-square flex items-center justify-center">
+                            <div className="flex flex-col items-center justify-center">
+                                <div className="mb-4">
+                                    <CatIcon className="w-32 h-32"/>
+                                </div>
+                                <span className="text-lg font-medium">Cats</span>
+                            </div>
+                        </Blob>
+                    </div>
+
+                    {/* Bird Category */}
+                    <div className="flex flex-col items-center justify-center">
+                        <Blob type="bird" className="w-full aspect-square flex items-center justify-center">
+                            <div className="flex flex-col items-center justify-center">
+                                <div className="mb-4">
+                                    <ParrotIcon className="w-32 h-32"/>
+                                </div>
+                                <span className="text-lg font-medium">Birds</span>
+                            </div>
+                        </Blob>
+                    </div>
+
+                    {/* Other Animals Category */}
+                    <div className="flex flex-col items-center justify-center">
+                        <Blob type="other" className="w-full aspect-square flex items-center justify-center">
+                            <div className="flex flex-col items-center justify-center">
+                                <div className="mb-4">
+                                    <RabbitIcon className="w-32 h-32"/>
+                                </div>
+                                <span className="text-lg font-medium">Other Animals</span>
+                            </div>
+                        </Blob>
+                    </div>
+                </div>
+            </section>
+
+            {/* Adoption Process */}
+            <section className="container mx-auto px-4 py-8 md:py-16 bg-tealcustom text-white rounded-xl">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-6 items-center">
+                    <div className="text-center">
+                        <img src={steps[0]} alt="Find your pet" className="mx-auto mb-4 rounded-lg"/>
+                        <p className="text-sm">Find your pet</p>
+                    </div>
+
+                    <div className="text-center">
+                        <img src={steps[1]} className="mx-auto mb-4 rounded-lg"/>
+                        <p className="text-sm">Apply for adoption</p>
+                    </div>
+
+                    <div className="text-center">
+                        <img src={steps[2]} alt="Schedule a meeting" className="mx-auto mb-4 rounded-lg"/>
+                        <p className="text-sm">Schedule a meeting</p>
+                    </div>
+
+                    <div className="text-center">
+                        <img src={steps[3]} alt="Complete the adoption" className="mx-auto mb-4 rounded-lg"/>
+                        <p className="text-sm">Complete the adoption</p>
+                    </div>
+
+                    <div className="text-center">
+                        <img src={steps[4]} alt="Take your best friend home" className="mx-auto mb-4 rounded-lg"/>
+                        <p className="text-sm">Take your best friend home</p>
+                    </div>
+                </div>
+            </section>
+
+            {/* Pets Near You */}
+            <section className="container mx-auto px-4 py-8 md:py-16">
+                <div className="flex justify-between items-center mb-8">
+                    <h2 className="text-2xl md:text-3xl font-bold">Pets near you</h2>
+                    <span className="text-yellow-500">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                  d="M12 2L15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2z"/>
+            </svg>
+          </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div className="bg-white rounded-xl overflow-hidden shadow-md">
+                        <div className="h-48 overflow-hidden">
+                            <img src="/api/placeholder/300/200" alt="Cinnamon - Border Collie Mix"
+                                 className="w-full h-full object-cover"/>
+                        </div>
+                        <div className="p-4">
+                            <div className="flex justify-between items-center mb-2">
+                                <h3 className="text-xl font-bold">Cinnamon</h3>
+                                <span className="text-pink-500 text-sm">♀ Female</span>
+                            </div>
+                            <div className="flex justify-between text-sm text-gray-600">
+                                <span>Young</span>
+                                <span>Border Collie Mix</span>
+                            </div>
+                            <div className="mt-4 flex justify-end">
+                                <ArrowRight className="h-5 w-5 text-teal-700"/>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl overflow-hidden shadow-md">
+                        <div className="h-48 overflow-hidden">
+                            <img src="/api/placeholder/300/200" alt="Bubbles - Domestic Short Hair"
+                                 className="w-full h-full object-cover"/>
+                        </div>
+                        <div className="p-4">
+                            <div className="flex justify-between items-center mb-2">
+                                <h3 className="text-xl font-bold">Bubbles</h3>
+                                <span className="text-pink-500 text-sm">♀ Female</span>
+                            </div>
+                            <div className="flex justify-between text-sm text-gray-600">
+                                <span>Kitten</span>
+                                <span>Domestic Short Hair</span>
+                            </div>
+                            <div className="mt-4 flex justify-end">
+                                <ArrowRight className="h-5 w-5 text-teal-700"/>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl overflow-hidden shadow-md">
+                        <div className="h-48 overflow-hidden">
+                            <img src="/api/placeholder/300/200" alt="Onyx - Spitz"
+                                 className="w-full h-full object-cover"/>
+                        </div>
+                        <div className="p-4">
+                            <div className="flex justify-between items-center mb-2">
+                                <h3 className="text-xl font-bold">Onyx</h3>
+                                <span className="text-blue-500 text-sm">♂ Male</span>
+                            </div>
+                            <div className="flex justify-between text-sm text-gray-600">
+                                <span>Adult</span>
+                                <span>Spitz</span>
+                            </div>
+                            <div className="mt-4 flex justify-end">
+                                <ArrowRight className="h-5 w-5 text-teal-700"/>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div
+                        className="bg-tealcustom rounded-xl overflow-hidden shadow-md text-white flex flex-col justify-center items-center p-8">
+                        <div className="mb-4">
+                            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1">
+                                <path d="M12 20a8 8 0 100-16 8 8 0 000 16z"/>
+                                <path d="M8 9a1 1 0 100-2 1 1 0 000 2z"/>
+                                <path d="M12 9a1 1 0 100-2 1 1 0 000 2z"/>
+                                <path d="M16 9a1 1 0 100-2 1 1 0 000 2z"/>
+                                <path d="M8 14a1 1 0 100-2 1 1 0 000 2z"/>
+                                <path d="M12 14a1 1 0 100-2 1 1 0 000 2z"/>
+                                <path d="M16 14a1 1 0 100-2 1 1 0 000 2z"/>
+                                <path d="M6 14a6 6 0 0012 0 6 6 0 00-12 0z"/>
+                            </svg>
+                        </div>
+                        <p className="text-center text-lg font-medium">78 more pets are waiting for you</p>
+                        <div className="mt-4 flex justify-end">
+                            <ArrowRight className="h-5 w-5"/>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* Info Sections */}
+            <section className="container mx-auto px-4 py-8 md:py-16">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="text-center">
+                        <div className="rounded-full bg-white p-4 shadow-md inline-block mb-4">
+                            <img src={info1} alt="Adoption process" className="rounded-full w-96 h-64"/>
+                        </div>
+                        <h3 className="text-xl font-bold mb-4">Adoption process</h3>
+                        <p className="text-gray-600 mb-6">Get familiar with the details about the pet adoption process
+                            for all each type of our little friends</p>
+                        <button
+                            className="bg-red-200 hover:bg-red-300 text-gray-800 px-6 py-2 rounded-md flex items-center justify-center mx-auto transition duration-200">
+                            <span>Learn more</span>
+                            <ArrowRight className="h-4 w-4 ml-2"/>
+                        </button>
+                    </div>
+
+                    <div className="text-center">
+                        <div className="rounded-full bg-white p-4 shadow-md inline-block mb-4">
+                            <img src={info2} alt="Requirements" className="rounded-full w-96 h-64 object-contain"/>
+                        </div>
+                        <h3 className="text-xl font-bold mb-4">Requirements</h3>
+                        <p className="text-gray-600 mb-6">Make sure you meet all necessary requirements to complete the
+                            adoption process</p>
+                        <button
+                            className="bg-teal-200 hover:bg-teal-300 text-gray-800 px-6 py-2 rounded-md flex items-center justify-center mx-auto transition duration-200">
+                            <span>Check requirements</span>
+                            <ArrowRight className="h-4 w-4 ml-2"/>
+                        </button>
+                    </div>
+
+                    <div className="text-center">
+                        <div className="rounded-full bg-white p-4 shadow-md inline-block mb-4">
+                            <img src={info3} alt="Pet Adoption FAQs" className="rounded-full w-96 h-64"/>
+                        </div>
+                        <h3 className="text-xl font-bold mb-4">Pet Adoption FAQs</h3>
+                        <p className="text-gray-600 mb-6">Got any questions? Make sure to check the pet adoption FAQ
+                            page</p>
+                        <button
+                            className="bg-purple-200 hover:bg-purple-300 text-gray-800 px-6 py-2 rounded-md flex items-center justify-center mx-auto transition duration-200">
+                            <span>FAQs</span>
+                            <ArrowRight className="h-4 w-4 ml-2"/>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            {/* Footer */}
+            <footer className="bg-yellow-200 py-8 md:py-16">
+                <div className="container mx-auto px-4">
+
+                    <div className="flex items-center mb-6 ">
+                        <PawPrint className="text-teal-700 h-6 w-6"/>
+                        <span className="ml-2 text-xl font-bold">Paws</span>
+                    </div>
+
+                    <div className="flex flex-col md:flex-row justify-between mb-8">
+                        <div className="mb-8 md:mb-0">
+
+                            <h3 className="text-lg font-bold mb-4">About us</h3>
+                            <ul className="space-y-2">
+                                <li><a href="#" className="text-gray-700 hover:text-gray-900">Team</a></li>
+                                <li><a href="#" className="text-gray-700 hover:text-gray-900">Partnerships</a></li>
+                                <li><a href="#" className="text-gray-700 hover:text-gray-900">Terms of service</a></li>
+                            </ul>
+                        </div>
+
+                        <div className="mb-8 md:mb-0">
+                            <h3 className="text-lg font-bold mb-4">Pet Adoption</h3>
+                            <ul className="space-y-2">
+                                <li><a href="#" className="text-gray-700 hover:text-gray-900">Dog Adoption</a></li>
+                                <li><a href="#" className="text-gray-700 hover:text-gray-900">Cat Adoption</a></li>
+                                <li><a href="#" className="text-gray-700 hover:text-gray-900">Bird Adoption</a></li>
+                                <li><a href="#" className="text-gray-700 hover:text-gray-900">Other Pets Adoption</a>
+                                </li>
+                                <li><a href="#" className="text-gray-700 hover:text-gray-900">Adoption Process</a></li>
+                                <li><a href="#" className="text-gray-700 hover:text-gray-900">FAQs</a></li>
+                            </ul>
+                        </div>
+
+                        <div className="mb-8 md:mb-0">
+                            <h3 className="text-lg font-bold mb-4">Social Media</h3>
+                            <ul className="space-y-2">
+                                <li>
+                                    <a href="#" className="flex items-center text-gray-700 hover:text-gray-900">
+                                        <Facebook className="h-5 w-5 mr-2"/>
+                                        <span>Facebook</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="#" className="flex items-center text-gray-700 hover:text-gray-900">
+                                        <Twitter className="h-5 w-5 mr-2"/>
+                                        <span>Twitter</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="#" className="flex items-center text-gray-700 hover:text-gray-900">
+                                        <Instagram className="h-5 w-5 mr-2"/>
+                                        <span>Instagram</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 className="text-lg font-bold mb-4">Have a question?</h3>
+                            <form className="space-y-4">
+                                <div>
+                                    <label htmlFor="email" className="block text-sm mb-1">Email</label>
+                                    <input
+                                        type="email"
+                                        id="email"
+                                        className="w-full px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                        placeholder="Your email"
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="message" className="block text-sm mb-1">Message</label>
+                                    <textarea
+                                        id="message"
+                                        rows="4"
+                                        className="w-full px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                        placeholder="Your message"
+                                    ></textarea>
+                                </div>
+                                <button
+                                    type="submit"
+                                    className="bg-tealcustom hover:bg-teal-800 text-white px-6 py-2 rounded-md flex items-center transition duration-200"
+                                >
+                                    <span className="mr-2">Send</span>
+                                    <Send className="h-4 w-4"/>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </footer>
+        </div>
+    );
+}
