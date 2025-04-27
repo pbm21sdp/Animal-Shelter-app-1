@@ -1,6 +1,6 @@
 import express from "express";
 const router = express.Router();
-import { pool } from '../config/db.js';
+import { pool } from '../config/database/connectPostgresDB.js';
 
 /**
  * @swagger
