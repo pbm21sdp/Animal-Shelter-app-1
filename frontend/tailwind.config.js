@@ -13,19 +13,13 @@ export default {
         bird: '#4fb3b0',
         other: '#e9a89b',
       },
-
       borderRadius: {
         blob: '60% 40% 50% 50% / 60% 50% 50% 40%',
       },
-
-      transform: {
-        dog: 'rotate(-5deg)',
-        cat: 'rotate(5deg)',
-        bird: 'rotate(-10deg)',
-        other: 'rotate(8deg)',
-      },
-
     },
+  },
+  corePlugins: {
+    transform: true, // Enable transform utilities
   },
   plugins: [],
 }
