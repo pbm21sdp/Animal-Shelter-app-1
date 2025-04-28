@@ -1,8 +1,11 @@
-import React, {useRef, useState} from 'react';
+// PawsHomePage.jsx
+import React, { useRef, useEffect } from 'react';
 import { Search, Heart, ArrowRight, PawPrint, Facebook, Twitter, Instagram, Linkedin, Send } from 'lucide-react';
 import { motion } from "framer-motion";
 import Blob from "../components/Blob";
-import {useAuthStore} from "../store/authStore";
+import { useAuthStore } from "../store/authStore";
+import { usePetStore } from "../store/petStore";
+import { useNavigate } from 'react-router-dom';
 
 // Images imports
 import info1 from "../assets/PawHomePage/req.jpg"
@@ -11,7 +14,6 @@ import info3 from "../assets/PawHomePage/info3.jpg"
 import person from "../assets/PawHomePage/person.png"
 import maindog from "../assets/PawHomePage/maindog.png"
 import leash from "../assets/PawHomePage/leash.png"
-
 
 import DogIcon from "../components/icons/DogIcon";
 import CatIcon from "../components/icons/CatIcon";
@@ -22,8 +24,15 @@ const stepImages = import.meta.glob('../assets/PawHomePage/step*.png', { eager: 
 const steps = Object.values(stepImages).map((mod) => mod.default);
 
 export default function PawsHomepage() {
+    const { user, logout } = useAuthStore();
+    const navigate = useNavigate();
 
-    const {user, logout} = useAuthStore();
+    const { pets, isLoading, error, getAllPets } = usePetStore();
+
+    useEffect(() => {
+        // Fetch only 3 pets for the homepage
+        getAllPets({ limit: 3 });
+    }, [getAllPets]);
 
     const handleLogout = () => {
         logout();
@@ -38,7 +47,6 @@ export default function PawsHomepage() {
 
     return (
         <div className="min-h-screen bg-white font-sans">
-
             {/* Header/Navigation */}
             <header className="container mx-auto px-4 py-4 flex items-center justify-between">
                 <div className="flex items-center">
@@ -46,9 +54,21 @@ export default function PawsHomepage() {
                     <span className="ml-2 text-xl font-bold">Paws</span>
                 </div>
 
+                <div className="flex space-x-4">
+                {user?.isAdmin && (
+                    <motion.button
+                        whileHover={{scale: 1.05}}
+                        whileTap={{scale: 0.95}}
+                        onClick={() => navigate('/admin/pets')}
+                        className="px-4 py-2 text-sm bg-tealcustom text-white rounded-md hover:bg-teal-700">
+                        Admin Dashboard
+                    </motion.button>
+                )}
+                </div>
+
                 <nav className="hidden md:flex space-x-6 items-center">
-                    <a href="#" className="text-gray-900 border-b-2 border-gray-900">Home</a>
-                    <a href="#" className="text-gray-500 hover:text-gray-900">Pet search</a>
+                    <a href="/" className="text-gray-900 border-b-2 border-gray-900">Home</a>
+                    <a href="/pet-search" className="text-gray-500 hover:text-gray-900">Pet search</a>
                     <a href="#" className="text-gray-500 hover:text-gray-900">Adoption process</a>
                     <a href="#" className="text-gray-500 hover:text-gray-900">FAQ</a>
 
@@ -87,19 +107,19 @@ export default function PawsHomepage() {
             <section className="container mx-auto px-4 py-8 md:py-16 flex flex-col md:flex-row items-center">
                 <div className="w-full md:w-1/2 mb-8 md:mb-0 pl-16">
                     <div className="mb-6 relative">
-            <span className="absolute -left-6 -top-8 text-pink-200">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1"
-                   strokeLinecap="round" strokeLinejoin="round">
-                <path
-                    d="M12 2L15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2z"/>
-              </svg>
-            </span>
+                        <span className="absolute -left-6 -top-8 text-pink-200">
+                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1"
+                                 strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M12 2L15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2z"/>
+                            </svg>
+                        </span>
                         <h1 className="text-4xl md:text-5xl font-bold leading-tight">
                             Adopt your <span className="text-teal-600">forever</span><br/>best friend
                         </h1>
                     </div>
                     <p className="text-lg mb-8">Give a pet in need a happy home, and<br/>a carefree life!</p>
                     <button
+                        onClick={() => navigate('/pet-search')}
                         className="flex items-center bg-tealcustom hover:bg-teal-800 text-white px-6 py-3 rounded-md transition duration-200">
                         <span className="mr-2 pl-6 pr-6">Find your best friend</span>
                         <Search className="h-5 w-5"/>
@@ -107,8 +127,7 @@ export default function PawsHomepage() {
                 </div>
 
                 <div className="w-full md:w-1/2 relative">
-                    <div
-                        className="bg-yellow-300 rounded-full p-4 aspect-square w-4/5 md:w-5/6 mx-auto relative -mt-16">
+                    <div className="bg-yellow-300 rounded-full p-4 aspect-square w-4/5 md:w-5/6 mx-auto relative -mt-16">
                         <img
                             src={person}
                             alt="person"
@@ -119,19 +138,16 @@ export default function PawsHomepage() {
                             alt="maindog"
                             className="absolute bottom-0 right-0 h-4/3 transform translate-x-[-190px] translate-y-[20px]"
                         />
-
                         <img
                             src={leash}
                             alt="leash"
                             className="absolute bottom-0 right-0 h-1/2 transform translate-x-[-210px] translate-y-[-220px]"
                         />
-
-
                         <span className="absolute top-1/4 left-1/4">
-                          <Heart className="text-pink-400 h-8 w-8"/>
+                            <Heart className="text-pink-400 h-8 w-8"/>
                         </span>
                         <span className="absolute top-1/3 right-1/4">
-                          <Heart className="text-teal-700 h-6 w-6"/>
+                            <Heart className="text-teal-700 h-6 w-6"/>
                         </span>
                     </div>
                 </div>
@@ -199,7 +215,7 @@ export default function PawsHomepage() {
                     </div>
 
                     <div className="text-center">
-                        <img src={steps[1]} className="mx-auto mb-4 rounded-lg"/>
+                        <img src={steps[1]} alt="Apply for adoption" className="mx-auto mb-4 rounded-lg"/>
                         <p className="text-sm">Apply for adoption</p>
                     </div>
 
@@ -225,93 +241,90 @@ export default function PawsHomepage() {
                 <div className="flex justify-between items-center mb-8">
                     <h2 className="text-2xl md:text-3xl font-bold">Pets near you</h2>
                     <span className="text-yellow-500">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <path
-                  d="M12 2L15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2z"/>
-            </svg>
-          </span>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2L15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2z"/>
+                    </svg>
+                </span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <div className="bg-white rounded-xl overflow-hidden shadow-md">
-                        <div className="h-48 overflow-hidden">
-                            <img src="/api/placeholder/300/200" alt="Cinnamon - Border Collie Mix"
-                                 className="w-full h-full object-cover"/>
-                        </div>
-                        <div className="p-4">
-                            <div className="flex justify-between items-center mb-2">
-                                <h3 className="text-xl font-bold">Cinnamon</h3>
-                                <span className="text-pink-500 text-sm">♀ Female</span>
-                            </div>
-                            <div className="flex justify-between text-sm text-gray-600">
-                                <span>Young</span>
-                                <span>Border Collie Mix</span>
-                            </div>
-                            <div className="mt-4 flex justify-end">
-                                <ArrowRight className="h-5 w-5 text-teal-700"/>
-                            </div>
-                        </div>
-                    </div>
+                    {isLoading ? (
+                        <div className="col-span-4 text-center py-10">Loading pets...</div>
+                    ) : error ? (
+                        <div className="col-span-4 text-center py-10 text-red-500">{error}</div>
+                    ) : pets.length > 0 ? (
+                        <>
+                            {pets.slice(0, 3).map((pet) => (
+                                <div key={pet.id} className="bg-white rounded-xl overflow-hidden shadow-md">
+                                    <div className="h-48 overflow-hidden">
+                                        <img
+                                            src={
+                                            pet.photos?.[0]?.id
+                                                ? `http://localhost:5000/api/pets/photos/${pet.photos[0].id}`
+                                                : '/api/placeholder/300/200'
+                                        }
+                                            alt={`${pet.name} - ${pet.breed}`}
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                            e.target.src = '/api/placeholder/300/200';
+                                        }}
+                                            />
+                                    </div>
+                                    <div className="p-4">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <h3 className="text-xl font-bold">{pet.name}</h3>
+                                            <span className={`text-sm ${pet.gender === 'male' ? 'text-blue-500' : 'text-pink-500'}`}>
+                                            {pet.gender === 'male' ? '♂' : '♀'} {pet.gender}
+                                        </span>
+                                        </div>
+                                        <div className="flex justify-between text-sm text-gray-600">
+                                            <span>{pet.age_category}</span>
+                                            <span>{pet.breed}</span>
+                                        </div>
+                                        <div className="mt-4 flex justify-end">
+                                            <button
+                                                onClick={() => navigate(`/pet/${pet.id}`)}
+                                                className="hover:text-teal-700"
+                                            >
+                                                <ArrowRight className="h-5 w-5 text-teal-700"/>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
 
-                    <div className="bg-white rounded-xl overflow-hidden shadow-md">
-                        <div className="h-48 overflow-hidden">
-                            <img src="/api/placeholder/300/200" alt="Bubbles - Domestic Short Hair"
-                                 className="w-full h-full object-cover"/>
-                        </div>
-                        <div className="p-4">
-                            <div className="flex justify-between items-center mb-2">
-                                <h3 className="text-xl font-bold">Bubbles</h3>
-                                <span className="text-pink-500 text-sm">♀ Female</span>
+                            <div className="bg-tealcustom rounded-xl overflow-hidden shadow-md text-white flex flex-col justify-center items-center p-8">
+                                <div className="mb-4">
+                                    <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1">
+                                        <path d="M12 20a8 8 0 100-16 8 8 0 000 16z"/>
+                                        <path d="M8 9a1 1 0 100-2 1 1 0 000 2z"/>
+                                        <path d="M12 9a1 1 0 100-2 1 1 0 000 2z"/>
+                                        <path d="M16 9a1 1 0 100-2 1 1 0 000 2z"/>
+                                        <path d="M8 14a1 1 0 100-2 1 1 0 000 2z"/>
+                                        <path d="M12 14a1 1 0 100-2 1 1 0 000 2z"/>
+                                        <path d="M16 14a1 1 0 100-2 1 1 0 000 2z"/>
+                                        <path d="M6 14a6 6 0 0012 0 6 6 0 00-12 0z"/>
+                                    </svg>
+                                </div>
+                                <p className="text-center text-lg font-medium">
+                                    {isLoading
+                                        ? 'Searching for pets...'
+                                        : error
+                                            ? `Error: ${error}`
+                                            : pets.length > 0
+                                                ? `${pets.length} pets are waiting for you`
+                                                : 'No pets available at the moment.'}
+                                </p>
+                                <div className="mt-4 flex justify-end">
+                                    <button onClick={() => navigate('/pet-search')}>
+                                        <ArrowRight className="h-5 w-5"/>
+                                    </button>
+                                </div>
                             </div>
-                            <div className="flex justify-between text-sm text-gray-600">
-                                <span>Kitten</span>
-                                <span>Domestic Short Hair</span>
-                            </div>
-                            <div className="mt-4 flex justify-end">
-                                <ArrowRight className="h-5 w-5 text-teal-700"/>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-xl overflow-hidden shadow-md">
-                        <div className="h-48 overflow-hidden">
-                            <img src="/api/placeholder/300/200" alt="Onyx - Spitz"
-                                 className="w-full h-full object-cover"/>
-                        </div>
-                        <div className="p-4">
-                            <div className="flex justify-between items-center mb-2">
-                                <h3 className="text-xl font-bold">Onyx</h3>
-                                <span className="text-blue-500 text-sm">♂ Male</span>
-                            </div>
-                            <div className="flex justify-between text-sm text-gray-600">
-                                <span>Adult</span>
-                                <span>Spitz</span>
-                            </div>
-                            <div className="mt-4 flex justify-end">
-                                <ArrowRight className="h-5 w-5 text-teal-700"/>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div
-                        className="bg-tealcustom rounded-xl overflow-hidden shadow-md text-white flex flex-col justify-center items-center p-8">
-                        <div className="mb-4">
-                            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1">
-                                <path d="M12 20a8 8 0 100-16 8 8 0 000 16z"/>
-                                <path d="M8 9a1 1 0 100-2 1 1 0 000 2z"/>
-                                <path d="M12 9a1 1 0 100-2 1 1 0 000 2z"/>
-                                <path d="M16 9a1 1 0 100-2 1 1 0 000 2z"/>
-                                <path d="M8 14a1 1 0 100-2 1 1 0 000 2z"/>
-                                <path d="M12 14a1 1 0 100-2 1 1 0 000 2z"/>
-                                <path d="M16 14a1 1 0 100-2 1 1 0 000 2z"/>
-                                <path d="M6 14a6 6 0 0012 0 6 6 0 00-12 0z"/>
-                            </svg>
-                        </div>
-                        <p className="text-center text-lg font-medium">78 more pets are waiting for you</p>
-                        <div className="mt-4 flex justify-end">
-                            <ArrowRight className="h-5 w-5"/>
-                        </div>
-                    </div>
+                        </>
+                    ) : (
+                        <div className="col-span-4 text-center py-10">No pets available at the moment.</div>
+                    )}
                 </div>
             </section>
 
@@ -365,7 +378,6 @@ export default function PawsHomepage() {
             {/* Footer */}
             <footer className="bg-yellow-200 py-8 md:py-16">
                 <div className="container mx-auto px-4">
-
                     <div className="flex items-center mb-6 ">
                         <PawPrint className="text-teal-700 h-6 w-6"/>
                         <span className="ml-2 text-xl font-bold">Paws</span>
@@ -373,7 +385,6 @@ export default function PawsHomepage() {
 
                     <div className="flex flex-col md:flex-row justify-between mb-8">
                         <div className="mb-8 md:mb-0">
-
                             <h3 className="text-lg font-bold mb-4">About us</h3>
                             <ul className="space-y-2">
                                 <li><a href="#" className="text-gray-700 hover:text-gray-900">Team</a></li>
@@ -388,8 +399,7 @@ export default function PawsHomepage() {
                                 <li><a href="#" className="text-gray-700 hover:text-gray-900">Dog Adoption</a></li>
                                 <li><a href="#" className="text-gray-700 hover:text-gray-900">Cat Adoption</a></li>
                                 <li><a href="#" className="text-gray-700 hover:text-gray-900">Bird Adoption</a></li>
-                                <li><a href="#" className="text-gray-700 hover:text-gray-900">Other Pets Adoption</a>
-                                </li>
+                                <li><a href="#" className="text-gray-700 hover:text-gray-900">Other Pets Adoption</a></li>
                                 <li><a href="#" className="text-gray-700 hover:text-gray-900">Adoption Process</a></li>
                                 <li><a href="#" className="text-gray-700 hover:text-gray-900">FAQs</a></li>
                             </ul>
