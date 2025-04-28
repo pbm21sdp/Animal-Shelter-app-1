@@ -1,12 +1,12 @@
 import FloatingPaw from "./components/FloatingPaw";
 import {Navigate, Route, Routes} from "react-router-dom";
-
 import SignUpPage from "./pages/SignUpPage";
 import LoginPage from "./pages/LoginPage";
-import HomePage from "./pages/HomePage";
 import PawsHomePage from "./pages/PawsHomePage"
+import PetSearchPage from "./pages/PetSearchPage"; // NEW
+import PetDetailPage from "./pages/PetDetailPage"; // NEW
+import AdminDashboardPage from "./pages/AdminDashboardPage";
 import EmailVerificationPage from "./pages/EmailVerificationPage";
-
 import {Toaster} from "react-hot-toast";
 import {useAuthStore} from "./store/authStore";
 import {useEffect} from "react";
@@ -16,7 +16,6 @@ import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
 
 //protect routes that require authentication
 const ProtectedRoute = ({children}) => {
-
     const {isAuthenticated, user} = useAuthStore();
     if (!isAuthenticated){
         return <Navigate to="/login" replace />
@@ -52,9 +51,10 @@ function App() {
 
     console.log("isAuthenticated",isAuthenticated);
     console.log("user", user);
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-amber-50 via-stone-50 to-sky-50 flex items-center justify-center relative
-         overflow-hidden">
+        overflow-hidden">
 
             <FloatingPaw size="w-64 h-64" top="-15%" left="25%" delay={0}/>
             <FloatingPaw size="w-48 h-48" top="75%" left="85%" delay={1.5}/>
@@ -63,32 +63,43 @@ function App() {
             <FloatingPaw size="w-32 h-32" top="45%" left="50%" delay={4}/>
             <FloatingPaw size="w-32 h-32" top="80%" left="30%" delay={1}/>
 
-
             <Routes>
                 <Route path='/' element={
                     <ProtectedRoute>
-                    <PawsHomePage />
+                        <PawsHomePage />
                     </ProtectedRoute>
-                    }
+                }
+                />
+                <Route path='/pet-search' element={
+                    <ProtectedRoute>
+                        <PetSearchPage />
+                    </ProtectedRoute>
+                }
+                />
+                <Route path='/pet/:id' element={
+                    <ProtectedRoute>
+                        <PetDetailPage />
+                    </ProtectedRoute>
+                }
                 />
                 <Route path='/signup' element={
                     <RedirectAuthenticatedUser>
-                    <SignUpPage />
+                        <SignUpPage />
                     </RedirectAuthenticatedUser>
-                    }
+                }
                 />
                 <Route path='/login' element={
                     <RedirectAuthenticatedUser>
-                    <LoginPage />
+                        <LoginPage />
                     </RedirectAuthenticatedUser>
-                    }
+                }
                 />
                 <Route path='/verify-email' element={<EmailVerificationPage />}/>
                 <Route path='/forgot-password' element={
                     <RedirectAuthenticatedUser>
                         <ForgotPasswordPage />
                     </RedirectAuthenticatedUser>
-                    }
+                }
                 />
                 <Route
                     path='/reset-password/:token'
@@ -97,6 +108,13 @@ function App() {
                             <ResetPasswordPage />
                         </RedirectAuthenticatedUser>
                     }
+                />
+
+                <Route path='/admin/pets' element={
+                    <ProtectedRoute>
+                        <AdminDashboardPage />
+                    </ProtectedRoute>
+                }
                 />
 
                 <Route path="*" element={<Navigate to="/" replace />} />
