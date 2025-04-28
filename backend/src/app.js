@@ -14,6 +14,7 @@ import { authRoutes } from "./routes/auth/auth.routes.js"
 import animalRoutes from './routes/animals.js';
 import userRoutes from './routes/users.js';
 import adoptionRoutes from './routes/adoptions.js';
+import petRoutes from './routes/pets.js'; // NEW: Import pet routes
 
 // Load .env only in non-Docker environment
 if (!process.env.DOCKER_ENV) {
@@ -38,6 +39,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 app.use('/api/animals', animalRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/adoptions', adoptionRoutes);
+app.use('/api/pets', petRoutes); // NEW: Use pet routes
 
 // Root route
 app.get("/", (req, res) => {
