@@ -132,3 +132,7 @@ dist
 
 .idea/*
 /backend/NOTES
+
+
+# Other files
+/backend/scripts/runSchema.js
