@@ -6,6 +6,7 @@ import Blob from "../components/Blob";
 import { useAuthStore } from "../store/authStore";
 import { usePetStore } from "../store/petStore";
 import { useNavigate } from 'react-router-dom';
+import { Link } from "react-router-dom";
 
 // Images imports
 import info1 from "../assets/PawHomePage/req.jpg"
@@ -338,11 +339,16 @@ export default function PawsHomepage() {
                         <h3 className="text-xl font-bold mb-4">Adoption process</h3>
                         <p className="text-gray-600 mb-6">Get familiar with the details about the pet adoption process
                             for all each type of our little friends</p>
-                        <button
-                            className="bg-red-200 hover:bg-red-300 text-gray-800 px-6 py-2 rounded-md flex items-center justify-center mx-auto transition duration-200">
-                            <span>Learn more</span>
-                            <ArrowRight className="h-4 w-4 ml-2"/>
-                        </button>
+                            <Link to="/adoption-process">
+                                <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                className="bg-red-200 hover:bg-red-300 text-gray-800 px-6 py-2 rounded-md flex items-center justify-center mx-auto transition duration-200"
+                                >
+                                <span>Learn more</span>
+                                <ArrowRight className="h-4 w-4 ml-2"/>
+                                </motion.button>
+                            </Link>
                     </div>
 
                     <div className="text-center">
