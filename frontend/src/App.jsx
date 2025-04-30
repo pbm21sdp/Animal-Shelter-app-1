@@ -13,6 +13,7 @@ import {useEffect} from "react";
 import LoadingSpinner from "./components/LoadingSpinner";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
+import AdoptionProcessPage from "./pages/AdoptionProcessPage";
 
 //protect routes that require authentication
 const ProtectedRoute = ({children}) => {
@@ -113,6 +114,13 @@ function App() {
                 <Route path='/admin/pets' element={
                     <ProtectedRoute>
                         <AdminDashboardPage />
+                    </ProtectedRoute>
+                }
+                />
+
+                <Route path="/adoption-process" element={
+                    <ProtectedRoute>
+                    <AdoptionProcessPage />
                     </ProtectedRoute>
                 }
                 />
