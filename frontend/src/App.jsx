@@ -16,6 +16,7 @@ import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
 import AdoptionProcessPage from "./pages/AdoptionProcessPage";
 import AdoptionRequirementsPage from "./pages/AdoptionRequirementsPage";
 import AdoptionFAQPage from './pages/AdoptionFAQPage';
+import DonationSuccessPage from './pages/DonationSuccessPage'; // NEW: Import donation success page
 
 // Protect routes that require authentication
 const ProtectedRoute = ({children}) => {
@@ -60,7 +61,7 @@ function App() {
     const isAdminRoute = location.pathname.startsWith('/admin');
 
     return (
-        <div className={`min-h-screen flex items-center justify-center relative overflow-hidden ${
+        <div className={`min-h-screen w-full flex items-center justify-center relative overflow-hidden ${
             isAdminRoute ? 'bg-white' : 'bg-gradient-to-br from-amber-50 via-stone-50 to-sky-50'
         }`}>
             {/* Only show floating paws on non-admin routes */}
@@ -101,7 +102,9 @@ function App() {
                         <LoginPage />
                     </RedirectAuthenticatedUser>
                 }/>
-                <Route path='/verify-email' element={<EmailVerificationPage />}/>
+                <Route path='/verify-email' element={
+                    <EmailVerificationPage />
+                }/>
                 <Route path='/forgot-password' element={
                     <RedirectAuthenticatedUser>
                         <ForgotPasswordPage />
@@ -121,26 +124,33 @@ function App() {
 
                 <Route path="/adoption-process" element={
                     <ProtectedRoute>
-                    <AdoptionProcessPage />
+                        <AdoptionProcessPage />
                     </ProtectedRoute>
                 }
                 />
 
                 <Route path="/adoption-requirements" element={
                     <ProtectedRoute>
-                    <AdoptionRequirementsPage />
-                    </ProtectedRoute>
-                } 
-                />
-
-                <Route path="/adoption-faq" element={
-                    <ProtectedRoute>
-                    <AdoptionFAQPage />
+                        <AdoptionRequirementsPage />
                     </ProtectedRoute>
                 }
                 />
 
-                }/>
+                <Route path="/adoption-faq" element={
+                    <ProtectedRoute>
+                        <AdoptionFAQPage />
+                    </ProtectedRoute>
+                }
+                />
+
+                {/* Donation success route */}
+                <Route path="/donation-success" element={
+                    <ProtectedRoute>
+                        <DonationSuccessPage />
+                    </ProtectedRoute>
+                }
+                />
+
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
             <Toaster/>

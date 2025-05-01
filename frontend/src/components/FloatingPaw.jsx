@@ -5,36 +5,32 @@ import { faPaw } from '@fortawesome/free-solid-svg-icons';
 const FloatingPaw = ({ size, top, left, delay }) => {
     return (
         <motion.div
-            className="absolute text-amber-700 opacity-20 blur-sm"
+            className="absolute text-amber-700 opacity-20"
             style={{
                 top,
                 left,
                 width: size,
-                height: size
+                height: size,
+                willChange: "transform, opacity",
+                filter: "blur(4px)", // Minimal blur (1-4px is optimal)
             }}
+            initial={{ y: 0, opacity: 0.15 }}
             animate={{
-                y: ["0%", "10%", "0%"],
-                rotate: [0, 3, 0],
-                opacity: [0.15, 0.25, 0.15]
+                y: 10,
+                opacity: 0.25,
             }}
             transition={{
-                duration: 8,
+                duration: 12,
                 ease: "easeInOut",
                 repeat: Infinity,
-                repeatType: "mirror",
-                delay
+                repeatType: "reverse",
+                delay,
             }}
-            aria-hidden='true'
+            aria-hidden="true"
         >
-            <FontAwesomeIcon
-                icon={faPaw}
-                className="w-full h-full"
-                style={{
-                    filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.05))"
-                }}
-            />
+            <FontAwesomeIcon icon={faPaw} className="w-full h-full" />
         </motion.div>
-    )
-}
+    );
+};
 
 export default FloatingPaw;

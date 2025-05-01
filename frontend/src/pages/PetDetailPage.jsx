@@ -38,7 +38,7 @@ export function PetDetailPage() {
     }
 
     return (
-        <div className="min-h-screen bg-white font-sans">
+        <div className="min-h-screen w-full bg-white font-sans">
             {/* Header */}
             <header className="container mx-auto px-4 py-4 flex items-center justify-between">
                 <div className="flex items-center">
@@ -141,17 +141,27 @@ export function PetDetailPage() {
                     {/* Right Column - Photos */}
                     <div className="relative">
                         <div className="bg-purple-100 rounded-3xl overflow-hidden p-8">
+                            {/* Image container with centered crop */}
                             <div className="relative aspect-square rounded-2xl overflow-hidden">
                                 <img
-                                    src={pet.photos?.[currentPhotoIndex]?.photo_url || '/api/placeholder/400/400'}
+                                    src={
+                                        pet.photos?.[currentPhotoIndex]?.id
+                                            ? `http://localhost:5000/api/pets/photos/${pet.photos[currentPhotoIndex].id}`
+                                            : '/api/placeholder/400/400'
+                                    }
                                     alt={pet.name}
-                                    className="w-full h-full object-cover"
+                                    className="w-full h-full object-cover object-center" // Key changes here
+                                    onError={(e) => {
+                                        e.target.src = '/api/placeholder/400/400';
+                                    }}
                                 />
                             </div>
+
+                            {/* Next photo button (only shown if multiple photos exist) */}
                             {pet.photos?.length > 1 && (
                                 <button
                                     onClick={() => setCurrentPhotoIndex((currentPhotoIndex + 1) % pet.photos.length)}
-                                    className="absolute right-1/2 top-1/2 transform translate-x-full -translate-y-1/2 bg-tealcustom text-white rounded-full p-3"
+                                    className="absolute right-1/2 top-1/2 transform translate-x-full -translate-y-1/2 bg-tealcustom text-white rounded-full p-3 shadow-lg hover:bg-teal-700 transition-colors"
                                 >
                                     <ArrowRight className="h-6 w-6" />
                                 </button>
