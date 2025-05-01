@@ -358,11 +358,16 @@ export default function PawsHomepage() {
                         <h3 className="text-xl font-bold mb-4">Requirements</h3>
                         <p className="text-gray-600 mb-6">Make sure you meet all necessary requirements to complete the
                             adoption process</p>
-                        <button
-                            className="bg-teal-200 hover:bg-teal-300 text-gray-800 px-6 py-2 rounded-md flex items-center justify-center mx-auto transition duration-200">
-                            <span>Check requirements</span>
-                            <ArrowRight className="h-4 w-4 ml-2"/>
-                        </button>
+                            <Link to="/adoption-requirements">
+                                <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                className="bg-red-200 hover:bg-red-300 text-gray-800 px-6 py-2 rounded-md flex items-center justify-center mx-auto transition duration-200"
+                                >
+                                <span>Requirements</span>
+                                <ArrowRight className="h-4 w-4 ml-2"/>
+                                </motion.button>
+                            </Link>
                     </div>
 
                     <div className="text-center">
@@ -372,11 +377,16 @@ export default function PawsHomepage() {
                         <h3 className="text-xl font-bold mb-4">Pet Adoption FAQs</h3>
                         <p className="text-gray-600 mb-6">Got any questions? Make sure to check the pet adoption FAQ
                             page</p>
-                        <button
-                            className="bg-purple-200 hover:bg-purple-300 text-gray-800 px-6 py-2 rounded-md flex items-center justify-center mx-auto transition duration-200">
-                            <span>FAQs</span>
-                            <ArrowRight className="h-4 w-4 ml-2"/>
-                        </button>
+                            <Link to="/adoption-faq">
+                                <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                className="bg-red-200 hover:bg-red-300 text-gray-800 px-6 py-2 rounded-md flex items-center justify-center mx-auto transition duration-200"
+                                >
+                                <span>FAQs</span>
+                                <ArrowRight className="h-4 w-4 ml-2"/>
+                                </motion.button>
+                            </Link>
                     </div>
                 </div>
             </section>
