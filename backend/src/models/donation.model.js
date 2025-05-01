@@ -34,6 +34,6 @@ const donationSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     }
-});
+}, { timestamps: true });
 
 export const Donation = mongoose.model('Donation', donationSchema);

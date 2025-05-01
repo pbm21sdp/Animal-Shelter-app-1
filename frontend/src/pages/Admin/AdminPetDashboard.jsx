@@ -3,13 +3,17 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePetStore } from '../../store/petStore';
 import { useAuthStore } from '../../store/authStore';
+import {useDonationStore} from "../../store/donationStore";
 import { PawPrint, Plus, X, ArrowLeft, Edit, Trash2, Check, Camera, Star } from 'lucide-react';
+import { Users, DollarSign, Calendar, Filter, Search, RefreshCw, Copy } from 'lucide-react';
 import axios from 'axios';
+
 
 const AdminPetDashboard = () => {
     const navigate = useNavigate();
     const { user } = useAuthStore();
     const { pets, isLoading, error, getAllPets, createPet, updatePet, deletePet } = usePetStore();
+    const { updateDonationStore, deleteDonationStore } = useDonationStore();
 
     const [showAddModal, setShowAddModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
@@ -42,6 +46,38 @@ const AdminPetDashboard = () => {
     const [trait, setTrait] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [filteredPets, setFilteredPets] = useState([]);
+
+
+    const [users, setUsers] = useState([]);
+    const [selectedUser, setSelectedUser] = useState(null);
+    const [userDonations, setUserDonations] = useState([]);
+    const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+    const [isLoadingDonations, setIsLoadingDonations] = useState(false);
+    const [userError, setUserError] = useState(null);
+    const [donationError, setDonationError] = useState(null);
+    const [showDonationFilters, setShowDonationFilters] = useState(false);
+    const [donationFilters, setDonationFilters] = useState({
+        status: 'all',
+        dateRange: 'all',
+        minAmount: '',
+        maxAmount: ''
+    });
+
+    // Edit Donations
+    const [showDonationEditModal, setShowDonationEditModal] = useState(false);
+    const [showDonationDeleteModal, setShowDonationDeleteModal] = useState(false);
+    const [selectedDonation, setSelectedDonation] = useState(null);
+    const [donationFormData, setDonationFormData] = useState({
+        amount: '',
+        status: '',
+        date: ''
+    });
+
+    const [userSearchTerm, setUserSearchTerm] = useState('');
+    const [filteredUsers, setFilteredUsers] = useState([]);
+
+    const [copiedSessionId, setCopiedSessionId] = useState(null);
+    const [showCopyToast, setShowCopyToast] = useState(false);
 
     // Check if user is admin
     useEffect(() => {
@@ -313,6 +349,263 @@ const AdminPetDashboard = () => {
     const getPhotoUrl = (photoId) => {
         return `http://localhost:5000/api/pets/photos/${photoId}`;
     };
+
+    // Fetch all users
+    const fetchUsers = async () => {
+        setIsLoadingUsers(true);
+        setUserError(null);
+        try {
+            const response = await axios.get('http://localhost:5000/api/users/admin', { withCredentials: true });
+            if (response.data.success) {
+                setUsers(response.data.users);
+            } else {
+                setUserError('Failed to fetch users');
+            }
+        } catch (error) {
+            console.error('Error fetching users:', error);
+            setUserError(error.response?.data?.message || 'Error fetching users');
+        } finally {
+            setIsLoadingUsers(false);
+        }
+    };
+
+// Fetch donations for a specific user
+    const fetchUserDonations = async (userId) => {
+        setIsLoadingDonations(true);
+        setDonationError(null);
+        try {
+            const response = await axios.get(`http://localhost:5000/api/donations/admin/user/${userId}`, { withCredentials: true });
+            if (response.data.success) {
+                setUserDonations(response.data.donations);
+            } else {
+                setDonationError('Failed to fetch donations');
+            }
+        } catch (error) {
+            console.error('Error fetching donations:', error);
+            setDonationError(error.response?.data?.message || 'Error fetching donations');
+        } finally {
+            setIsLoadingDonations(false);
+        }
+    };
+
+// Handle user selection to show their donations
+    const handleUserSelect = (user) => {
+        setSelectedUser(user);
+        fetchUserDonations(user._id);
+    };
+
+// Handle donation filter changes
+    const handleFilterChange = (e) => {
+        const { name, value } = e.target;
+        setDonationFilters(prev => ({
+            ...prev,
+            [name]: value
+        }));
+    };
+
+// Apply donation filters
+    const getFilteredDonations = () => {
+        if (!userDonations.length) return [];
+
+        return userDonations.filter(donation => {
+            // Status filter
+            if (donationFilters.status !== 'all' && donation.status !== donationFilters.status) {
+                return false;
+            }
+
+            // Amount filter
+            const minAmount = donationFilters.minAmount ? parseFloat(donationFilters.minAmount) : 0;
+            const maxAmount = donationFilters.maxAmount ? parseFloat(donationFilters.maxAmount) : Infinity;
+            if (donation.amount < minAmount || donation.amount > maxAmount) {
+                return false;
+            }
+
+            // Date range filter
+            if (donationFilters.dateRange !== 'all') {
+                const donationDate = new Date(donation.createdAt);
+
+                if (donationFilters.dateRange === 'today') {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    if (donationDate < today) return false;
+                } else if (donationFilters.dateRange === 'week') {
+                    const weekAgo = new Date();
+                    weekAgo.setDate(weekAgo.getDate() - 7);
+                    if (donationDate < weekAgo) return false;
+                } else if (donationFilters.dateRange === 'month') {
+                    const monthAgo = new Date();
+                    monthAgo.setMonth(monthAgo.getMonth() - 1);
+                    if (donationDate < monthAgo) return false;
+                }
+            }
+
+            return true;
+        });
+    };
+
+// Reset filters
+    const resetFilters = () => {
+        setDonationFilters({
+            status: 'all',
+            dateRange: 'all',
+            minAmount: '',
+            maxAmount: ''
+        });
+    };
+
+// Format date
+    const formatDate = (dateString) => {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+
+    const copyToClipboard = (text) => {
+        navigator.clipboard.writeText(text)
+            .then(() => {
+                // Visual feedback
+                setCopiedSessionId(text);
+                setShowCopyToast(true);
+
+                // Hide toast after 2 seconds
+                setTimeout(() => {
+                    setShowCopyToast(false);
+                    setTimeout(() => setCopiedSessionId(null), 300); // Reset after fade animation
+                }, 2000);
+            })
+            .catch(err => {
+                console.error('Failed to copy text: ', err);
+            });
+    };
+
+    // Handle donation edit click
+    const handleDonationEditClick = (donation) => {
+        setSelectedDonation(donation);
+
+        // Format the date for the datetime-local input
+        const donationDate = new Date(donation.createdAt);
+        const formattedDate = donationDate.toISOString().slice(0, 16); // Format as YYYY-MM-DDTHH:MM
+
+        setDonationFormData({
+            amount: donation.amount,
+            status: donation.status,
+            date: formattedDate
+        });
+
+        setShowDonationEditModal(true);
+    };
+
+// Handle donation deletion click
+    const handleDonationDeleteClick = (donation) => {
+        setSelectedDonation(donation);
+        setShowDonationDeleteModal(true);
+    };
+
+// Handle donation form change
+    const handleDonationFormChange = (e) => {
+        const { name, value } = e.target;
+        setDonationFormData(prev => ({
+            ...prev,
+            [name]: value
+        }));
+    };
+
+    const updateDonation = async () => {
+        if (!selectedDonation) return;
+
+        const donationId = selectedDonation._id || selectedDonation.id;
+
+        if (!donationId) {
+            setDonationError("Cannot update donation - missing ID");
+            return;
+        }
+
+        setIsLoadingDonations(true);
+        setDonationError(null);
+
+        try {
+            const result = await updateDonationStore(donationId, {
+                amount: parseFloat(donationFormData.amount),
+                status: donationFormData.status,
+                createdAt: new Date(donationFormData.date).toISOString()
+            });
+
+            if (result.success) {
+                // Refresh donations
+                fetchUserDonations(selectedUser._id);
+                setShowDonationEditModal(false);
+            } else {
+                setDonationError(result.error || 'Failed to update donation');
+            }
+        } catch (error) {
+            console.error('Error updating donation:', error);
+            setDonationError('Error updating donation');
+        } finally {
+            setIsLoadingDonations(false);
+        }
+    };
+
+    const deleteDonation = async () => {
+        if (!selectedDonation) return;
+
+        const donationId = selectedDonation._id || selectedDonation.id;
+
+        if (!donationId) {
+            setDonationError("Cannot delete donation - missing ID");
+            return;
+        }
+
+        setIsLoadingDonations(true);
+        setDonationError(null);
+
+        try {
+            const result = await deleteDonationStore(donationId);
+
+            if (result.success) {
+                // Refresh donations
+                fetchUserDonations(selectedUser._id);
+                setShowDonationDeleteModal(false);
+            } else {
+                setDonationError(result.error || 'Failed to delete donation');
+            }
+        } catch (error) {
+            console.error('Error deleting donation:', error);
+            setDonationError('Error deleting donation');
+        } finally {
+            setIsLoadingDonations(false);
+        }
+    };
+
+
+// Add useEffect for users
+    useEffect(() => {
+        fetchUsers();
+    }, []);
+
+// Add useEffect for filtering users by search term
+    useEffect(() => {
+        if (users.length) {
+            setFilteredUsers(
+                users.filter(user =>
+                    user.name?.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+                    user.email?.toLowerCase().includes(userSearchTerm.toLowerCase())
+                )
+            );
+        }
+    }, [userSearchTerm, users]);
+
+// Add a cleanup function to clear selected user when component unmounts
+    useEffect(() => {
+        return () => {
+            setSelectedUser(null);
+            setUserDonations([]);
+        };
+    }, []);
 
     return (
         <div className="min-h-screen w-full bg-white">
@@ -1327,6 +1620,403 @@ const AdminPetDashboard = () => {
                     </div>
                 </div>
             )}
+
+            {/* Users and Donations Section */}
+            <div className="mt-12">
+                <div className="flex flex-wrap justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold mb-4 sm:mb-0 flex items-center">
+                        <Users className="h-6 w-6 mr-2" />
+                        Manage Users & Donations
+                    </h2>
+                    <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
+                        <div className="relative w-full sm:w-auto">
+                            <input
+                                type="text"
+                                placeholder="Search users..."
+                                value={userSearchTerm}
+                                onChange={(e) => setUserSearchTerm(e.target.value)}
+                                className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 w-full"
+                            />
+                            <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                        </div>
+                        <button
+                            onClick={fetchUsers}
+                            className="bg-tealcustom hover:bg-teal-700 text-white px-4 py-2 rounded-md flex items-center w-full sm:w-auto justify-center"
+                        >
+                            <RefreshCw className="h-5 w-5 mr-1" />
+                            Refresh Users
+                        </button>
+                    </div>
+                </div>
+
+                {/* User Error Display */}
+                {userError && (
+                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                        {userError}
+                    </div>
+                )}
+
+                {/* Users & Donations Container */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Users List */}
+                    <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                        <div className="p-4 bg-gray-50 border-b border-gray-200 font-semibold">
+                            Users
+                        </div>
+                        <div className="overflow-y-auto" style={{ maxHeight: '60vh' }}>
+                            {isLoadingUsers ? (
+                                <div className="p-6 text-center">Loading users...</div>
+                            ) : filteredUsers.length === 0 ? (
+                                <div className="p-6 text-center">No users found</div>
+                            ) : (
+                                <ul className="divide-y divide-gray-200">
+                                    {filteredUsers.map(user => (
+                                        <li
+                                            key={user._id}
+                                            onClick={() => handleUserSelect(user)}
+                                            className={`p-4 hover:bg-gray-50 cursor-pointer ${selectedUser?._id === user._id ? 'bg-teal-50 border-l-4 border-tealcustom' : ''}`}
+                                        >
+                                            <div className="flex items-center">
+                                                <div className="flex-shrink-0">
+                                                    <div className="h-10 w-10 rounded-full bg-teal-100 flex items-center justify-center">
+                                                        <span className="text-tealcustom font-semibold">{user.name?.charAt(0) || user.email?.charAt(0) || '?'}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="ml-4">
+                                                    <div className="font-medium text-gray-900">{user.name || 'Unnamed User'}</div>
+                                                    <div className="text-sm text-gray-500">{user.email}</div>
+                                                </div>
+                                                <div className="ml-auto text-xs bg-gray-100 px-2 py-1 rounded">
+                                                    {user.isAdmin ? 'Admin' : 'User'}
+                                                </div>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Donations Panel */}
+                    <div className="lg:col-span-2 bg-white shadow-md rounded-lg overflow-hidden">
+                        <div className="p-4 bg-gray-50 border-b border-gray-200 font-semibold flex justify-between items-center">
+                            <div>
+                                {selectedUser ? `Donations for ${selectedUser.name || selectedUser.email}` : 'Donations'}
+                            </div>
+                            <button
+                                onClick={() => setShowDonationFilters(!showDonationFilters)}
+                                className="text-gray-500 hover:text-tealcustom"
+                            >
+                                <Filter className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        {/* Filter Panel */}
+                        {showDonationFilters && (
+                            <div className="p-4 bg-gray-50 border-b border-gray-200">
+                                <div className="text-sm font-medium mb-2">Filter Donations</div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    <div>
+                                        <label className="block text-gray-700 text-xs font-medium mb-1">Status</label>
+                                        <select
+                                            name="status"
+                                            value={donationFilters.status}
+                                            onChange={handleFilterChange}
+                                            className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                                        >
+                                            <option value="all">All</option>
+                                            <option value="completed">Completed</option>
+                                            <option value="pending">Pending</option>
+                                            <option value="canceled">Canceled</option>
+                                            <option value="failed">Failed</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-700 text-xs font-medium mb-1">Date Range</label>
+                                        <select
+                                            name="dateRange"
+                                            value={donationFilters.dateRange}
+                                            onChange={handleFilterChange}
+                                            className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                                        >
+                                            <option value="all">All Time</option>
+                                            <option value="today">Today</option>
+                                            <option value="week">Last 7 Days</option>
+                                            <option value="month">Last 30 Days</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-700 text-xs font-medium mb-1">Min Amount (€)</label>
+                                        <input
+                                            type="number"
+                                            name="minAmount"
+                                            value={donationFilters.minAmount}
+                                            onChange={handleFilterChange}
+                                            placeholder="Min"
+                                            className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-700 text-xs font-medium mb-1">Max Amount (€)</label>
+                                        <input
+                                            type="number"
+                                            name="maxAmount"
+                                            value={donationFilters.maxAmount}
+                                            onChange={handleFilterChange}
+                                            placeholder="Max"
+                                            className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="mt-3 flex justify-end">
+                                    <button
+                                        onClick={resetFilters}
+                                        className="bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm px-3 py-1 rounded-md"
+                                    >
+                                        Reset Filters
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Donation Error Display */}
+                        {donationError && (
+                            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 m-4 rounded">
+                                {donationError}
+                            </div>
+                        )}
+
+                        {/* Donations Content */}
+                        <div className="overflow-y-auto" style={{ maxHeight: '60vh' }}>
+                            {!selectedUser ? (
+                                <div className="p-8 text-center text-gray-500">
+                                    <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                                    <p>Select a user to view their donations</p>
+                                </div>
+                            ) : isLoadingDonations ? (
+                                <div className="p-6 text-center">Loading donations...</div>
+                            ) : (
+                                <div>
+                                    {getFilteredDonations().length === 0 ? (
+                                        <div className="p-6 text-center text-gray-500">
+                                            <DollarSign className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                                            <p>No donations found with the current filters</p>
+                                        </div>
+                                    ) : (
+                                        <table className="min-w-full divide-y divide-gray-200">
+                                            <thead className="bg-gray-50">
+                                            <tr>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Session ID</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody className="bg-white divide-y divide-gray-200">
+                                            {getFilteredDonations().map(donation => (
+                                                <tr
+                                                    key={donation._id}
+                                                    className="hover:bg-gray-50 cursor-pointer"
+                                                    onClick={() => handleDonationEditClick(donation)}
+                                                >
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <div className="flex items-center">
+                                                            <Calendar className="h-4 w-4 text-gray-400 mr-2" />
+                                                            <span className="text-sm text-gray-900">{formatDate(donation.createdAt)}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <div className="flex items-center">
+                                                            <DollarSign className="h-4 w-4 text-gray-400 mr-1" />
+                                                            <span className="text-sm font-medium text-gray-900">€{donation.amount.toFixed(2)}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                                donation.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                                    donation.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                                        donation.status === 'canceled' ? 'bg-gray-100 text-gray-800' :
+                                                            'bg-red-100 text-red-800'
+                                            }`}>
+                                                {donation.status}
+                                            </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <div className="flex items-center">
+                                                            <div className="text-sm text-gray-500 max-w-xs truncate mr-2" title={donation.stripeSessionId}>
+                                                                {donation.stripeSessionId}
+                                                            </div>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation(); // Prevent row click
+                                                                    copyToClipboard(donation.stripeSessionId);
+                                                                }}
+                                                                className={`${copiedSessionId === donation.stripeSessionId ? 'text-green-500' : 'text-gray-400 hover:text-tealcustom'} p-1 rounded transition-colors duration-300`}
+                                                                title="Copy Session ID"
+                                                            >
+                                                                {copiedSessionId === donation.stripeSessionId ? (
+                                                                    <Check className="h-4 w-4" />
+                                                                ) : (
+                                                                    <Copy className="h-4 w-4" />
+                                                                )}
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <div className="flex space-x-2">
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation(); // Prevent row click
+                                                                    handleDonationEditClick(donation);
+                                                                }}
+                                                                className="text-indigo-600 hover:text-indigo-900 p-1"
+                                                                title="Edit Donation"
+                                                            >
+                                                                <Edit className="h-4 w-4" />
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation(); // Prevent row click
+                                                                    handleDonationDeleteClick(donation);
+                                                                }}
+                                                                className="text-red-600 hover:text-red-900 p-1"
+                                                                title="Delete Donation"
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            </tbody>
+                                        </table>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Copy Toast Notification */}
+                {showCopyToast && (
+                    <div className="fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded-md shadow-lg flex items-center animate-fade-in-out">
+                        <Check className="h-4 w-4 text-green-400 mr-2" />
+                        <span>Session ID copied to clipboard</span>
+                    </div>
+                )}
+
+                {/* Edit Donation Modal */}
+                {showDonationEditModal && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-lg max-w-md w-full p-6">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-xl font-bold">Edit Donation</h3>
+                                <button
+                                    onClick={() => setShowDonationEditModal(false)}
+                                    className="text-gray-500 hover:text-gray-700"
+                                    aria-label="Close modal"
+                                >
+                                    <X className="h-6 w-6" />
+                                </button>
+                            </div>
+
+                            <form onSubmit={(e) => { e.preventDefault(); updateDonation(); }}>
+                                <div className="mb-4">
+                                    <label className="block text-gray-700 text-sm font-bold mb-2">
+                                        Amount (€)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        name="amount"
+                                        value={donationFormData.amount}
+                                        onChange={handleDonationFormChange}
+                                        step="0.01"
+                                        required
+                                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                                    />
+                                </div>
+
+                                <div className="mb-4">
+                                    <label className="block text-gray-700 text-sm font-bold mb-2">
+                                        Status
+                                    </label>
+                                    <select
+                                        name="status"
+                                        value={donationFormData.status}
+                                        onChange={handleDonationFormChange}
+                                        required
+                                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                                    >
+                                        <option value="completed">Completed</option>
+                                        <option value="pending">Pending</option>
+                                        <option value="canceled">Canceled</option>
+                                        <option value="failed">Failed</option>
+                                    </select>
+                                </div>
+
+                                <div className="mb-4">
+                                    <label className="block text-gray-700 text-sm font-bold mb-2">
+                                        Date
+                                    </label>
+                                    <input
+                                        type="datetime-local"
+                                        name="date"
+                                        value={donationFormData.date}
+                                        onChange={handleDonationFormChange}
+                                        required
+                                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                                    />
+                                </div>
+
+                                <div className="flex justify-end mt-6">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowDonationEditModal(false)}
+                                        className="mr-4 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="bg-tealcustom hover:bg-teal-700 text-white px-4 py-2 rounded flex items-center justify-center"
+                                    >
+                                        <Check className="h-5 w-5 mr-2" />
+                                        Save Changes
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* Delete Donation Confirmation Modal */}
+                {showDonationDeleteModal && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-lg max-w-md w-full p-6">
+                            <h3 className="text-xl font-bold mb-4">Delete Donation</h3>
+                            <p className="mb-6">
+                                Are you sure you want to delete this donation of €{selectedDonation?.amount.toFixed(2)}? This action cannot be undone.
+                            </p>
+                            <div className="flex justify-end">
+                                <button
+                                    onClick={() => setShowDonationDeleteModal(false)}
+                                    className="mr-4 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={deleteDonation}
+                                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded flex items-center justify-center"
+                                >
+                                    <Trash2 className="h-5 w-5 mr-2" />
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

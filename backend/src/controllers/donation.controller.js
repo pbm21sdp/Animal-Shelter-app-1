@@ -1,17 +1,12 @@
 // controllers/donation.controller.js
-import Stripe from 'stripe';
+import stripe from '../config/stripe/stripe.js';
 import { Donation } from '../models/donation.model.js';
 import { User } from '../models/user.model.js';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-
-// Create a checkout session for donation
+// Create a checkout session
 export const createCheckoutSession = async (req, res) => {
     try {
         const { userId, email, amountInCents } = req.body;
-
-        // Add this line to expire old sessions
-        await expireOldSessions(userId);
 
         // Default to 1000 cents (€10) if no amount specified
         const amount = amountInCents || 1000;
@@ -19,7 +14,10 @@ export const createCheckoutSession = async (req, res) => {
         // Calculate amount in euros (for database)
         const amountInEuros = amount / 100;
 
-        // Create Stripe checkout session, add the expires_at parameter
+        // Expire any old pending sessions for this user
+        await expireOldSessions(userId);
+
+        // Create Stripe checkout session with the specified amount and a shorter expiration
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ['card'],
             mode: 'payment',
@@ -39,15 +37,14 @@ export const createCheckoutSession = async (req, res) => {
             customer_email: email,
             success_url: `${process.env.CLIENT_URL}/donation-success?session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${process.env.CLIENT_URL}/`,
-            // Add this line to set expiration to 30 minutes
-            expires_at: Math.floor(Date.now() / 1000) + 1800,
+            expires_at: Math.floor(Date.now() / 1000) + 1800, // 30 minutes from now
             metadata: {
                 userId: userId,
                 amountInEuros: amountInEuros.toString()
             },
         });
 
-        // Rest of your existing function...
+        // Create a pending donation record
         await Donation.create({
             user: userId,
             email: email,
@@ -57,6 +54,7 @@ export const createCheckoutSession = async (req, res) => {
             status: 'pending'
         });
 
+        // Return both sessionId and URL
         res.status(200).json({
             success: true,
             sessionId: session.id,
@@ -72,7 +70,55 @@ export const createCheckoutSession = async (req, res) => {
     }
 };
 
-// Handle webhook from Stripe
+// Expire old pending sessions
+export const expireOldSessions = async (userId) => {
+    try {
+        // Find pending donation sessions that are older than 30 minutes
+        const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+
+        const oldPendingSessions = await Donation.find({
+            user: userId,
+            status: 'pending',
+            createdAt: { $lt: thirtyMinutesAgo }
+        });
+
+        // Expire each session in Stripe and update database
+        for (const session of oldPendingSessions) {
+            try {
+                // Retrieve the session to check its status
+                if (session.stripeSessionId) {
+                    try {
+                        const stripeSession = await stripe.checkout.sessions.retrieve(session.stripeSessionId);
+
+                        // Only try to expire if it's still open
+                        if (stripeSession.status === 'open') {
+                            await stripe.checkout.sessions.expire(session.stripeSessionId);
+                        }
+                    } catch (stripeError) {
+                        // If there's an error retrieving or expiring the session, log it
+                        console.error(`Error expiring Stripe session ${session.stripeSessionId}:`, stripeError);
+                    }
+                }
+
+                // Update the database record regardless
+                session.status = 'canceled';
+                await session.save();
+
+                console.log(`Expired old session ${session.stripeSessionId} for user ${userId}`);
+            } catch (expireError) {
+                // If there's an error expiring a specific session, log it but continue with others
+                console.error(`Error expiring session ${session.stripeSessionId}:`, expireError);
+            }
+        }
+
+        return oldPendingSessions.length;
+    } catch (error) {
+        console.error('Error expiring old sessions:', error);
+        return 0;
+    }
+};
+
+// Handle Stripe webhook events
 export const handleStripeWebhook = async (req, res) => {
     const sig = req.headers['stripe-signature'];
     let event;
@@ -98,7 +144,6 @@ export const handleStripeWebhook = async (req, res) => {
 
             if (donation) {
                 donation.status = 'completed';
-                donation.amount = session.amount_total / 100; // Convert from cents
                 donation.paymentIntentId = session.payment_intent;
                 await donation.save();
 
@@ -109,6 +154,7 @@ export const handleStripeWebhook = async (req, res) => {
         }
     }
 
+    // Handle checkout.session.expired event
     if (event.type === 'checkout.session.expired') {
         const session = event.data.object;
 
@@ -131,7 +177,7 @@ export const handleStripeWebhook = async (req, res) => {
     res.status(200).json({ received: true });
 };
 
-// Get all donations for admin
+// Get all donations (admin only)
 export const getAllDonations = async (req, res) => {
     try {
         const donations = await Donation.find()
@@ -143,16 +189,15 @@ export const getAllDonations = async (req, res) => {
             donations
         });
     } catch (error) {
-        console.error('Error fetching donations:', error);
+        console.error('Error fetching all donations:', error);
         res.status(500).json({
             success: false,
-            message: 'Failed to fetch donations',
-            error: error.message
+            message: 'Error fetching donations'
         });
     }
 };
 
-// Get user donations
+// Get donations for the authenticated user
 export const getUserDonations = async (req, res) => {
     try {
         const donations = await Donation.find({ user: req.userId })
@@ -166,17 +211,46 @@ export const getUserDonations = async (req, res) => {
         console.error('Error fetching user donations:', error);
         res.status(500).json({
             success: false,
-            message: 'Failed to fetch donations',
-            error: error.message
+            message: 'Error fetching donations'
         });
     }
 };
 
+// Get donations for a specific user (admin only)
+export const getUserDonationsById = async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        // Validate userId
+        if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
+            return res.status(400).json({ success: false, message: 'Invalid user ID format' });
+        }
+
+        // Check if user exists
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        // Get donations
+        const donations = await Donation.find({ user: userId }).sort({ createdAt: -1 });
+
+        res.status(200).json({
+            success: true,
+            donations
+        });
+    } catch (error) {
+        console.error('Error fetching user donations:', error);
+        res.status(500).json({ success: false, message: 'Error fetching user donations' });
+    }
+};
+
+// Verify a donation session
 export const verifyDonation = async (req, res) => {
     try {
         const { sessionId } = req.params;
 
-        // Find the donation in the database
+        // Find donation in our database
         const donation = await Donation.findOne({ stripeSessionId: sessionId });
 
         if (!donation) {
@@ -186,83 +260,39 @@ export const verifyDonation = async (req, res) => {
             });
         }
 
-        // If we want to double-check with Stripe (optional)
+        // If it's not completed, check with Stripe
         if (donation.status !== 'completed') {
             try {
                 const session = await stripe.checkout.sessions.retrieve(sessionId);
 
                 if (session.payment_status === 'paid') {
                     donation.status = 'completed';
-                    donation.amount = session.amount_total / 100; // Convert from cents
+                    donation.paymentIntentId = session.payment_intent;
                     await donation.save();
                 }
             } catch (stripeError) {
-                console.error('Error retrieving session from Stripe:', stripeError);
-                // Continue with the donation we have in the database
+                console.error('Error verifying with Stripe:', stripeError);
             }
         }
 
         res.status(200).json({
             success: true,
-            donation: {
-                id: donation._id,
-                amount: donation.amount,
-                currency: donation.currency,
-                status: donation.status,
-                createdAt: donation.createdAt
-            }
+            donation
         });
     } catch (error) {
         console.error('Error verifying donation:', error);
         res.status(500).json({
             success: false,
-            message: 'Failed to verify donation',
-            error: error.message
+            message: 'Error verifying donation'
         });
     }
 };
 
-export const expireOldSessions = async (userId) => {
-    try {
-        // Find pending donation sessions that are older than 30 minutes
-        const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
-
-        const oldPendingSessions = await Donation.find({
-            user: userId,
-            status: 'pending',
-            createdAt: { $lt: thirtyMinutesAgo }
-        });
-
-        // Expire each session in Stripe and update database
-        for (const session of oldPendingSessions) {
-            try {
-                // Expire the session in Stripe
-                if (session.stripeSessionId) {
-                    await stripe.checkout.sessions.expire(session.stripeSessionId);
-                }
-
-                // Update the database record
-                session.status = 'canceled';
-                await session.save();
-
-                console.log(`Expired old session ${session.stripeSessionId} for user ${userId}`);
-            } catch (expireError) {
-                // If there's an error expiring a specific session, log it but continue with others
-                console.error(`Error expiring session ${session.stripeSessionId}:`, expireError);
-            }
-        }
-
-        return oldPendingSessions.length;
-    } catch (error) {
-        console.error('Error expiring old sessions:', error);
-        return 0;
-    }
-};
-
+// Test function for cleaning up abandoned donations
 export const cleanupAbandonedDonationsTest = async (req, res) => {
     try {
         // You can add a custom time threshold for testing
-        const timeThreshold = req.query.minutes ? parseInt(req.query.minutes) : 5;
+        const timeThreshold = req.query.minutes ? parseInt(req.query.minutes) : 1;
         const timeAgo = new Date(Date.now() - timeThreshold * 60 * 1000);
 
         console.log(`Finding pending donations older than ${timeThreshold} minute(s)`);
@@ -340,6 +370,88 @@ export const cleanupAbandonedDonationsTest = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Failed to clean up abandoned donations',
+            error: error.message
+        });
+    }
+};
+
+// Update a donation (admin only)
+export const updateDonation = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { amount, status, createdAt } = req.body;
+
+        // Validate donation ID
+        if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid donation ID format'
+            });
+        }
+
+        // Find the donation
+        const donation = await Donation.findById(id);
+        if (!donation) {
+            return res.status(404).json({
+                success: false,
+                message: 'Donation not found'
+            });
+        }
+
+        // Update fields
+        if (amount !== undefined) donation.amount = amount;
+        if (status !== undefined) donation.status = status;
+        if (createdAt !== undefined) donation.createdAt = new Date(createdAt);
+
+        // Save the updated donation
+        await donation.save();
+
+        res.status(200).json({
+            success: true,
+            donation
+        });
+    } catch (error) {
+        console.error('Error updating donation:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error updating donation',
+            error: error.message
+        });
+    }
+};
+
+// Delete a donation (admin only)
+export const deleteDonation = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Validate donation ID
+        if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid donation ID format'
+            });
+        }
+
+        // Find and delete the donation
+        const donation = await Donation.findByIdAndDelete(id);
+
+        if (!donation) {
+            return res.status(404).json({
+                success: false,
+                message: 'Donation not found'
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Donation deleted successfully'
+        });
+    } catch (error) {
+        console.error('Error deleting donation:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error deleting donation',
             error: error.message
         });
     }
