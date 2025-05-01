@@ -5,7 +5,7 @@ import { usePetStore } from '../../store/petStore';
 import { useAuthStore } from '../../store/authStore';
 import {useDonationStore} from "../../store/donationStore";
 import { PawPrint, Plus, X, ArrowLeft, Edit, Trash2, Check, Camera, Star } from 'lucide-react';
-import { Users, DollarSign, Calendar, Filter, Search, RefreshCw, Copy } from 'lucide-react';
+import { Users, Banknote, Calendar, Filter, Search, RefreshCw, Copy } from 'lucide-react';
 import axios from 'axios';
 
 
@@ -1813,7 +1813,7 @@ const AdminPetDashboard = () => {
                                 <div>
                                     {getFilteredDonations().length === 0 ? (
                                         <div className="p-6 text-center text-gray-500">
-                                            <DollarSign className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                                            <Banknote className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                                             <p>No donations found with the current filters</p>
                                         </div>
                                     ) : (
@@ -1842,7 +1842,7 @@ const AdminPetDashboard = () => {
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <div className="flex items-center">
-                                                            <DollarSign className="h-4 w-4 text-gray-400 mr-1" />
+                                                            <Banknote className="h-4 w-4 text-gray-400 mr-1" />
                                                             <span className="text-sm font-medium text-gray-900">€{donation.amount.toFixed(2)}</span>
                                                         </div>
                                                     </td>
