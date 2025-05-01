@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import { Search, PawPrint, ArrowRight, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { usePetStore } from '../store/petStore';
+import {motion} from "framer-motion";
+import {useAuthStore} from "../store/authStore.js";
 
 function PetSearchPage() {
     const navigate = useNavigate();
+    const { user, logout } = useAuthStore();
     const { pets, isLoading, error, searchPets } = usePetStore();
 
     const [filters, setFilters] = useState({
@@ -22,27 +25,71 @@ function PetSearchPage() {
         setFilters(prev => ({ ...prev, [key]: value }));
     };
 
+    const handleLogout = () => {
+        logout();
+    };
+
+    const inputRef = useRef(null);
+    const handleSearchClick = () => {
+        if (inputRef.current) {
+            inputRef.current.focus();
+        }
+    };
+
     return (
-        <div className="min-h-screen w-full bg-white font-sans flex flex-col">
+        <div className="min-h-screen w-full font-sans flex flex-col">
             {/* Header - Fixed Height */}
-            <header className="container mx-auto px-4 py-4">
-                <div className="flex items-center justify-between">
+            <header className="container mx-auto px-4 py-4 flex items-center justify-between">
+                <div className="flex items-center space-x-4">
                     <div className="flex items-center">
-                        <PawPrint className="text-teal-700 h-6 w-6"/>
+                        <PawPrint className="text-tealcustom h-6 w-6"/>
                         <span className="ml-2 text-xl font-bold">Paws</span>
                     </div>
 
-                    <nav className="hidden md:flex space-x-6 items-center">
-                        <a href="/" className="text-gray-500 hover:text-gray-900">Home</a>
-                        <a href="/pet-search" className="text-gray-900 border-b-2 border-gray-900">Pet search</a>
-                        <a href="#" className="text-gray-500 hover:text-gray-900">Adoption process</a>
-                        <a href="#" className="text-gray-500 hover:text-gray-900">FAQ</a>
-                        <Search className="h-5 w-5 text-gray-500"/>
-                    </nav>
+                    {user?.isAdmin && (
+                        <motion.button
+                            whileHover={{scale: 1.05}}
+                            whileTap={{scale: 0.95}}
+                            onClick={() => navigate('/admin/pets')}
+                            className="px-4 py-2 text-sm bg-tealcustom text-white rounded-md hover:bg-teal-700">
+                            Admin Dashboard
+                        </motion.button>
+                    )}
+                </div>
 
-                    <div className="flex items-center space-x-4">
-                        <button className="text-gray-700 hover:text-gray-900">Sign up</button>
-                        <button className="text-gray-700 hover:text-gray-900">Log in</button>
+                <nav className="hidden md:flex space-x-6 items-center">
+                    <a href="/" className="text-gray-500 hover:text-gray-900">Home</a>
+                    <a href="/pet-search" className="text-gray-900 border-b-2 border-gray-900">Pet search</a>
+                    <a href="/adoption-process" className="text-gray-500 hover:text-gray-900">Adoption process</a>
+                    <a href="/adoption-faq" className="text-gray-500 hover:text-gray-900">FAQ</a>
+
+                    {/* Search Icon */}
+                    <div className="relative flex items-center">
+                        <button
+                            onClick={handleSearchClick}
+                            className="text-gray-500 hover:text-gray-900"
+                        >
+                            <Search className="h-5 w-5"/>
+                        </button>
+
+                        {/* Search Input */}
+                        <input
+                            ref={inputRef}
+                            type="text"
+                            placeholder="Search..."
+                            className="ml-2 p-2 border border-gray-200 rounded-full"
+                        />
+                    </div>
+                </nav>
+
+                <div className="flex items-center space-x-4">
+                    <div className="flex space-x-4">
+                        <motion.button
+                            whileHover={{scale: 1.05}}
+                            whileTap={{scale: 0.95}}
+                            onClick={handleLogout}
+                            className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900">Logout
+                        </motion.button>
                     </div>
                 </div>
             </header>
@@ -158,9 +205,16 @@ function PetSearchPage() {
                                 <div key={pet.id} className="bg-white rounded-xl overflow-hidden shadow-md">
                                     <div className="h-48 overflow-hidden">
                                         <img
-                                            src={pet.photos?.[0]?.photo_url || '/api/placeholder/300/200'}
+                                            src={
+                                                pet.photos?.[0]?.id
+                                                    ? `http://localhost:5000/api/pets/photos/${pet.photos[0].id}`
+                                                    : '/api/placeholder/300/200'
+                                            }
                                             alt={`${pet.name} - ${pet.breed}`}
                                             className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                                e.target.src = '/api/placeholder/300/200';
+                                            }}
                                         />
                                     </div>
                                     <div className="p-4">

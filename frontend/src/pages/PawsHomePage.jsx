@@ -1,10 +1,11 @@
 // PawsHomePage.jsx
-import React, { useRef, useEffect } from 'react';
-import { Search, Heart, ArrowRight, PawPrint, Facebook, Twitter, Instagram, Linkedin, Send } from 'lucide-react';
+import React, {useRef, useEffect, useState} from 'react';
+import { Search, Heart, ArrowRight, PawPrint, Facebook, Twitter, Instagram, Linkedin, Send, X } from 'lucide-react';
 import { motion } from "framer-motion";
 import Blob from "../components/Blob";
 import { useAuthStore } from "../store/authStore";
 import { usePetStore } from "../store/petStore";
+import { useDonationStore } from "../store/donationStore.js";
 import { useNavigate } from 'react-router-dom';
 import { Link } from "react-router-dom";
 
@@ -20,6 +21,7 @@ import DogIcon from "../components/icons/DogIcon";
 import CatIcon from "../components/icons/CatIcon";
 import ParrotIcon from "../components/icons/ParrotIcon.jsx";
 import RabbitIcon from "../components/icons/RabbitIcon.jsx";
+import DonationModal from "../components/DonationModal.jsx";
 
 const stepImages = import.meta.glob('../assets/PawHomePage/step*.png', { eager: true });
 const steps = Object.values(stepImages).map((mod) => mod.default);
@@ -27,8 +29,9 @@ const steps = Object.values(stepImages).map((mod) => mod.default);
 export default function PawsHomepage() {
     const { user, logout } = useAuthStore();
     const navigate = useNavigate();
-
     const { pets, isLoading, error, getAllPets } = usePetStore();
+    const { createDonation, isLoading: donationLoading, error: donationError } = useDonationStore();
+    const [isDonationModalOpen, setIsDonationModalOpen] = useState(false);
 
     useEffect(() => {
         // Fetch only 3 pets for the homepage
@@ -46,8 +49,50 @@ export default function PawsHomepage() {
         }
     };
 
+    const openDonationModal = () => {
+        console.log('Donate button clicked');
+        if (!user || !user._id) {
+            console.log('No user logged in, redirecting to login');
+            navigate('/login');
+            return;
+        }
+        console.log('Opening donation modal');
+        setIsDonationModalOpen(true);
+    };
+
+
+    const closeDonationModal = () => {
+        setIsDonationModalOpen(false);
+    };
+
+    const handleDonate = async (amountInCents) => {
+        console.log('Handling donation with amount (cents):', amountInCents);
+
+        if (!user || !user._id) {
+            console.log('No user logged in, redirecting to login');
+            navigate('/login');
+            return;
+        }
+
+        try {
+            console.log('Calling createDonation with:', user._id, user.email, amountInCents);
+            const success = await createDonation(user._id, user.email, amountInCents);
+
+            console.log('Donation creation result:', success);
+
+            if (!success) {
+                console.log('Donation failed, closing modal');
+                setIsDonationModalOpen(false);
+            }
+            // If successful, the user will be redirected to Stripe
+        } catch (error) {
+            console.error('Error in handleDonate:', error);
+            setIsDonationModalOpen(false);
+        }
+    };
+
     return (
-        <div className="min-h-screen bg-white font-sans">
+        <div className="min-h-screen w-full font-sans">
             {/* Header/Navigation */}
             <header className="container mx-auto px-4 py-4 flex items-center justify-between">
                 <div className="flex items-center space-x-4">
@@ -70,8 +115,8 @@ export default function PawsHomepage() {
                 <nav className="hidden md:flex space-x-6 items-center">
                     <a href="/" className="text-gray-900 border-b-2 border-gray-900">Home</a>
                     <a href="/pet-search" className="text-gray-500 hover:text-gray-900">Pet search</a>
-                    <a href="#" className="text-gray-500 hover:text-gray-900">Adoption process</a>
-                    <a href="#" className="text-gray-500 hover:text-gray-900">FAQ</a>
+                    <a href="/adoption-process" className="text-gray-500 hover:text-gray-900">Adoption process</a>
+                    <a href="/adoption-faq" className="text-gray-500 hover:text-gray-900">FAQ</a>
 
                     {/* Search Icon */}
                     <div className="relative flex items-center">
@@ -137,12 +182,12 @@ export default function PawsHomepage() {
                         <img
                             src={maindog}
                             alt="maindog"
-                            className="absolute bottom-0 right-0 h-4/3 transform translate-x-[-190px] translate-y-[20px]"
+                            className="absolute bottom-0 right-0 h-4/3 transform translate-x-[-220px] translate-y-[40px]"
                         />
                         <img
                             src={leash}
                             alt="leash"
-                            className="absolute bottom-0 right-0 h-1/2 transform translate-x-[-210px] translate-y-[-220px]"
+                            className="absolute bottom-0 right-0 h-1/2 transform translate-x-[-250px] translate-y-[-250px]"
                         />
                         <span className="absolute top-1/4 left-1/4">
                             <Heart className="text-pink-400 h-8 w-8"/>
@@ -391,7 +436,7 @@ export default function PawsHomepage() {
                 </div>
             </section>
 
-            {/* Footer */}
+            {/* Footer with donation button */}
             <footer className="bg-yellow-200 py-8 md:py-16">
                 <div className="container mx-auto px-4">
                     <div className="flex items-center mb-6 ">
@@ -443,6 +488,26 @@ export default function PawsHomepage() {
                                     </a>
                                 </li>
                             </ul>
+
+                            {/* New Donation Section */}
+                            <div className="mt-6">
+                                <h3 className="text-lg font-bold mb-4">Support Our Cause</h3>
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={openDonationModal}
+                                    className="bg-tealcustom hover:bg-teal-800 text-white px-6 py-2 rounded-md flex items-center transition duration-200"
+                                >
+                                    <span className="mr-2">Donate Now</span>
+                                    <Heart className="h-4 w-4"/>
+                                </motion.button>
+                            </div>
+
+                            <DonationModal
+                                isOpen={isDonationModalOpen}
+                                onClose={closeDonationModal}
+                                onDonate={handleDonate}
+                            />
                         </div>
 
                         <div>
@@ -478,6 +543,7 @@ export default function PawsHomepage() {
                     </div>
                 </div>
             </footer>
+
         </div>
     );
 }

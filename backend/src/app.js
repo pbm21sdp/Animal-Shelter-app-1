@@ -11,10 +11,9 @@ import { connectMongoDB } from "./config/database/connectMongoDB.js";
 import { authRoutes } from "./routes/auth/auth.routes.js"
 
 // Import routes
-import animalRoutes from './routes/animals.js';
-import userRoutes from './routes/users.js';
 import adoptionRoutes from './routes/adoptions.js';
-import petRoutes from './routes/pets.js'; // NEW: Import pet routes
+import petRoutes from './routes/pets.js';
+import donationRoutes from './routes/donations.js'; // NEW: Import donation routes
 
 // Load .env only in non-Docker environment
 if (!process.env.DOCKER_ENV) {
@@ -29,6 +28,11 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors({origin: "http://localhost:5173", credentials: true}));
+
+// Special middleware for Stripe webhooks (must come before express.json())
+app.use('/api/donations/webhook', express.raw({ type: 'application/json' }));
+
+// Regular middleware for all other routes
 app.use(express.json()); // allow us to parse incoming requests:req.body
 app.use(cookieParser()); // allow us to parse incoming cookies
 
@@ -36,10 +40,9 @@ app.use(cookieParser()); // allow us to parse incoming cookies
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
 // API ROUTES
-app.use('/api/animals', animalRoutes);
-app.use('/api/users', userRoutes);
 app.use('/api/adoptions', adoptionRoutes);
-app.use('/api/pets', petRoutes); // NEW: Use pet routes
+app.use('/api/pets', petRoutes);
+app.use('/api/donations', donationRoutes); // NEW: Use donation routes
 
 // Root route
 app.get("/", (req, res) => {
