@@ -1,10 +1,10 @@
 import FloatingPaw from "./components/FloatingPaw";
-import {Navigate, Route, Routes} from "react-router-dom";
+import {Navigate, Route, Routes, useLocation} from "react-router-dom";
 import SignUpPage from "./pages/SignUpPage";
 import LoginPage from "./pages/LoginPage";
 import PawsHomePage from "./pages/PawsHomePage"
-import PetSearchPage from "./pages/PetSearchPage"; // NEW
-import PetDetailPage from "./pages/PetDetailPage"; // NEW
+import PetSearchPage from "./pages/PetSearchPage";
+import PetDetailPage from "./pages/PetDetailPage";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
 import EmailVerificationPage from "./pages/EmailVerificationPage";
 import {Toaster} from "react-hot-toast";
@@ -17,34 +17,34 @@ import AdoptionProcessPage from "./pages/AdoptionProcessPage";
 import AdoptionRequirementsPage from "./pages/AdoptionRequirementsPage";
 import AdoptionFAQPage from './pages/AdoptionFAQPage';
 
-//protect routes that require authentication
+// Protect routes that require authentication
 const ProtectedRoute = ({children}) => {
     const {isAuthenticated, user} = useAuthStore();
     if (!isAuthenticated){
-        return <Navigate to="/login" replace />
+        return <Navigate to="/login" replace />;
     }
 
     if (!user.isVerified){
-        return <Navigate to="/verify-email" replace />
+        return <Navigate to="/verify-email" replace />;
     }
 
     return children;
-}
+};
 
-
-// redirect authenticated user to the home page
+// Redirect authenticated user to the home page
 const RedirectAuthenticatedUser = ({children}) => {
     const {isAuthenticated, user} = useAuthStore();
 
     if (isAuthenticated && user.isVerified){
-        return <Navigate to="/" replace />
+        return <Navigate to="/" replace />;
     }
 
     return children;
 }
 
 function App() {
-    const {isCheckingAuth, checkAuth, isAuthenticated, user} = useAuthStore();
+    const {isCheckingAuth, checkAuth} = useAuthStore();
+    const location = useLocation();
 
     useEffect(() => {
         checkAuth();
@@ -52,67 +52,66 @@ function App() {
 
     if (isCheckingAuth) return <LoadingSpinner />;
 
-    console.log("isAuthenticated",isAuthenticated);
-    console.log("user", user);
+    // For Debug
+    // console.log("isAuthenticated",isAuthenticated);
+    // console.log("user", user);
+
+    // Check if current route is an admin route
+    const isAdminRoute = location.pathname.startsWith('/admin');
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-amber-50 via-stone-50 to-sky-50 flex items-center justify-center relative
-        overflow-hidden">
-
-            <FloatingPaw size="w-64 h-64" top="-15%" left="25%" delay={0}/>
-            <FloatingPaw size="w-48 h-48" top="75%" left="85%" delay={1.5}/>
-            <FloatingPaw size="w-32 h-32" top="30%" left="8%" delay={2.2}/>
-            <FloatingPaw size="w-64 h-64" top="0%" left="70%" delay={3}/>
-            <FloatingPaw size="w-32 h-32" top="45%" left="50%" delay={4}/>
-            <FloatingPaw size="w-32 h-32" top="80%" left="30%" delay={1}/>
+        <div className={`min-h-screen flex items-center justify-center relative overflow-hidden ${
+            isAdminRoute ? 'bg-white' : 'bg-gradient-to-br from-amber-50 via-stone-50 to-sky-50'
+        }`}>
+            {/* Only show floating paws on non-admin routes */}
+            {!isAdminRoute && (
+                <>
+                    <FloatingPaw size="w-64 h-64" top="-15%" left="25%" delay={0}/>
+                    <FloatingPaw size="w-48 h-48" top="75%" left="85%" delay={1.5}/>
+                    <FloatingPaw size="w-32 h-32" top="30%" left="8%" delay={2.2}/>
+                    <FloatingPaw size="w-64 h-64" top="0%" left="70%" delay={3}/>
+                    <FloatingPaw size="w-32 h-32" top="45%" left="50%" delay={4}/>
+                    <FloatingPaw size="w-32 h-32" top="80%" left="30%" delay={1}/>
+                </>
+            )}
 
             <Routes>
                 <Route path='/' element={
                     <ProtectedRoute>
                         <PawsHomePage />
                     </ProtectedRoute>
-                }
-                />
+                }/>
                 <Route path='/pet-search' element={
                     <ProtectedRoute>
                         <PetSearchPage />
                     </ProtectedRoute>
-                }
-                />
+                }/>
                 <Route path='/pet/:id' element={
                     <ProtectedRoute>
                         <PetDetailPage />
                     </ProtectedRoute>
-                }
-                />
+                }/>
                 <Route path='/signup' element={
                     <RedirectAuthenticatedUser>
                         <SignUpPage />
                     </RedirectAuthenticatedUser>
-                }
-                />
+                }/>
                 <Route path='/login' element={
                     <RedirectAuthenticatedUser>
                         <LoginPage />
                     </RedirectAuthenticatedUser>
-                }
-                />
+                }/>
                 <Route path='/verify-email' element={<EmailVerificationPage />}/>
                 <Route path='/forgot-password' element={
                     <RedirectAuthenticatedUser>
                         <ForgotPasswordPage />
                     </RedirectAuthenticatedUser>
-                }
-                />
-                <Route
-                    path='/reset-password/:token'
-                    element={
-                        <RedirectAuthenticatedUser>
-                            <ResetPasswordPage />
-                        </RedirectAuthenticatedUser>
-                    }
-                />
-
+                }/>
+                <Route path='/reset-password/:token' element={
+                    <RedirectAuthenticatedUser>
+                        <ResetPasswordPage />
+                    </RedirectAuthenticatedUser>
+                }/>
                 <Route path='/admin/pets' element={
                     <ProtectedRoute>
                         <AdminDashboardPage />
@@ -141,11 +140,10 @@ function App() {
                 }
                 />
 
+                }/>
                 <Route path="*" element={<Navigate to="/" replace />} />
-
             </Routes>
             <Toaster/>
-
         </div>
     );
 }

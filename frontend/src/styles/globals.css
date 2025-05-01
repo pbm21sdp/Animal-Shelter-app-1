@@ -4,6 +4,7 @@
     -webkit-appearance: none;
     margin: 0;
 }
+
 .remove-arrow {
     -moz-appearance: textfield;
 }
@@ -13,3 +14,45 @@ select:focus {
     outline: 2px solid white;
     outline-offset: 2px;
 }
+
+/* Fix for button interaction issues at different zoom levels */
+.touch-manipulation {
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.action-button {
+    position: relative;
+    display: inline-block;
+    min-width: 44px;
+    min-height: 44px;
+    cursor: pointer;
+    touch-action: manipulation !important;
+    z-index: 1;
+}
+
+.action-button::before {
+    content: '';
+    position: absolute;
+    top: -10px;
+    left: -10px;
+    right: -10px;
+    bottom: -10px;
+    z-index: -1;
+}
+
+.table-actions button {
+    position: relative;
+    padding: 10px;
+    margin: 0 5px;
+    cursor: pointer;
+    z-index: 10;
+    touch-action: manipulation !important;
+}
+
+.modal-actions button {
+    min-width: 100px;
+    min-height: 44px;
+    touch-action: manipulation !important;
+}
+
