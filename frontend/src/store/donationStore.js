@@ -1,13 +1,46 @@
 // store/donationStore.js
-import { create } from 'zustand';
-import axios from 'axios';
+import { create } from "zustand";
+import axios from "axios";
 
-const API_URL = 'http://localhost:5000/api'; // Base API URL
+const API_URL = "http://localhost:5000/api/donations";
 
 export const useDonationStore = create((set, get) => ({
     donations: [],
     isLoading: false,
     error: null,
+    totalDonated: 0,
+
+    // Create a donation checkout session and redirect to Stripe
+    createDonation: async (userId, email, amountInCents) => {
+        set({ isLoading: true, error: null });
+        try {
+            // Create checkout session on backend with specified amount
+            const response = await axios.post(`${API_URL}/create-checkout`, {
+                userId,
+                email,
+                amountInCents // Pass the amount in cents
+            });
+
+            // Redirect to Stripe Checkout using the URL
+            if (response.data.url) {
+                window.location.href = response.data.url;
+                return true;
+            } else {
+                set({
+                    error: "No checkout URL received from server",
+                    isLoading: false
+                });
+                return false;
+            }
+        } catch (error) {
+            console.error('Error creating donation session:', error);
+            set({
+                error: error.response?.data?.message || "Error processing donation",
+                isLoading: false
+            });
+            return false;
+        }
+    },
 
     // Fetch all donations (admin only)
     getAllDonations: async () => {
@@ -57,12 +90,11 @@ export const useDonationStore = create((set, get) => ({
     updateDonationStore: async (donationId, donationData) => {
         set({ isLoading: true, error: null });
         try {
-            // First, check the API to see which endpoint works
-            // Try the first format
+            // Try the first format (without the extra /donations segment)
             let response;
             try {
                 response = await axios.put(
-                    `${API_URL}/donations/admin/${donationId}`,
+                    `${API_URL}/admin/${donationId}`,
                     donationData,
                     { withCredentials: true }
                 );
@@ -70,7 +102,7 @@ export const useDonationStore = create((set, get) => ({
                 // If first format fails, try alternative format
                 console.log("First endpoint failed, trying alternative");
                 response = await axios.put(
-                    `${API_URL}/donations/${donationId}/admin`,
+                    `${API_URL}/${donationId}/admin`,
                     donationData,
                     { withCredentials: true }
                 );
@@ -97,23 +129,23 @@ export const useDonationStore = create((set, get) => ({
         }
     },
 
-    // Delete a donation (admin only)
+// Delete a donation (admin only)
+
     deleteDonationStore: async (donationId) => {
         set({ isLoading: true, error: null });
         try {
-            // First, check the API to see which endpoint works
-            // Try the first format
+            // Try the first format (without the extra /donations segment)
             let response;
             try {
                 response = await axios.delete(
-                    `${API_URL}/donations/admin/${donationId}`,
+                    `${API_URL}/admin/${donationId}`,
                     { withCredentials: true }
                 );
             } catch (firstError) {
                 // If first format fails, try alternative format
                 console.log("First endpoint failed, trying alternative");
                 response = await axios.delete(
-                    `${API_URL}/donations/${donationId}/admin`,
+                    `${API_URL}/${donationId}/admin`,
                     { withCredentials: true }
                 );
             }
@@ -137,7 +169,24 @@ export const useDonationStore = create((set, get) => ({
         }
     },
 
+    // Verify donation was successful (could be used on success page)
+    verifyDonation: async (sessionId) => {
+        set({ isLoading: true, error: null });
+        try {
+            // This endpoint would need to be implemented on the backend
+            const response = await axios.get(`${API_URL}/verify/${sessionId}`);
+            set({ isLoading: false });
+            return response.data;
+        } catch (error) {
+            console.error('Error verifying donation:', error);
+            set({
+                error: error.response?.data?.message || "Error verifying donation",
+                isLoading: false
+            });
+            return null;
+        }
+    },
+
     // Clear error
     clearError: () => set({ error: null })
 }));
-

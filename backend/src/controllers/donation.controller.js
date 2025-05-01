@@ -375,7 +375,7 @@ export const cleanupAbandonedDonationsTest = async (req, res) => {
     }
 };
 
-// Update a donation (admin only)
+
 export const updateDonation = async (req, res) => {
     try {
         const { id } = req.params;
