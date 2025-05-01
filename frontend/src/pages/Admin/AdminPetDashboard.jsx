@@ -516,11 +516,18 @@ const AdminPetDashboard = () => {
     };
 
     const updateDonation = async () => {
-        if (!selectedDonation) return;
+        if (!selectedDonation) {
+            console.error("No donation selected");
+            return;
+        }
 
-        const donationId = selectedDonation._id || selectedDonation.id;
+        console.log("Updating donation:", selectedDonation);
+
+        // Ensure we have the donation ID
+        const donationId = selectedDonation._id;
 
         if (!donationId) {
+            console.error("Donation ID is undefined:", selectedDonation);
             setDonationError("Cannot update donation - missing ID");
             return;
         }
@@ -535,27 +542,34 @@ const AdminPetDashboard = () => {
                 createdAt: new Date(donationFormData.date).toISOString()
             });
 
-            if (result.success) {
+            if (result && result.success) {
                 // Refresh donations
                 fetchUserDonations(selectedUser._id);
                 setShowDonationEditModal(false);
             } else {
-                setDonationError(result.error || 'Failed to update donation');
+                setDonationError(result?.error || 'Failed to update donation');
             }
         } catch (error) {
             console.error('Error updating donation:', error);
-            setDonationError('Error updating donation');
+            setDonationError('Error updating donation: ' + (error.message || error));
         } finally {
             setIsLoadingDonations(false);
         }
     };
 
     const deleteDonation = async () => {
-        if (!selectedDonation) return;
+        if (!selectedDonation) {
+            console.error("No donation selected");
+            return;
+        }
 
-        const donationId = selectedDonation._id || selectedDonation.id;
+        console.log("Deleting donation:", selectedDonation);
+
+        // Ensure we have the donation ID
+        const donationId = selectedDonation._id;
 
         if (!donationId) {
+            console.error("Donation ID is undefined:", selectedDonation);
             setDonationError("Cannot delete donation - missing ID");
             return;
         }
@@ -566,16 +580,16 @@ const AdminPetDashboard = () => {
         try {
             const result = await deleteDonationStore(donationId);
 
-            if (result.success) {
+            if (result && result.success) {
                 // Refresh donations
                 fetchUserDonations(selectedUser._id);
                 setShowDonationDeleteModal(false);
             } else {
-                setDonationError(result.error || 'Failed to delete donation');
+                setDonationError(result?.error || 'Failed to delete donation');
             }
         } catch (error) {
             console.error('Error deleting donation:', error);
-            setDonationError('Error deleting donation');
+            setDonationError('Error deleting donation: ' + (error.message || error));
         } finally {
             setIsLoadingDonations(false);
         }
