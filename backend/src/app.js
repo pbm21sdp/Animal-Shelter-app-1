@@ -13,7 +13,8 @@ import { authRoutes } from "./routes/auth/auth.routes.js"
 // Import routes
 import adoptionRoutes from './routes/adoptions.js';
 import petRoutes from './routes/pets.js';
-import donationRoutes from './routes/donations.js'; // NEW: Import donation routes
+import donationRoutes from './routes/donations.routes.js';
+import userRoutes from './routes/user.routes.js';
 
 // Load .env only in non-Docker environment
 if (!process.env.DOCKER_ENV) {
@@ -30,7 +31,10 @@ const PORT = process.env.PORT || 5000;
 app.use(cors({origin: "http://localhost:5173", credentials: true}));
 
 // Special middleware for Stripe webhooks (must come before express.json())
-app.use('/api/donations/webhook', express.raw({ type: 'application/json' }));
+app.post('/api/donations/webhook',
+    express.raw({ type: 'application/json' }),
+    donationRoutes
+);
 
 // Regular middleware for all other routes
 app.use(express.json()); // allow us to parse incoming requests:req.body
@@ -42,7 +46,8 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 // API ROUTES
 app.use('/api/adoptions', adoptionRoutes);
 app.use('/api/pets', petRoutes);
-app.use('/api/donations', donationRoutes); // NEW: Use donation routes
+app.use('/api/donations', donationRoutes);
+app.use('/api/users', userRoutes);
 
 // Root route
 app.get("/", (req, res) => {
