@@ -56,60 +56,6 @@ export const uploadPhoto = async (req, res) => {
     }
 };
 
-// Get a photo by ID
-export const getPhotoById = async (req, res) => {
-    try {
-        const { photoId } = req.params;
-
-        const query = 'SELECT photo_data, content_type FROM pet_photos WHERE id = $1';
-        const result = await pool.query(query, [photoId]);
-
-        if (result.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Photo not found'
-            });
-        }
-
-        const photo = result.rows[0];
-
-        // Check if photo_data exists
-        if (!photo.photo_data) {
-            return res.status(404).json({
-                success: false,
-                message: 'Photo data is missing'
-            });
-        }
-
-        // Validate content type
-        let contentType = photo.content_type;
-
-        // Default to a safe content type if it's missing or invalid
-        if (!contentType || contentType.includes(',') || contentType.includes(';')) {
-            contentType = 'application/octet-stream';
-        }
-
-        // Set appropriate headers
-        res.set({
-            'Content-Type': contentType,
-            'Content-Length': photo.photo_data.length || 0
-        });
-
-        // Send the binary data directly
-        return res.send(photo.photo_data);
-
-    } catch (error) {
-        console.error('Error fetching photo:', error);
-
-        // Send a proper error response
-        return res.status(500).json({
-            success: false,
-            message: 'Failed to fetch photo',
-            error: error.message
-        });
-    }
-};
-
 // Get all photos for a pet
 export const getPetPhotos = async (req, res) => {
     try {
@@ -257,4 +203,58 @@ export const setPrimaryPhoto = async (req, res) => {
         });
     }
 
+};
+
+// Get a photo by ID
+export const getPhotoById = async (req, res) => {
+    try {
+        const { photoId } = req.params;
+
+        const query = 'SELECT photo_data, content_type FROM pet_photos WHERE id = $1';
+        const result = await pool.query(query, [photoId]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Photo not found'
+            });
+        }
+
+        const photo = result.rows[0];
+
+        // Check if photo_data exists
+        if (!photo.photo_data) {
+            return res.status(404).json({
+                success: false,
+                message: 'Photo data is missing'
+            });
+        }
+
+        // Validate content type
+        let contentType = photo.content_type;
+
+        // Default to a safe content type if it's missing or invalid
+        if (!contentType || contentType.includes(',') || contentType.includes(';')) {
+            contentType = 'application/octet-stream';
+        }
+
+        // Set appropriate headers
+        res.set({
+            'Content-Type': contentType,
+            'Content-Length': photo.photo_data.length || 0
+        });
+
+        // Send the binary data directly
+        return res.send(photo.photo_data);
+
+    } catch (error) {
+        console.error('Error fetching photo:', error);
+
+        // Send a proper error response
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to fetch photo',
+            error: error.message
+        });
+    }
 };
