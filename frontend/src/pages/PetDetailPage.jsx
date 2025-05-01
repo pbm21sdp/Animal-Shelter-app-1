@@ -1,7 +1,19 @@
 // pages/PetDetailPage.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { PawPrint, Search, ArrowRight, Check, MapPin, Mail, Phone, Twitter, Instagram, Facebook } from 'lucide-react';
+import {
+    PawPrint,
+    Search,
+    ArrowRight,
+    Check,
+    MapPin,
+    Mail,
+    Phone,
+    Twitter,
+    Instagram,
+    Facebook,
+    ArrowLeft
+} from 'lucide-react';
 import { usePetStore } from '../store/petStore';
 
 export function PetDetailPage() {
@@ -160,12 +172,38 @@ export function PetDetailPage() {
                             {/* Next photo button (only shown if multiple photos exist) */}
                             {pet.photos?.length > 1 && (
                                 <button
+                                    onClick={() => setCurrentPhotoIndex((currentPhotoIndex - 1 + pet.photos.length) % pet.photos.length)}
+                                    className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-tealcustom text-white rounded-full p-3 shadow-lg hover:bg-teal-700 transition-colors"
+                                >
+                                    <ArrowLeft className="h-6 w-6" />
+                                </button>
+                            )}
+
+                            {/* Next photo button */}
+                            {pet.photos?.length > 1 && (
+                                <button
                                     onClick={() => setCurrentPhotoIndex((currentPhotoIndex + 1) % pet.photos.length)}
-                                    className="absolute right-1/2 top-1/2 transform translate-x-full -translate-y-1/2 bg-tealcustom text-white rounded-full p-3 shadow-lg hover:bg-teal-700 transition-colors"
+                                    className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-tealcustom text-white rounded-full p-3 shadow-lg hover:bg-teal-700 transition-colors"
                                 >
                                     <ArrowRight className="h-6 w-6" />
                                 </button>
                             )}
+
+                            {pet.photos?.length > 1 && (
+                                <div className="flex justify-center mt-4 space-x-2">
+                                    {pet.photos.map((_, index) => (
+                                        <button
+                                            key={index}
+                                            onClick={() => setCurrentPhotoIndex(index)}
+                                            className={`w-3 h-3 rounded-full transition-colors ${
+                                                index === currentPhotoIndex ? 'bg-tealcustom' : 'bg-gray-300'
+                                            }`}
+                                            aria-label={`Go to image ${index + 1}`}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+
                         </div>
                     </div>
                 </div>
