@@ -50,21 +50,21 @@ export default function PawsHomepage() {
         <div className="min-h-screen bg-white font-sans">
             {/* Header/Navigation */}
             <header className="container mx-auto px-4 py-4 flex items-center justify-between">
-                <div className="flex items-center">
-                    <PawPrint className="text-tealcustom h-6 w-6"/>
-                    <span className="ml-2 text-xl font-bold">Paws</span>
-                </div>
+                <div className="flex items-center space-x-4">
+                    <div className="flex items-center">
+                        <PawPrint className="text-tealcustom h-6 w-6"/>
+                        <span className="ml-2 text-xl font-bold">Paws</span>
+                    </div>
 
-                <div className="flex space-x-4">
-                {user?.isAdmin && (
-                    <motion.button
-                        whileHover={{scale: 1.05}}
-                        whileTap={{scale: 0.95}}
-                        onClick={() => navigate('/admin/pets')}
-                        className="px-4 py-2 text-sm bg-tealcustom text-white rounded-md hover:bg-teal-700">
-                        Admin Dashboard
-                    </motion.button>
-                )}
+                    {user?.isAdmin && (
+                        <motion.button
+                            whileHover={{scale: 1.05}}
+                            whileTap={{scale: 0.95}}
+                            onClick={() => navigate('/admin/pets')}
+                            className="px-4 py-2 text-sm bg-tealcustom text-white rounded-md hover:bg-teal-700">
+                            Admin Dashboard
+                        </motion.button>
+                    )}
                 </div>
 
                 <nav className="hidden md:flex space-x-6 items-center">

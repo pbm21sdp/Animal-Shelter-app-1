@@ -16,6 +16,37 @@ const AdminDashboardPage = () => {
         }
     }, [user, navigate]);
 
+    // Prevent zoom issues by adding a meta tag
+    useEffect(() => {
+        // Create viewport meta tag to prevent scaling/zooming
+        const metaTag = document.createElement('meta');
+        metaTag.name = 'viewport';
+        metaTag.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0';
+        document.getElementsByTagName('head')[0].appendChild(metaTag);
+
+        // Prevent mobile browser double-tap zooming
+        document.addEventListener('gesturestart', function(e) {
+            e.preventDefault();
+        });
+
+        // Cleanup function to remove event listeners when component unmounts
+        return () => {
+            document.removeEventListener('gesturestart', function(e) {
+                e.preventDefault();
+            });
+
+            // Try to find and remove the meta tag
+            const metaTags = document.getElementsByTagName('meta');
+            for (let i = 0; i < metaTags.length; i++) {
+                if (metaTags[i].name === 'viewport' &&
+                    metaTags[i].content === 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0') {
+                    metaTags[i].parentNode.removeChild(metaTags[i]);
+                    break;
+                }
+            }
+        };
+    }, []);
+
     if (isLoading) {
         return <LoadingSpinner />;
     }
