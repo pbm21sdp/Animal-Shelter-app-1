@@ -14,6 +14,8 @@ import LoadingSpinner from "./components/LoadingSpinner";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
 import AdoptionProcessPage from "./pages/AdoptionProcessPage";
+import AdoptionRequirementsPage from "./pages/AdoptionRequirementsPage";
+import AdoptionFAQPage from './pages/AdoptionFAQPage';
 
 //protect routes that require authentication
 const ProtectedRoute = ({children}) => {
@@ -121,6 +123,20 @@ function App() {
                 <Route path="/adoption-process" element={
                     <ProtectedRoute>
                     <AdoptionProcessPage />
+                    </ProtectedRoute>
+                }
+                />
+
+                <Route path="/adoption-requirements" element={
+                    <ProtectedRoute>
+                    <AdoptionRequirementsPage />
+                    </ProtectedRoute>
+                } 
+                />
+
+                <Route path="/adoption-faq" element={
+                    <ProtectedRoute>
+                    <AdoptionFAQPage />
                     </ProtectedRoute>
                 }
                 />
