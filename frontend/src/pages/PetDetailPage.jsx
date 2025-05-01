@@ -159,12 +159,12 @@ export function PetDetailPage() {
                                     src={
                                         pet.photos?.[currentPhotoIndex]?.id
                                             ? `http://localhost:5000/api/pets/photos/${pet.photos[currentPhotoIndex].id}`
-                                            : '/api/placeholder/400/400'
+                                            : '/images/pet-placeholder.png'
                                     }
                                     alt={pet.name}
                                     className="w-full h-full object-cover object-center" // Key changes here
                                     onError={(e) => {
-                                        e.target.src = '/api/placeholder/400/400';
+                                        e.target.src = '/images/pet-placeholder.png';
                                     }}
                                 />
                             </div>
@@ -279,7 +279,7 @@ export function PetDetailPage() {
                                 <div key={similarPet.id} className="bg-white rounded-xl overflow-hidden shadow-md">
                                     <div className="h-48 overflow-hidden">
                                         <img
-                                            src={similarPet.photos?.[0]?.photo_url || '/api/placeholder/300/200'}
+                                            src={similarPet.photos?.[0]?.photo_url || '/images/pet-placeholder.png'}
                                             alt={`${similarPet.name} - ${similarPet.breed}`}
                                             className="w-full h-full object-cover"
                                         />

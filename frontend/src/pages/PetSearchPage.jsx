@@ -107,7 +107,7 @@ function PetSearchPage() {
                             </div>
                         </div>
                         <div className="hidden md:block">
-                            <img src="/api/placeholder/200/200" alt="Dog and cat" className="w-48 h-48 object-contain"/>
+                            <img src="/images/pet-placeholder.png" alt="Dog and cat" className="w-48 h-48 object-contain"/>
                         </div>
                     </div>
 
@@ -208,12 +208,12 @@ function PetSearchPage() {
                                             src={
                                                 pet.photos?.[0]?.id
                                                     ? `http://localhost:5000/api/pets/photos/${pet.photos[0].id}`
-                                                    : '/api/placeholder/300/200'
+                                                    : '/images/pet-placeholder.png'
                                             }
                                             alt={`${pet.name} - ${pet.breed}`}
                                             className="w-full h-full object-cover"
                                             onError={(e) => {
-                                                e.target.src = '/api/placeholder/300/200';
+                                                e.target.src = '/images/pet-placeholder.png';
                                             }}
                                         />
                                     </div>
