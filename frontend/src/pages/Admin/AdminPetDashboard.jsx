@@ -1,4 +1,4 @@
-// pages/AdminPetDashboard.jsx
+// pages/Admin/AdminPetDashboard.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePetStore } from '../../store/petStore';
@@ -190,7 +190,13 @@ const AdminPetDashboard = () => {
     };
 
     // Open edit modal with pet data
-    const handleEditClick = async (pet) => {
+    const handleEditClick = async (pet, e) => {
+        // Stop event propagation to prevent table row click
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
         setSelectedPet(pet);
 
         // Set form data from pet
@@ -228,6 +234,18 @@ const AdminPetDashboard = () => {
         }
 
         setShowEditModal(true);
+    };
+
+    // Handle delete button click
+    const handleDeleteClick = (pet, e) => {
+        // Stop event propagation
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        setSelectedPet(pet);
+        setShowDeleteConfirm(true);
     };
 
     // Upload photo
@@ -297,10 +315,10 @@ const AdminPetDashboard = () => {
     };
 
     return (
-        <div className="min-h-screen bg-white">
+        <div className="min-h-screen w-full bg-white">
             {/* Header */}
-            <header className="bg-tealcustom text-white py-4">
-                <div className="container mx-auto px-4 flex justify-between items-center">
+            <header className="bg-tealcustom text-white py-4 w-full">
+                <div className="w-full px-4 flex justify-between items-center">
                     <div className="flex items-center">
                         <PawPrint className="h-6 w-6 mr-2" />
                         <h1 className="text-xl font-bold">Paws Admin Dashboard</h1>
@@ -308,6 +326,7 @@ const AdminPetDashboard = () => {
                     <button
                         onClick={() => navigate('/')}
                         className="flex items-center text-white hover:text-yellow-200"
+                        style={{ padding: '10px', touchAction: 'manipulation' }}
                     >
                         <ArrowLeft className="h-5 w-5 mr-1" />
                         Back to Home
@@ -316,18 +335,18 @@ const AdminPetDashboard = () => {
             </header>
 
             {/* Main Content */}
-            <main className="container mx-auto px-4 py-8">
+            <main className="w-full px-4 py-8">
                 {/* Title and Add Pet Button */}
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold">Manage Pets</h2>
-                    <div className="flex items-center space-x-4">
-                        <div className="relative">
+                <div className="flex flex-wrap justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold mb-4 sm:mb-0">Manage Pets</h2>
+                    <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
+                        <div className="relative w-full sm:w-auto">
                             <input
                                 type="text"
                                 placeholder="Search pets..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 w-full"
                             />
                         </div>
                         <button
@@ -335,7 +354,8 @@ const AdminPetDashboard = () => {
                                 resetForm();
                                 setShowAddModal(true);
                             }}
-                            className="bg-tealcustom hover:bg-teal-700 text-white px-4 py-2 rounded-md flex items-center"
+                            className="bg-tealcustom hover:bg-teal-700 text-white px-4 py-2 rounded-md flex items-center w-full sm:w-auto justify-center"
+                            style={{ padding: '10px', touchAction: 'manipulation', minWidth: '120px' }}
                         >
                             <Plus className="h-5 w-5 mr-1" />
                             Add New Pet
@@ -351,7 +371,7 @@ const AdminPetDashboard = () => {
                 )}
 
                 {/* Pets Table */}
-                <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                <div className="bg-white shadow-md rounded-lg overflow-x-auto w-full">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                         <tr>
@@ -389,6 +409,7 @@ const AdminPetDashboard = () => {
                                                 ) : (
                                                     <div className="h-full w-full flex items-center justify-center bg-gray-200 text-gray-500">
                                                         <PawPrint className="h-6 w-6" />
+                                                        <span className="sr-only">No photo provided</span>
                                                     </div>
                                                 )}
                                             </div>
@@ -403,17 +424,39 @@ const AdminPetDashboard = () => {
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="flex space-x-2">
                                             <button
-                                                onClick={() => handleEditClick(pet)}
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    handleEditClick(pet, e);
+                                                }}
                                                 className="text-indigo-600 hover:text-indigo-900"
+                                                style={{
+                                                    touchAction: 'manipulation !important',
+                                                    minHeight: '44px',
+                                                    minWidth: '44px',
+                                                    position: 'relative',
+                                                    zIndex: 10,
+                                                    padding: '10px'
+                                                }}
+                                                aria-label={`Edit ${pet.name}`}
                                             >
                                                 <Edit className="h-5 w-5" />
                                             </button>
                                             <button
-                                                onClick={() => {
-                                                    setSelectedPet(pet);
-                                                    setShowDeleteConfirm(true);
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    handleDeleteClick(pet, e);
                                                 }}
                                                 className="text-red-600 hover:text-red-900"
+                                                style={{
+                                                    touchAction: 'manipulation !important',
+                                                    minHeight: '44px',
+                                                    minWidth: '44px',
+                                                    position: 'relative',
+                                                    zIndex: 10
+                                                }}
+                                                aria-label={`Delete ${pet.name}`}
                                             >
                                                 <Trash2 className="h-5 w-5" />
                                             </button>
@@ -429,13 +472,15 @@ const AdminPetDashboard = () => {
 
             {/* Add Pet Modal */}
             {showAddModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg max-w-4xl w-full max-h-screen overflow-y-auto">
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg w-full max-w-5xl max-h-screen overflow-y-auto">
                         <div className="sticky top-0 bg-white p-4 border-b border-gray-200 flex justify-between items-center">
                             <h3 className="text-xl font-bold">Add New Pet</h3>
                             <button
                                 onClick={() => setShowAddModal(false)}
-                                className="text-gray-500 hover:text-gray-700"
+                                className="text-gray-500 hover:text-gray-700 p-2"
+                                style={{ touchAction: 'manipulation' }}
+                                aria-label="Close modal"
                             >
                                 <X className="h-6 w-6" />
                             </button>
@@ -645,7 +690,8 @@ const AdminPetDashboard = () => {
                                             <button
                                                 type="button"
                                                 onClick={addTrait}
-                                                className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-r"
+                                                className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-r flex-shrink-0"
+                                                style={{ touchAction: 'manipulation' }}
                                             >
                                                 <Plus className="h-5 w-5" />
                                             </button>
@@ -660,7 +706,8 @@ const AdminPetDashboard = () => {
                                                     <button
                                                         type="button"
                                                         onClick={() => removeTrait(t)}
-                                                        className="ml-1 text-teal-500 hover:text-teal-700"
+                                                        className="ml-1 text-teal-500 hover:text-teal-700 p-1"
+                                                        style={{ touchAction: 'manipulation' }}
                                                     >
                                                         <X className="h-3 w-3" />
                                                     </button>
@@ -684,6 +731,7 @@ const AdminPetDashboard = () => {
                                             <label
                                                 htmlFor="photo-upload"
                                                 className="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded flex items-center"
+                                                style={{ touchAction: 'manipulation' }}
                                             >
                                                 <Camera className="h-5 w-5 mr-2" />
                                                 Select Photo
@@ -737,7 +785,8 @@ const AdminPetDashboard = () => {
                                         <input
                                             type="text"
                                             name="location_country"
-                                            value={formData.location_country} onChange={handleChange}
+                                            value={formData.location_country}
+                                            onChange={handleChange}
                                             required
                                             className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                                         />
@@ -790,12 +839,14 @@ const AdminPetDashboard = () => {
                                     type="button"
                                     onClick={() => setShowAddModal(false)}
                                     className="mr-4 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
+                                    style={{ touchAction: 'manipulation', minWidth: '100px' }}
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
-                                    className="bg-tealcustom hover:bg-teal-700 text-white px-4 py-2 rounded flex items-center"
+                                    className="bg-tealcustom hover:bg-teal-700 text-white px-4 py-2 rounded flex items-center justify-center"
+                                    style={{ touchAction: 'manipulation', minWidth: '120px' }}
                                 >
                                     <Check className="h-5 w-5 mr-2" />
                                     Save Pet
@@ -808,13 +859,15 @@ const AdminPetDashboard = () => {
 
             {/* Edit Pet Modal */}
             {showEditModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg max-w-4xl w-full max-h-screen overflow-y-auto">
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg w-full max-w-5xl max-h-screen overflow-y-auto">
                         <div className="sticky top-0 bg-white p-4 border-b border-gray-200 flex justify-between items-center">
                             <h3 className="text-xl font-bold">Edit Pet: {selectedPet?.name}</h3>
                             <button
                                 onClick={() => setShowEditModal(false)}
-                                className="text-gray-500 hover:text-gray-700"
+                                className="text-gray-500 hover:text-gray-700 p-2"
+                                style={{ touchAction: 'manipulation' }}
+                                aria-label="Close modal"
                             >
                                 <X className="h-6 w-6" />
                             </button>
@@ -1024,7 +1077,8 @@ const AdminPetDashboard = () => {
                                             <button
                                                 type="button"
                                                 onClick={addTrait}
-                                                className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-r"
+                                                className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-r flex-shrink-0"
+                                                style={{ touchAction: 'manipulation' }}
                                             >
                                                 <Plus className="h-5 w-5" />
                                             </button>
@@ -1039,7 +1093,8 @@ const AdminPetDashboard = () => {
                                                     <button
                                                         type="button"
                                                         onClick={() => removeTrait(t)}
-                                                        className="ml-1 text-teal-500 hover:text-teal-700"
+                                                        className="ml-1 text-teal-500 hover:text-teal-700 p-1"
+                                                        style={{ touchAction: 'manipulation' }}
                                                     >
                                                         <X className="h-3 w-3" />
                                                     </button>
@@ -1068,8 +1123,12 @@ const AdminPetDashboard = () => {
                                                             {!photo.is_primary && (
                                                                 <button
                                                                     type="button"
-                                                                    onClick={() => setPrimaryPhoto(selectedPet.id, photo.id)}
-                                                                    className="text-yellow-400 hover:text-yellow-300 mx-1"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setPrimaryPhoto(selectedPet.id, photo.id);
+                                                                    }}
+                                                                    className="text-yellow-400 hover:text-yellow-300 mx-1 p-2"
+                                                                    style={{ touchAction: 'manipulation' }}
                                                                     title="Set as primary photo"
                                                                 >
                                                                     <Star className="h-5 w-5" />
@@ -1077,8 +1136,12 @@ const AdminPetDashboard = () => {
                                                             )}
                                                             <button
                                                                 type="button"
-                                                                onClick={() => deletePhoto(selectedPet.id, photo.id)}
-                                                                className="text-red-400 hover:text-red-300 mx-1"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    deletePhoto(selectedPet.id, photo.id);
+                                                                }}
+                                                                className="text-red-400 hover:text-red-300 mx-1 p-2"
+                                                                style={{ touchAction: 'manipulation' }}
                                                                 title="Delete photo"
                                                             >
                                                                 <Trash2 className="h-5 w-5" />
@@ -1110,6 +1173,7 @@ const AdminPetDashboard = () => {
                                             <label
                                                 htmlFor="photo-upload-edit"
                                                 className="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded flex items-center"
+                                                style={{ touchAction: 'manipulation' }}
                                             >
                                                 <Camera className="h-5 w-5 mr-2" />
                                                 Select Photo
@@ -1217,12 +1281,14 @@ const AdminPetDashboard = () => {
                                     type="button"
                                     onClick={() => setShowEditModal(false)}
                                     className="mr-4 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
+                                    style={{ touchAction: 'manipulation', minWidth: '100px' }}
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
-                                    className="bg-tealcustom hover:bg-teal-700 text-white px-4 py-2 rounded flex items-center"
+                                    className="bg-tealcustom hover:bg-teal-700 text-white px-4 py-2 rounded flex items-center justify-center"
+                                    style={{ touchAction: 'manipulation', minWidth: '120px' }}
                                 >
                                     <Check className="h-5 w-5 mr-2" />
                                     Update Pet
@@ -1235,7 +1301,7 @@ const AdminPetDashboard = () => {
 
             {/* Delete Confirmation Modal */}
             {showDeleteConfirm && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-lg max-w-md w-full p-6">
                         <h3 className="text-xl font-bold mb-4">Delete Pet</h3>
                         <p className="mb-6">
@@ -1245,12 +1311,14 @@ const AdminPetDashboard = () => {
                             <button
                                 onClick={() => setShowDeleteConfirm(false)}
                                 className="mr-4 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
+                                style={{ touchAction: 'manipulation', minWidth: '100px' }}
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleDelete}
-                                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded flex items-center"
+                                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded flex items-center justify-center"
+                                style={{ touchAction: 'manipulation', minWidth: '120px' }}
                             >
                                 <Trash2 className="h-5 w-5 mr-2" />
                                 Delete
