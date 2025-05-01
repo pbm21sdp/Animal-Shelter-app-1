@@ -23,7 +23,7 @@ function PetSearchPage() {
     };
 
     return (
-        <div className="min-h-screen bg-white font-sans flex flex-col">
+        <div className="min-h-screen w-full bg-white font-sans flex flex-col">
             {/* Header - Fixed Height */}
             <header className="container mx-auto px-4 py-4">
                 <div className="flex items-center justify-between">
