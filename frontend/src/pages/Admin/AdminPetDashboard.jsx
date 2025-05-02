@@ -1773,7 +1773,7 @@ const AdminPetDashboard = () => {
             )}
 
             {/* Users and Donations Section */}
-            <div className="mt-12">
+            <div className="mt-12 px-4 py-6">
                 <div className="flex flex-wrap justify-between items-center mb-6">
                     <h2 className="text-2xl font-bold mb-4 sm:mb-0 flex items-center">
                         <Users className="h-6 w-6 mr-2" />
