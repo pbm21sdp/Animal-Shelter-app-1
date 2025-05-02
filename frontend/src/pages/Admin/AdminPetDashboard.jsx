@@ -79,6 +79,21 @@ const AdminPetDashboard = () => {
     const [copiedSessionId, setCopiedSessionId] = useState(null);
     const [showCopyToast, setShowCopyToast] = useState(false);
 
+    // Pagination for Pets
+    const [currentPetPage, setCurrentPetPage] = useState(1);
+    const [petsPerPage] = useState(10);
+
+// Pagination for Users
+    const [currentUserPage, setCurrentUserPage] = useState(1);
+    const [usersPerPage] = useState(10);
+
+// Pagination for Donations
+    const [currentDonationPage, setCurrentDonationPage] = useState(1);
+    const [donationsPerPage] = useState(10);
+
+    // State for dynamic heights
+    const [scrollableHeight, setScrollableHeight] = useState(400);
+
     // Check if user is admin
     useEffect(() => {
         if (!user?.isAdmin) {
@@ -103,6 +118,20 @@ const AdminPetDashboard = () => {
             );
         }
     }, [searchTerm, pets]);
+
+    // Update heights based on window size
+    useEffect(() => {
+        const updateHeight = () => {
+            // Calculate approximately 60% of viewport height as a good default
+            const calculatedHeight = Math.max(400, window.innerHeight * 0.6);
+            setScrollableHeight(calculatedHeight);
+        };
+
+        updateHeight();
+        window.addEventListener('resize', updateHeight);
+
+        return () => window.removeEventListener('resize', updateHeight);
+    }, []);
 
     // Reset form data
     const resetForm = () => {
@@ -595,6 +624,105 @@ const AdminPetDashboard = () => {
         }
     };
 
+    // Pagination Logic
+    const indexOfLastPet = currentPetPage * petsPerPage;
+    const indexOfFirstPet = indexOfLastPet - petsPerPage;
+    const getCurrentPets = () => {
+        return filteredPets.slice(indexOfFirstPet, indexOfLastPet);
+    };
+
+// Get current users for pagination
+    const indexOfLastUser = currentUserPage * usersPerPage;
+    const indexOfFirstUser = indexOfLastUser - usersPerPage;
+    const getCurrentUsers = () => {
+        return filteredUsers.slice(indexOfFirstUser, indexOfLastUser);
+    };
+
+// Get current donations for pagination
+    const indexOfLastDonation = currentDonationPage * donationsPerPage;
+    const indexOfFirstDonation = indexOfLastDonation - donationsPerPage;
+    const getCurrentDonations = () => {
+        return getFilteredDonations().slice(indexOfFirstDonation, indexOfLastDonation);
+    };
+
+// Change page handlers
+    const paginate = (pageNumber, setter) => setter(pageNumber);
+
+    const Pagination = ({ itemsPerPage, totalItems, currentPage, paginate }) => {
+        const pageNumbers = [];
+
+        for (let i = 1; i <= Math.ceil(totalItems / itemsPerPage); i++) {
+            pageNumbers.push(i);
+        }
+
+        // Only show 5 page numbers max with current page in the middle when possible
+        let visiblePages = pageNumbers;
+        if (pageNumbers.length > 5) {
+            const startIndex = Math.max(0, currentPage - 3);
+            const endIndex = Math.min(pageNumbers.length, currentPage + 2);
+            visiblePages = pageNumbers.slice(startIndex, endIndex);
+
+            // Always show first and last page
+            if (!visiblePages.includes(1)) {
+                visiblePages.unshift(1);
+                if (visiblePages[1] > 2) visiblePages.splice(1, 0, '...');
+            }
+            if (!visiblePages.includes(pageNumbers.length)) {
+                if (visiblePages[visiblePages.length - 1] < pageNumbers.length - 1) {
+                    visiblePages.push('...');
+                }
+                visiblePages.push(pageNumbers.length);
+            }
+        }
+
+        if (pageNumbers.length <= 1) return null;
+
+        return (
+            <nav className="flex justify-center mt-4 mb-6">
+                <ul className="flex">
+                    <li className={`mx-1 ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                        <button
+                            onClick={() => currentPage > 1 && paginate(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            className="px-3 py-1 border rounded bg-gray-100 hover:bg-gray-200"
+                        >
+                            Prev
+                        </button>
+                    </li>
+
+                    {visiblePages.map((number, index) => (
+                        <li key={index} className="mx-1">
+                            {number === '...' ? (
+                                <span className="px-3 py-1">...</span>
+                            ) : (
+                                <button
+                                    onClick={() => paginate(number)}
+                                    className={`px-3 py-1 border rounded ${
+                                        currentPage === number
+                                            ? 'bg-tealcustom text-white'
+                                            : 'bg-gray-100 hover:bg-gray-200'
+                                    }`}
+                                >
+                                    {number}
+                                </button>
+                            )}
+                        </li>
+                    ))}
+
+                    <li className={`mx-1 ${currentPage === pageNumbers.length ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                        <button
+                            onClick={() => currentPage < pageNumbers.length && paginate(currentPage + 1)}
+                            disabled={currentPage === pageNumbers.length}
+                            className="px-3 py-1 border rounded bg-gray-100 hover:bg-gray-200"
+                        >
+                            Next
+                        </button>
+                    </li>
+                </ul>
+            </nav>
+        );
+    };
+
 
 // Add useEffect for users
     useEffect(() => {
@@ -678,7 +806,7 @@ const AdminPetDashboard = () => {
                 )}
 
                 {/* Pets Table */}
-                <div className="bg-white shadow-md rounded-lg overflow-x-auto w-full">
+                <div className="bg-white shadow-md rounded-lg overflow-hidden w-full">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                         <tr>
@@ -701,7 +829,8 @@ const AdminPetDashboard = () => {
                                 <td colSpan="7" className="px-6 py-4 text-center">No pets found</td>
                             </tr>
                         ) : (
-                            filteredPets.map(pet => (
+                            // Use getCurrentPets() instead of filteredPets directly
+                            getCurrentPets().map(pet => (
                                 <tr key={pet.id} className="hover:bg-gray-50">
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="flex items-center">
@@ -775,6 +904,14 @@ const AdminPetDashboard = () => {
                         </tbody>
                     </table>
                 </div>
+
+                {/* Add Pagination Component for Pets */}
+                <Pagination
+                    itemsPerPage={petsPerPage}
+                    totalItems={filteredPets.length}
+                    currentPage={currentPetPage}
+                    paginate={(pageNumber) => paginate(pageNumber, setCurrentPetPage)}
+                />
             </main>
 
             {/* Add Pet Modal */}
@@ -1672,12 +1809,13 @@ const AdminPetDashboard = () => {
 
                 {/* Users & Donations Container */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Users List */}
+                    {/* Users List with Scrollbar */}
                     <div className="bg-white shadow-md rounded-lg overflow-hidden">
-                        <div className="p-4 bg-gray-50 border-b border-gray-200 font-semibold">
-                            Users
+                        <div className="p-4 bg-gray-50 border-b border-gray-200 font-semibold flex justify-between">
+                            <span>Users</span>
+                            <span className="text-sm text-gray-500">{filteredUsers.length} total</span>
                         </div>
-                        <div className="overflow-y-auto" style={{ maxHeight: '60vh' }}>
+                        <div className="overflow-y-auto" style={{ height: `${scrollableHeight}px` }}>
                             {isLoadingUsers ? (
                                 <div className="p-6 text-center">Loading users...</div>
                             ) : filteredUsers.length === 0 ? (
@@ -1711,11 +1849,20 @@ const AdminPetDashboard = () => {
                         </div>
                     </div>
 
-                    {/* Donations Panel */}
+                    {/* Donations Panel with Scrollbar */}
                     <div className="lg:col-span-2 bg-white shadow-md rounded-lg overflow-hidden">
                         <div className="p-4 bg-gray-50 border-b border-gray-200 font-semibold flex justify-between items-center">
                             <div>
-                                {selectedUser ? `Donations for ${selectedUser.name || selectedUser.email}` : 'Donations'}
+                                {selectedUser ? (
+                                    <div className="flex items-center">
+                                        <span>{`Donations for ${selectedUser.name || selectedUser.email}`}</span>
+                                        <span className="ml-2 text-sm text-gray-500">
+                            {getFilteredDonations().length} total
+                        </span>
+                                    </div>
+                                ) : (
+                                    'Donations'
+                                )}
                             </div>
                             <button
                                 onClick={() => setShowDonationFilters(!showDonationFilters)}
@@ -1801,7 +1948,7 @@ const AdminPetDashboard = () => {
                         )}
 
                         {/* Donations Content */}
-                        <div className="overflow-y-auto" style={{ maxHeight: '60vh' }}>
+                        <div className="overflow-hidden">
                             {!selectedUser ? (
                                 <div className="p-8 text-center text-gray-500">
                                     <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
@@ -1817,36 +1964,37 @@ const AdminPetDashboard = () => {
                                             <p>No donations found with the current filters</p>
                                         </div>
                                     ) : (
-                                        <table className="min-w-full divide-y divide-gray-200">
-                                            <thead className="bg-gray-50">
-                                            <tr>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Session ID</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                                            </tr>
-                                            </thead>
-                                            <tbody className="bg-white divide-y divide-gray-200">
-                                            {getFilteredDonations().map(donation => (
-                                                <tr
-                                                    key={donation._id}
-                                                    className="hover:bg-gray-50 cursor-pointer"
-                                                    onClick={() => handleDonationEditClick(donation)}
-                                                >
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="flex items-center">
-                                                            <Calendar className="h-4 w-4 text-gray-400 mr-2" />
-                                                            <span className="text-sm text-gray-900">{formatDate(donation.createdAt)}</span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="flex items-center">
-                                                            <Banknote className="h-4 w-4 text-gray-400 mr-1" />
-                                                            <span className="text-sm font-medium text-gray-900">€{donation.amount.toFixed(2)}</span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="overflow-y-auto" style={{ height: '500px' }}>
+                                            <table className="min-w-full divide-y divide-gray-200">
+                                                <thead className="bg-gray-50 sticky top-0 z-10">
+                                                <tr>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Session ID</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                                </tr>
+                                                </thead>
+                                                <tbody className="bg-white divide-y divide-gray-200">
+                                                {getFilteredDonations().map(donation => (
+                                                    <tr
+                                                        key={donation._id}
+                                                        className="hover:bg-gray-50 cursor-pointer"
+                                                        onClick={() => handleDonationEditClick(donation)}
+                                                    >
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <div className="flex items-center">
+                                                                <Calendar className="h-4 w-4 text-gray-400 mr-2" />
+                                                                <span className="text-sm text-gray-900">{formatDate(donation.createdAt)}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <div className="flex items-center">
+                                                                <Banknote className="h-4 w-4 text-gray-400 mr-1" />
+                                                                <span className="text-sm font-medium text-gray-900">€{donation.amount.toFixed(2)}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
                                             <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                                                 donation.status === 'completed' ? 'bg-green-100 text-green-800' :
                                                     donation.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
@@ -1855,56 +2003,57 @@ const AdminPetDashboard = () => {
                                             }`}>
                                                 {donation.status}
                                             </span>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="flex items-center">
-                                                            <div className="text-sm text-gray-500 max-w-xs truncate mr-2" title={donation.stripeSessionId}>
-                                                                {donation.stripeSessionId}
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <div className="flex items-center">
+                                                                <div className="text-sm text-gray-500 max-w-xs truncate mr-2" title={donation.stripeSessionId}>
+                                                                    {donation.stripeSessionId}
+                                                                </div>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation(); // Prevent row click
+                                                                        copyToClipboard(donation.stripeSessionId);
+                                                                    }}
+                                                                    className={`${copiedSessionId === donation.stripeSessionId ? 'text-green-500' : 'text-gray-400 hover:text-tealcustom'} p-1 rounded transition-colors duration-300`}
+                                                                    title="Copy Session ID"
+                                                                >
+                                                                    {copiedSessionId === donation.stripeSessionId ? (
+                                                                        <Check className="h-4 w-4" />
+                                                                    ) : (
+                                                                        <Copy className="h-4 w-4" />
+                                                                    )}
+                                                                </button>
                                                             </div>
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation(); // Prevent row click
-                                                                    copyToClipboard(donation.stripeSessionId);
-                                                                }}
-                                                                className={`${copiedSessionId === donation.stripeSessionId ? 'text-green-500' : 'text-gray-400 hover:text-tealcustom'} p-1 rounded transition-colors duration-300`}
-                                                                title="Copy Session ID"
-                                                            >
-                                                                {copiedSessionId === donation.stripeSessionId ? (
-                                                                    <Check className="h-4 w-4" />
-                                                                ) : (
-                                                                    <Copy className="h-4 w-4" />
-                                                                )}
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="flex space-x-2">
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation(); // Prevent row click
-                                                                    handleDonationEditClick(donation);
-                                                                }}
-                                                                className="text-indigo-600 hover:text-indigo-900 p-1"
-                                                                title="Edit Donation"
-                                                            >
-                                                                <Edit className="h-4 w-4" />
-                                                            </button>
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation(); // Prevent row click
-                                                                    handleDonationDeleteClick(donation);
-                                                                }}
-                                                                className="text-red-600 hover:text-red-900 p-1"
-                                                                title="Delete Donation"
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                            </tbody>
-                                        </table>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <div className="flex space-x-2">
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation(); // Prevent row click
+                                                                        handleDonationEditClick(donation);
+                                                                    }}
+                                                                    className="text-indigo-600 hover:text-indigo-900 p-1"
+                                                                    title="Edit Donation"
+                                                                >
+                                                                    <Edit className="h-4 w-4" />
+                                                                </button>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation(); // Prevent row click
+                                                                        handleDonationDeleteClick(donation);
+                                                                    }}
+                                                                    className="text-red-600 hover:text-red-900 p-1"
+                                                                    title="Delete Donation"
+                                                                >
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     )}
                                 </div>
                             )}
@@ -2031,6 +2180,9 @@ const AdminPetDashboard = () => {
                     </div>
                 )}
             </div>
+
+        {/* Inbox section */}
+
         </div>
     );
 };
