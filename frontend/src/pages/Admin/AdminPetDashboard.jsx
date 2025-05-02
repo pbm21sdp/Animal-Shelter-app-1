@@ -1815,7 +1815,7 @@ const AdminPetDashboard = () => {
                             <span>Users</span>
                             <span className="text-sm text-gray-500">{filteredUsers.length} total</span>
                         </div>
-                        <div className="overflow-y-auto" style={{ height: '500px' }}>
+                        <div className="overflow-y-auto" style={{ height: `${scrollableHeight}px` }}>
                             {isLoadingUsers ? (
                                 <div className="p-6 text-center">Loading users...</div>
                             ) : filteredUsers.length === 0 ? (
