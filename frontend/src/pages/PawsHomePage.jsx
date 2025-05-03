@@ -206,7 +206,9 @@ export default function PawsHomepage() {
             <section className="container mx-auto px-4 py-8 md:py-16">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
                     {/* Dog Category */}
-                    <div className="flex flex-col items-center justify-center">
+                    <div className="flex flex-col items-center justify-center"
+                         onClick={() => navigate('/pet-search?type=dog')}
+                    >
                         <Blob type="dog" className="w-full aspect-square flex items-center justify-center">
                             <div className="flex flex-col items-center justify-center">
                                 <div className="mb-4">
@@ -218,7 +220,9 @@ export default function PawsHomepage() {
                     </div>
 
                     {/* Cat Category */}
-                    <div className="flex flex-col items-center justify-center">
+                    <div className="flex flex-col items-center justify-center"
+                         onClick={() => navigate('/pet-search?type=cat')}
+                    >
                         <Blob type="cat" className="w-full aspect-square flex items-center justify-center">
                             <div className="flex flex-col items-center justify-center">
                                 <div className="mb-4">
@@ -230,7 +234,9 @@ export default function PawsHomepage() {
                     </div>
 
                     {/* Bird Category */}
-                    <div className="flex flex-col items-center justify-center">
+                    <div className="flex flex-col items-center justify-center"
+                         onClick={() => navigate('/pet-search?type=bird')}
+                    >
                         <Blob type="bird" className="w-full aspect-square flex items-center justify-center">
                             <div className="flex flex-col items-center justify-center">
                                 <div className="mb-4">
@@ -242,7 +248,9 @@ export default function PawsHomepage() {
                     </div>
 
                     {/* Other Animals Category */}
-                    <div className="flex flex-col items-center justify-center">
+                    <div className="flex flex-col items-center justify-center"
+                         onClick={() => navigate('/pet-search?type=other')}
+                    >
                         <Blob type="other" className="w-full aspect-square flex items-center justify-center">
                             <div className="flex flex-col items-center justify-center">
                                 <div className="mb-4">
