@@ -5,7 +5,7 @@ import { usePetStore } from '../../store/petStore';
 import { useAuthStore } from '../../store/authStore';
 import {useDonationStore} from "../../store/donationStore";
 import { PawPrint, Plus, X, ArrowLeft, Edit, Trash2, Check, Camera, Star } from 'lucide-react';
-import { Users, Banknote, Calendar, Filter, Search, RefreshCw, Copy } from 'lucide-react';
+import { Users, Banknote, Calendar, Filter, Search, RefreshCw, Copy, MessageSquare, Send } from 'lucide-react';
 import axios from 'axios';
 
 
@@ -83,17 +83,32 @@ const AdminPetDashboard = () => {
     const [currentPetPage, setCurrentPetPage] = useState(1);
     const [petsPerPage] = useState(10);
 
-// Pagination for Users
+    // Pagination for Users
     const [currentUserPage, setCurrentUserPage] = useState(1);
     const [usersPerPage] = useState(10);
 
-// Pagination for Donations
+    // Pagination for Donations
     const [currentDonationPage, setCurrentDonationPage] = useState(1);
     const [donationsPerPage] = useState(10);
 
     // State for dynamic heights
     const [scrollableHeight, setScrollableHeight] = useState(400);
 
+    // For Messages
+    const [messages, setMessages] = useState([]);
+    const [filteredMessages, setFilteredMessages] = useState([]);
+    const [selectedMessage, setSelectedMessage] = useState(null);
+    const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+    const [messageError, setMessageError] = useState(null);
+    const [replyMessage, setReplyMessage] = useState('');
+    const [isSubmittingReply, setIsSubmittingReply] = useState(false);
+    const [showDeleteMessageModal, setShowDeleteMessageModal] = useState(false);
+    const [messageToDelete, setMessageToDelete] = useState(null);
+
+    // Messages like donation container
+    const [userMessages, setUserMessages] = useState([]);
+    const [isLoadingUserMessages, setIsLoadingUserMessages] = useState(false);
+    const [userMessageError, setUserMessageError] = useState(null);
     // Check if user is admin
     useEffect(() => {
         if (!user?.isAdmin) {
@@ -131,6 +146,11 @@ const AdminPetDashboard = () => {
         window.addEventListener('resize', updateHeight);
 
         return () => window.removeEventListener('resize', updateHeight);
+    }, []);
+
+    // Fetch messages when component mounts
+    useEffect(() => {
+        fetchMessages();
     }, []);
 
     // Reset form data
@@ -417,13 +437,15 @@ const AdminPetDashboard = () => {
         }
     };
 
-// Handle user selection to show their donations
+    // Modify the handleUserSelect function to also fetch messages
     const handleUserSelect = (user) => {
         setSelectedUser(user);
         fetchUserDonations(user._id);
+        fetchUserMessages(user._id); // Add this line to fetch messages when a user is selected
+        setSelectedMessage(null); // Clear selected message when changing user
     };
 
-// Handle donation filter changes
+    // Handle donation filter changes
     const handleFilterChange = (e) => {
         const { name, value } = e.target;
         setDonationFilters(prev => ({
@@ -432,7 +454,7 @@ const AdminPetDashboard = () => {
         }));
     };
 
-// Apply donation filters
+    // Apply donation filters
     const getFilteredDonations = () => {
         if (!userDonations.length) return [];
 
@@ -472,7 +494,7 @@ const AdminPetDashboard = () => {
         });
     };
 
-// Reset filters
+    // Reset filters
     const resetFilters = () => {
         setDonationFilters({
             status: 'all',
@@ -482,7 +504,7 @@ const AdminPetDashboard = () => {
         });
     };
 
-// Format date
+    // Format date
     const formatDate = (dateString) => {
         const date = new Date(dateString);
         return date.toLocaleDateString('en-US', {
@@ -623,6 +645,163 @@ const AdminPetDashboard = () => {
             setIsLoadingDonations(false);
         }
     };
+
+    // Fetch all messages
+    const fetchMessages = async () => {
+        setIsLoadingMessages(true);
+        setMessageError(null);
+        try {
+            const response = await axios.get('http://localhost:5000/api/messages/admin', { withCredentials: true });
+            if (response.data.success) {
+                setMessages(response.data.messages);
+                setFilteredMessages(response.data.messages);
+            } else {
+                setMessageError('Failed to fetch messages');
+            }
+        } catch (error) {
+            console.error('Error fetching messages:', error);
+            setMessageError(error.response?.data?.message || 'Error fetching messages');
+        } finally {
+            setIsLoadingMessages(false);
+        }
+    };
+
+// Handle message selection
+    const handleMessageSelect = async (message) => {
+        setSelectedMessage(message);
+        setReplyMessage('');
+    };
+
+// Handle message deletion
+    const handleDeleteMessage = (messageId) => {
+        setMessageToDelete(messageId);
+        setShowDeleteMessageModal(true);
+    };
+
+// Confirm message deletion
+    // Confirm message deletion - Already correct
+    const confirmDeleteMessage = async () => {
+        try {
+            await axios.delete(`http://localhost:5000/api/messages/admin/${messageToDelete}`,
+                { withCredentials: true }
+            );
+
+            // Remove the message from our state
+            setMessages(prevMessages =>
+                prevMessages.filter(m => m._id !== messageToDelete)
+            );
+
+            setFilteredMessages(prevMessages =>
+                prevMessages.filter(m => m._id !== messageToDelete)
+            );
+
+            // ALSO update the userMessages state
+            setUserMessages(prevMessages =>
+                prevMessages.filter(m => m._id !== messageToDelete)
+            );
+
+            // Clear selected message if it was deleted
+            if (selectedMessage && selectedMessage._id === messageToDelete) {
+                setSelectedMessage(null);
+            }
+
+            setShowDeleteMessageModal(false);
+        } catch (error) {
+            console.error('Error deleting message:', error);
+            setMessageError(error.response?.data?.message || 'Error deleting message');
+        }
+    };
+
+    // Handle reply submission
+    const handleReplySubmit = async (e) => {
+        e.preventDefault();
+
+        if (!selectedMessage || !replyMessage.trim()) {
+            return;
+        }
+
+        setIsSubmittingReply(true);
+        try {
+            // Send the reply email
+            const response = await axios.post(
+                'http://localhost:5000/api/messages/admin/reply',
+                {
+                    messageId: selectedMessage._id,
+                    email: selectedMessage.email,
+                    replyText: replyMessage
+                },
+                { withCredentials: true }
+            );
+
+            if (response.data.success) {
+                // Clear the reply form
+                setReplyMessage('');
+
+                // Mark the message as responded if not already
+                if (!selectedMessage.read) {
+                    await axios.put(
+                        `http://localhost:5000/api/messages/admin/${selectedMessage._id}/mark-read`,
+                        {},
+                        { withCredentials: true }
+                    );
+
+                    // Update the message in our state
+                    setMessages(prevMessages =>
+                        prevMessages.map(m =>
+                            m._id === selectedMessage._id ? { ...m, read: true } : m
+                        )
+                    );
+
+                    setFilteredMessages(prevMessages =>
+                        prevMessages.map(m =>
+                            m._id === selectedMessage._id ? { ...m, read: true } : m
+                        )
+                    );
+
+                    // Also update userMessages state
+                    setUserMessages(prevMessages =>
+                        prevMessages.map(m =>
+                            m._id === selectedMessage._id ? { ...m, read: true } : m
+                        )
+                    );
+
+                    // Update the selected message
+                    setSelectedMessage(prev => ({ ...prev, read: true }));
+                }
+
+                // Show success message
+                alert('Reply sent successfully!');
+            }
+        } catch (error) {
+            console.error('Error sending reply:', error);
+            setMessageError(error.response?.data?.message || 'Error sending reply');
+        } finally {
+            setIsSubmittingReply(false);
+        }
+    };
+
+    const fetchUserMessages = async (userId) => {
+        setIsLoadingUserMessages(true);
+        setUserMessageError(null);
+        try {
+            // console.log("Fetching messages for user:", userId);
+            const response = await axios.get(`http://localhost:5000/api/messages/admin/user/${userId}`,
+                { withCredentials: true }
+            );
+            // console.log("Response:", response.data);
+            if (response.data.success) {
+                setUserMessages(response.data.messages || []);
+            } else {
+                setUserMessageError('Failed to fetch user messages');
+            }
+        } catch (error) {
+            // console.error('Error fetching user messages:', error);
+            setUserMessageError(error.response?.data?.message || 'Error fetching user messages');
+        } finally {
+            setIsLoadingUserMessages(false);
+        }
+    };
+
 
     // Pagination Logic
     const indexOfLastPet = currentPetPage * petsPerPage;
@@ -2181,7 +2360,272 @@ const AdminPetDashboard = () => {
                 )}
             </div>
 
-        {/* Inbox section */}
+            {/* Inbox section */}
+            <div className="mt-12 px-4 py-6">
+                <div className="flex flex-wrap justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold mb-4 sm:mb-0 flex items-center">
+                        <MessageSquare className="h-6 w-6 mr-2" />
+                        Message Inbox
+                    </h2>
+                    <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
+                        <button
+                            onClick={fetchUsers}
+                            className="bg-tealcustom hover:bg-teal-700 text-white px-4 py-2 rounded-md flex items-center w-full sm:w-auto justify-center"
+                        >
+                            <RefreshCw className="h-5 w-5 mr-1" />
+                            Refresh Users
+                        </button>
+                    </div>
+                </div>
+
+                {/* Message Error Display */}
+                {messageError && (
+                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                        {messageError}
+                    </div>
+                )}
+
+                {/* Messages Container */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Users List with Scrollbar - Reuse from the Users and Donations section */}
+                    <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                        <div className="p-4 bg-gray-50 border-b border-gray-200 font-semibold flex justify-between">
+                            <span>Users</span>
+                            <span className="text-sm text-gray-500">{filteredUsers.length} total</span>
+                        </div>
+                        <div className="overflow-y-auto" style={{ height: `${scrollableHeight}px` }}>
+                            {isLoadingUsers ? (
+                                <div className="p-6 text-center">Loading users...</div>
+                            ) : filteredUsers.length === 0 ? (
+                                <div className="p-6 text-center">No users found</div>
+                            ) : (
+                                <ul className="divide-y divide-gray-200">
+                                    {filteredUsers.map(user => (
+                                        <li
+                                            key={user._id}
+                                            onClick={() => handleUserSelect(user)}
+                                            className={`p-4 hover:bg-gray-50 cursor-pointer ${selectedUser?._id === user._id ? 'bg-teal-50 border-l-4 border-tealcustom' : ''}`}
+                                        >
+                                            <div className="flex items-center">
+                                                <div className="flex-shrink-0">
+                                                    <div className="h-10 w-10 rounded-full bg-teal-100 flex items-center justify-center">
+                                                        <span className="text-tealcustom font-semibold">{user.name?.charAt(0) || user.email?.charAt(0) || '?'}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="ml-4">
+                                                    <div className="font-medium text-gray-900">{user.name || 'Unnamed User'}</div>
+                                                    <div className="text-sm text-gray-500">{user.email}</div>
+                                                </div>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* User Messages Panel */}
+                    <div className="lg:col-span-2 bg-white shadow-md rounded-lg overflow-hidden">
+                        <div className="p-4 bg-gray-50 border-b border-gray-200 font-semibold flex justify-between items-center">
+                            <div>
+                                {selectedUser ? (
+                                    <div className="flex items-center">
+                                        <span>{`Messages from ${selectedUser.name || selectedUser.email}`}</span>
+                                        <span className="ml-2 text-sm text-gray-500">
+                {userMessages.length} total
+              </span>
+                                    </div>
+                                ) : (
+                                    'Messages'
+                                )}
+                            </div>
+                        </div>
+
+                        {/* User Messages Content */}
+                        <div className="overflow-hidden">
+                            {!selectedUser ? (
+                                <div className="p-8 text-center text-gray-500">
+                                    <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                                    <p>Select a user to view their messages</p>
+                                </div>
+                            ) : isLoadingUserMessages ? (
+                                <div className="p-6 text-center">Loading messages...</div>
+                            ) : (
+                                <div>
+                                    {userMessages.length === 0 ? (
+                                        <div className="p-6 text-center text-gray-500">
+                                            <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                                            <p>No messages found for this user</p>
+                                        </div>
+                                    ) : !selectedMessage ? (
+                                        // Show list of messages when no specific message is selected
+                                        <div className="overflow-y-auto" style={{ height: `${scrollableHeight}px` }}>
+                                            <table className="min-w-full divide-y divide-gray-200">
+                                                <thead className="bg-gray-50 sticky top-0 z-10">
+                                                <tr>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Message</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                                </tr>
+                                                </thead>
+                                                <tbody className="bg-white divide-y divide-gray-200">
+                                                {userMessages.map(message => (
+                                                    <tr
+                                                        key={message._id}
+                                                        className="hover:bg-gray-50 cursor-pointer"
+                                                        onClick={() => handleMessageSelect(message)}
+                                                    >
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <div className="flex items-center">
+                                                                <Calendar className="h-4 w-4 text-gray-400 mr-2" />
+                                                                <span className="text-sm text-gray-900">{formatDate(message.createdAt)}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <div className="text-sm text-gray-900 truncate max-w-xs">
+                                                                {message.message.length > 60
+                                                                    ? `${message.message.substring(0, 60)}...`
+                                                                    : message.message}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            message.read ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {message.read ? 'Responded' : 'Unresponded'}
+                        </span>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <div className="flex space-x-2">
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation(); // Prevent row click
+                                                                        handleDeleteMessage(message._id);
+                                                                    }}
+                                                                    className="text-red-600 hover:text-red-900 p-1"
+                                                                    title="Delete Message"
+                                                                >
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    ) : (
+                                        // Show selected message detail and reply form
+                                        <div className="flex flex-col h-full" style={{ height: `${scrollableHeight}px` }}>
+                                            {/* Selected Message Content */}
+                                            <div className="p-4 flex-grow overflow-y-auto">
+                                                <div className="mb-4 flex justify-between items-center">
+                                                    <button
+                                                        onClick={() => setSelectedMessage(null)}
+                                                        className="text-tealcustom hover:text-teal-700 flex items-center"
+                                                    >
+                                                        <ArrowLeft className="h-4 w-4 mr-1" />
+                                                        Back to messages
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteMessage(selectedMessage._id)}
+                                                        className="text-red-600 hover:text-red-800 flex items-center"
+                                                    >
+                                                        <Trash2 className="h-4 w-4 mr-1" />
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                                <div className="mb-6">
+                                                    <div className="flex justify-between items-center mb-2">
+                                                        <div>
+                                                            <span className="font-semibold">From:</span> {selectedMessage.email}
+                                                        </div>
+                                                        <div className="text-sm text-gray-500">
+                                                            {formatDate(selectedMessage.createdAt)}
+                                                        </div>
+                                                    </div>
+                                                    <div className="bg-gray-50 p-4 rounded-lg whitespace-pre-wrap break-words overflow-hidden">
+                                                        {selectedMessage.message}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Reply Form */}
+                                            <div className="border-t border-gray-200 p-4">
+                                                <form onSubmit={handleReplySubmit}>
+                                                    <div className="mb-4">
+                                                        <label htmlFor="reply" className="block text-sm font-medium text-gray-700 mb-1">
+                                                            Your Reply
+                                                        </label>
+                                                        <textarea
+                                                            id="reply"
+                                                            name="reply"
+                                                            rows="4"
+                                                            value={replyMessage}
+                                                            onChange={(e) => setReplyMessage(e.target.value)}
+                                                            className="shadow-sm focus:ring-teal-500 focus:border-teal-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                                                            placeholder="Type your response here..."
+                                                        ></textarea>
+                                                    </div>
+                                                    <div className="flex justify-end">
+                                                        <button
+                                                            type="submit"
+                                                            disabled={isSubmittingReply || !replyMessage.trim()}
+                                                            className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-tealcustom hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 ${
+                                                                isSubmittingReply || !replyMessage.trim() ? 'opacity-50 cursor-not-allowed' : ''
+                                                            }`}
+                                                        >
+                                                            {isSubmittingReply ? (
+                                                                <>
+                                                                    <span className="mr-2">Sending...</span>
+                                                                    <RefreshCw className="h-4 w-4 animate-spin" />
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <span className="mr-2">Send Reply</span>
+                                                                    <Send className="h-4 w-4" />
+                                                                </>
+                                                            )}
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Delete Message Confirmation Modal */}
+                {showDeleteMessageModal && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-lg max-w-md w-full p-6">
+                            <h3 className="text-xl font-bold mb-4">Delete Message</h3>
+                            <p className="mb-6">
+                                Are you sure you want to delete this message? This action cannot be undone.
+                            </p>
+                            <div className="flex justify-end">
+                                <button
+                                    onClick={() => setShowDeleteMessageModal(false)}
+                                    className="mr-4 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={confirmDeleteMessage}
+                                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded flex items-center justify-center"
+                                >
+                                    <Trash2 className="h-5 w-5 mr-2" />
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
 
         </div>
     );
