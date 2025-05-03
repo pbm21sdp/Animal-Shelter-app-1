@@ -1,6 +1,6 @@
 import React, {useState, useEffect, useRef} from 'react';
 import { Search, PawPrint, ArrowRight, ChevronDown } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { usePetStore } from '../store/petStore';
 import {motion} from "framer-motion";
 import {useAuthStore} from "../store/authStore.js";
@@ -9,13 +9,26 @@ function PetSearchPage() {
     const navigate = useNavigate();
     const { user, logout } = useAuthStore();
     const { pets, isLoading, error, searchPets } = usePetStore();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const location = useLocation();
+
+    const typeFromUrl = searchParams.get('type');
 
     const [filters, setFilters] = useState({
-        type: 'any',
+        type: typeFromUrl || 'any',
         radius: '',
         zipCode: '',
         sortBy: 'nearest'
     });
+
+    useEffect(() => {
+        if (typeFromUrl) {
+            setFilters(prev => ({
+                ...prev,
+                type: typeFromUrl
+            }));
+        }
+    }, [typeFromUrl]);
 
     useEffect(() => {
         searchPets(filters);
@@ -23,6 +36,16 @@ function PetSearchPage() {
 
     const handleFilterChange = (key, value) => {
         setFilters(prev => ({ ...prev, [key]: value }));
+
+        if (key === 'type') {
+            const newSearchParams = new URLSearchParams(searchParams);
+            if (value && value !== 'any') {
+                newSearchParams.set('type', value);
+            } else {
+                newSearchParams.delete('type');
+            }
+            setSearchParams(newSearchParams);
+        }
     };
 
     const handleLogout = () => {
