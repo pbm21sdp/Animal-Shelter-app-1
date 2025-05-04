@@ -1,0 +1,946 @@
+// components/Admin/PetsManagement.jsx
+import React, { useState, useEffect } from 'react';
+import { usePetStore } from '../../store/petStore';
+import { PawPrint, Plus, X, Edit, Trash2, Check, Camera, Star, Search, Filter, RefreshCw } from 'lucide-react';
+import axios from 'axios';
+import AdminPagination from './shared/AdminPagination';
+import AdminModal from './shared/AdminModal';
+import AdminSearchBar from './shared/AdminSearchBar';
+
+const PetsManagement = () => {
+    const { pets, isLoading, error, getAllPets, createPet, updatePet, deletePet } = usePetStore();
+
+    // UI state
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filteredPets, setFilteredPets] = useState([]);
+
+    // Form state
+    const [selectedPet, setSelectedPet] = useState(null);
+    const [formData, setFormData] = useState({
+        name: '',
+        type: 'dog',
+        breed: '',
+        age_category: 'young',
+        gender: 'male',
+        size: 'medium',
+        color: '',
+        coat: '',
+        fee: '',
+        description: '',
+        health_status: 'healthy',
+        story: '',
+        location_address: '',
+        location_city: '',
+        location_country: '',
+        shelter_contact_email: '',
+        shelter_contact_phone: '',
+        zip_code: '',
+        traits: []
+    });
+
+    // Photo state
+    const [photoFile, setPhotoFile] = useState(null);
+    const [photoPreview, setPhotoPreview] = useState(null);
+    const [currentPetPhotos, setCurrentPetPhotos] = useState([]);
+    const [trait, setTrait] = useState('');
+
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [petsPerPage] = useState(10);
+
+    // Fetch all pets on component mount
+    useEffect(() => {
+        getAllPets();
+    }, [getAllPets]);
+
+    // Update filtered pets when search term or pets change
+    useEffect(() => {
+        if (pets) {
+            setFilteredPets(
+                pets.filter(pet =>
+                    pet.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    pet.breed?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    pet.type?.toLowerCase().includes(searchTerm.toLowerCase())
+                )
+            );
+        }
+    }, [searchTerm, pets]);
+
+    // Reset form data
+    const resetForm = () => {
+        setFormData({
+            name: '',
+            type: 'dog',
+            breed: '',
+            age_category: 'young',
+            gender: 'male',
+            size: 'medium',
+            color: '',
+            coat: '',
+            fee: '',
+            description: '',
+            health_status: 'healthy',
+            story: '',
+            location_address: '',
+            location_city: '',
+            location_country: '',
+            shelter_contact_email: '',
+            shelter_contact_phone: '',
+            zip_code: '',
+            traits: []
+        });
+        setPhotoFile(null);
+        setPhotoPreview(null);
+        setTrait('');
+        setCurrentPetPhotos([]);
+    };
+
+    // Handle form input changes
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: value
+        }));
+    };
+
+    // Handle photo selection
+    const handlePhotoChange = (e) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setPhotoFile(file);
+            setPhotoPreview(URL.createObjectURL(file));
+        }
+    };
+
+    // Add trait to list
+    const addTrait = () => {
+        if (trait.trim() && !formData.traits.includes(trait.trim())) {
+            setFormData(prev => ({
+                ...prev,
+                traits: [...prev.traits, trait.trim()]
+            }));
+            setTrait('');
+        }
+    };
+
+    // Remove trait from list
+    const removeTrait = (traitToRemove) => {
+        setFormData(prev => ({
+            ...prev,
+            traits: prev.traits.filter(t => t !== traitToRemove)
+        }));
+    };
+
+    // Handle form submission
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            const newPet = await createPet(formData);
+
+            // If a photo is selected, upload it
+            if (photoFile && newPet?.id) {
+                await uploadPhoto(newPet.id, photoFile);
+            }
+
+            setShowAddModal(false);
+            resetForm();
+            getAllPets(); // Refresh the pet list
+        } catch (error) {
+            console.error('Error creating pet:', error);
+        }
+    };
+
+    // Handle form update
+    const handleUpdate = async (e) => {
+        e.preventDefault();
+        if (selectedPet) {
+            try {
+                await updatePet(selectedPet.id, formData);
+
+                // If a photo is selected, upload it
+                if (photoFile) {
+                    await uploadPhoto(selectedPet.id, photoFile);
+                }
+
+                setShowEditModal(false);
+                resetForm();
+                setSelectedPet(null);
+                getAllPets(); // Refresh the pet list
+            } catch (error) {
+                console.error('Error updating pet:', error);
+            }
+        }
+    };
+
+    // Handle pet deletion
+    const handleDelete = async () => {
+        if (selectedPet) {
+            try {
+                await deletePet(selectedPet.id);
+                setShowDeleteConfirm(false);
+                setSelectedPet(null);
+                getAllPets(); // Refresh the pet list
+            } catch (error) {
+                console.error('Error deleting pet:', error);
+            }
+        }
+    };
+
+    // Open edit modal with pet data
+    const handleEditClick = async (pet, e) => {
+        // Stop event propagation to prevent table row click
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        setSelectedPet(pet);
+
+        // Set form data from pet
+        setFormData({
+            name: pet.name || '',
+            type: pet.type || 'dog',
+            breed: pet.breed || '',
+            age_category: pet.age_category || 'young',
+            gender: pet.gender || 'male',
+            size: pet.size || 'medium',
+            color: pet.color || '',
+            coat: pet.coat || '',
+            fee: pet.fee || '',
+            description: pet.description || '',
+            health_status: pet.health_status || 'healthy',
+            story: pet.story || '',
+            location_address: pet.location_address || '',
+            location_city: pet.location_city || '',
+            location_country: pet.location_country || '',
+            shelter_contact_email: pet.shelter_contact_email || '',
+            shelter_contact_phone: pet.shelter_contact_phone || '',
+            zip_code: pet.zip_code || '',
+            traits: pet.traits ? (Array.isArray(pet.traits) ? pet.traits : [pet.traits]) : []
+        });
+
+        // Fetch photos for this pet
+        try {
+            const response = await axios.get(`http://localhost:5000/api/pets/${pet.id}/photos`);
+            if (response.data.success) {
+                setCurrentPetPhotos(response.data.photos || []);
+            }
+        } catch (error) {
+            console.error('Error fetching pet photos:', error);
+            setCurrentPetPhotos([]);
+        }
+
+        setShowEditModal(true);
+    };
+
+    // Handle delete button click
+    const handleDeleteClick = (pet, e) => {
+        // Stop event propagation
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        setSelectedPet(pet);
+        setShowDeleteConfirm(true);
+    };
+
+    // Upload photo
+    const uploadPhoto = async (petId, file) => {
+        try {
+            const formData = new FormData();
+            formData.append('photo', file);
+
+            await axios.post(
+                `http://localhost:5000/api/pets/${petId}/photos`,
+                formData,
+                {
+                    headers: {
+                        'Content-Type': 'multipart/form-data'
+                    },
+                    withCredentials: true
+                }
+            );
+
+            return true;
+        } catch (error) {
+            console.error('Error uploading photo:', error);
+            return false;
+        }
+    };
+
+    // Set primary photo
+    const setPrimaryPhoto = async (petId, photoId) => {
+        try {
+            await axios.put(
+                `http://localhost:5000/api/pets/${petId}/photos/${photoId}/primary`,
+                {},
+                { withCredentials: true }
+            );
+
+            // Refresh photos
+            const response = await axios.get(`http://localhost:5000/api/pets/${petId}/photos`);
+            if (response.data.success) {
+                setCurrentPetPhotos(response.data.photos || []);
+            }
+        } catch (error) {
+            console.error('Error setting primary photo:', error);
+        }
+    };
+
+    // Delete photo
+    const deletePhoto = async (petId, photoId) => {
+        try {
+            await axios.delete(
+                `http://localhost:5000/api/pets/${petId}/photos/${photoId}`,
+                { withCredentials: true }
+            );
+
+            // Refresh photos
+            const response = await axios.get(`http://localhost:5000/api/pets/${petId}/photos`);
+            if (response.data.success) {
+                setCurrentPetPhotos(response.data.photos || []);
+            }
+        } catch (error) {
+            console.error('Error deleting photo:', error);
+        }
+    };
+
+    // Get photo URL
+    const getPhotoUrl = (photoId) => {
+        return `http://localhost:5000/api/pets/photos/${photoId}`;
+    };
+
+    // Pagination Logic
+    const indexOfLastPet = currentPage * petsPerPage;
+    const indexOfFirstPet = indexOfLastPet - petsPerPage;
+    const getCurrentPets = () => {
+        return filteredPets.slice(indexOfFirstPet, indexOfLastPet);
+    };
+
+    // Add Pet Form Content
+    const renderAddEditForm = (isEdit = false) => (
+        <form onSubmit={isEdit ? handleUpdate : handleSubmit} className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Basic Info */}
+                <div>
+                    <h4 className="text-lg font-semibold mb-4">Basic Information</h4>
+
+                    <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-bold mb-2">
+                            Name *
+                        </label>
+                        <input
+                            type="text"
+                            name="name"
+                            value={formData.name}
+                            onChange={handleChange}
+                            required
+                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        />
+                    </div>
+
+                    <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-bold mb-2">
+                            Type *
+                        </label>
+                        <select
+                            name="type"
+                            value={formData.type}
+                            onChange={handleChange}
+                            required
+                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        >
+                            <option value="dog">Dog</option>
+                            <option value="cat">Cat</option>
+                            <option value="bird">Bird</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+
+                    <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-bold mb-2">
+                            Breed *
+                        </label>
+                        <input
+                            type="text"
+                            name="breed"
+                            value={formData.breed}
+                            onChange={handleChange}
+                            required
+                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        />
+                    </div>
+
+                    <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-bold mb-2">
+                            Age Category *
+                        </label>
+                        <select
+                            name="age_category"
+                            value={formData.age_category}
+                            onChange={handleChange}
+                            required
+                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        >
+                            <option value="baby">Baby</option>
+                            <option value="young">Young</option>
+                            <option value="adult">Adult</option>
+                            <option value="senior">Senior</option>
+                        </select>
+                    </div>
+
+                    <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-bold mb-2">
+                            Gender *
+                        </label>
+                        <select
+                            name="gender"
+                            value={formData.gender}
+                            onChange={handleChange}
+                            required
+                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        >
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                        </select>
+                    </div>
+
+                    <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-bold mb-2">
+                            Size *
+                        </label>
+                        <select
+                            name="size"
+                            value={formData.size}
+                            onChange={handleChange}
+                            required
+                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        >
+                            <option value="small">Small</option>
+                            <option value="medium">Medium</option>
+                            <option value="large">Large</option>
+                            <option value="xlarge">Extra Large</option>
+                        </select>
+                    </div>
+
+                    <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-bold mb-2">
+                            Color
+                        </label>
+                        <input
+                            type="text"
+                            name="color"
+                            value={formData.color}
+                            onChange={handleChange}
+                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        />
+                    </div>
+
+                    <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-bold mb-2">
+                            Coat
+                        </label>
+                        <input
+                            type="text"
+                            name="coat"
+                            value={formData.coat}
+                            onChange={handleChange}
+                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        />
+                    </div>
+
+                    <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-bold mb-2">
+                            Adoption Fee ($)
+                        </label>
+                        <input
+                            type="number"
+                            name="fee"
+                            value={formData.fee}
+                            onChange={handleChange}
+                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        />
+                    </div>
+
+                    <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-bold mb-2">
+                            Health Status
+                        </label>
+                        <select
+                            name="health_status"
+                            value={formData.health_status}
+                            onChange={handleChange}
+                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        >
+                            <option value="healthy">Healthy</option>
+                            <option value="minor_issues">Minor Health Issues</option>
+                            <option value="special_needs">Special Needs</option>
+                        </select>
+                    </div>
+                </div>
+
+                {/* Additional Info */}
+                <div>
+                    <h4 className="text-lg font-semibold mb-4">Additional Information</h4>
+
+                    <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-bold mb-2">
+                            Description
+                        </label>
+                        <textarea
+                            name="description"
+                            value={formData.description}
+                            onChange={handleChange}
+                            rows="3"
+                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        ></textarea>
+                    </div>
+
+                    <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-bold mb-2">
+                            Story
+                        </label>
+                        <textarea
+                            name="story"
+                            value={formData.story}
+                            onChange={handleChange}
+                            rows="3"
+                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        ></textarea>
+                    </div>
+
+                    <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-bold mb-2">
+                            Traits
+                        </label>
+                        <div className="flex">
+                            <input
+                                type="text"
+                                value={trait}
+                                onChange={(e) => setTrait(e.target.value)}
+                                className="shadow appearance-none border rounded-l w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                                placeholder="Add trait (e.g., friendly, playful)"
+                            />
+                            <button
+                                type="button"
+                                onClick={addTrait}
+                                className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-r flex-shrink-0"
+                                style={{ touchAction: 'manipulation' }}
+                            >
+                                <Plus className="h-5 w-5" />
+                            </button>
+                        </div>
+                        <div className="mt-2 flex flex-wrap">
+                            {formData.traits.map((t, index) => (
+                                <span
+                                    key={index}
+                                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800 mr-2 mb-2"
+                                >
+                                    {t}
+                                    <button
+                                        type="button"
+                                        onClick={() => removeTrait(t)}
+                                        className="ml-1 text-teal-500 hover:text-teal-700 p-1"
+                                        style={{ touchAction: 'manipulation' }}
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </button>
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+
+                    {isEdit && (
+                        <div className="mb-4">
+                            <label className="block text-gray-700 text-sm font-bold mb-2">
+                                Current Photos
+                            </label>
+                            <div className="flex flex-wrap gap-2">
+                                {currentPetPhotos.length === 0 ? (
+                                    <p className="text-gray-500 italic">No photos provided</p>
+                                ) : (
+                                    currentPetPhotos.map((photo) => (
+                                        <div key={photo.id} className="relative group">
+                                            <img
+                                                src={getPhotoUrl(photo.id)}
+                                                alt={photo.photo_name || 'Pet photo'}
+                                                className={`h-20 w-20 object-cover rounded border-2 ${photo.is_primary ? 'border-yellow-400' : 'border-transparent'}`}
+                                                onError={(e) => e.target.src = '/api/placeholder/80/80'}
+                                            />
+                                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                                {!photo.is_primary && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setPrimaryPhoto(selectedPet.id, photo.id);
+                                                        }}
+                                                        className="text-yellow-400 hover:text-yellow-300 mx-1 p-2"
+                                                        style={{ touchAction: 'manipulation' }}
+                                                        title="Set as primary photo"
+                                                    >
+                                                        <Star className="h-5 w-5" />
+                                                    </button>
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        deletePhoto(selectedPet.id, photo.id);
+                                                    }}
+                                                    className="text-red-400 hover:text-red-300 mx-1 p-2"
+                                                    style={{ touchAction: 'manipulation' }}
+                                                    title="Delete photo"
+                                                >
+                                                    <Trash2 className="h-5 w-5" />
+                                                </button>
+                                            </div>
+                                            {photo.is_primary && (
+                                                <span className="absolute top-0 right-0 bg-yellow-400 text-white text-xs px-1 rounded-bl">
+                                                    Primary
+                                                </span>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-bold mb-2">
+                            {isEdit ? 'Add New Photo' : 'Photo'}
+                        </label>
+                        <div className="flex items-center">
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handlePhotoChange}
+                                className="hidden"
+                                id={isEdit ? "photo-upload-edit" : "photo-upload"}
+                            />
+                            <label
+                                htmlFor={isEdit ? "photo-upload-edit" : "photo-upload"}
+                                className="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded flex items-center"
+                                style={{ touchAction: 'manipulation' }}
+                            >
+                                <Camera className="h-5 w-5 mr-2" />
+                                Select Photo
+                            </label>
+
+                            {photoPreview && (
+                                <div className="ml-4">
+                                    <img
+                                        src={photoPreview}
+                                        alt="Preview"
+                                        className="h-16 w-16 object-cover rounded"
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <h4 className="text-lg font-semibold mb-4 mt-6">Location Information</h4>
+
+                    <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-bold mb-2">
+                            Address
+                        </label>
+                        <input
+                            type="text"
+                            name="location_address"
+                            value={formData.location_address}
+                            onChange={handleChange}
+                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        />
+                    </div>
+
+                    <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-bold mb-2">
+                            City *
+                        </label>
+                        <input
+                            type="text"
+                            name="location_city"
+                            value={formData.location_city}
+                            onChange={handleChange}
+                            required
+                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        />
+                    </div>
+
+                    <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-bold mb-2">
+                            Country *
+                        </label>
+                        <input
+                            type="text"
+                            name="location_country"
+                            value={formData.location_country}
+                            onChange={handleChange}
+                            required
+                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        />
+                    </div>
+
+                    <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-bold mb-2">
+                            Zip Code *
+                        </label>
+                        <input
+                            type="text"
+                            name="zip_code"
+                            value={formData.zip_code}
+                            onChange={handleChange}
+                            required
+                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        />
+                    </div>
+
+                    <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-bold mb-2">
+                            Shelter Contact Email
+                        </label>
+                        <input
+                            type="email"
+                            name="shelter_contact_email"
+                            value={formData.shelter_contact_email}
+                            onChange={handleChange}
+                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        />
+                    </div>
+
+                    <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-bold mb-2">
+                            Shelter Contact Phone
+                        </label>
+                        <input
+                            type="tel"
+                            name="shelter_contact_phone"
+                            value={formData.shelter_contact_phone}
+                            onChange={handleChange}
+                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+                <button
+                    type="button"
+                    onClick={() => isEdit ? setShowEditModal(false) : setShowAddModal(false)}
+                    className="mr-4 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
+                    style={{ touchAction: 'manipulation', minWidth: '100px' }}
+                >
+                    Cancel
+                </button>
+                <button
+                    type="submit"
+                    className="bg-tealcustom hover:bg-teal-700 text-white px-4 py-2 rounded flex items-center justify-center"
+                    style={{ touchAction: 'manipulation', minWidth: '120px' }}
+                >
+                    <Check className="h-5 w-5 mr-2" />
+                    {isEdit ? 'Update Pet' : 'Save Pet'}
+                </button>
+            </div>
+        </form>
+    );
+
+    return (
+        <div>
+            {/* Title and Add Pet Button */}
+            <div className="flex flex-wrap justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold mb-4 sm:mb-0">Manage Pets</h2>
+                <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
+                    <AdminSearchBar
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Search pets..."
+                    />
+                    <button
+                        onClick={() => {
+                            resetForm();
+                            setShowAddModal(true);
+                        }}
+                        className="bg-tealcustom hover:bg-teal-700 text-white px-4 py-2 rounded-md flex items-center w-full sm:w-auto justify-center"
+                        style={{ padding: '10px', touchAction: 'manipulation', minWidth: '120px' }}
+                    >
+                        <Plus className="h-5 w-5 mr-1" />
+                        Add New Pet
+                    </button>
+                </div>
+            </div>
+
+            {/* Error Display */}
+            {error && (
+                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                    {error}
+                </div>
+            )}
+
+            {/* Pets Table */}
+            <div className="bg-white shadow-md rounded-lg overflow-hidden w-full">
+                <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                    <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pet</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Breed</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Age</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gender</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                    {isLoading ? (
+                        <tr>
+                            <td colSpan="7" className="px-6 py-4 text-center">Loading...</td>
+                        </tr>
+                    ) : filteredPets.length === 0 ? (
+                        <tr>
+                            <td colSpan="7" className="px-6 py-4 text-center">No pets found</td>
+                        </tr>
+                    ) : (
+                        // Use getCurrentPets() instead of filteredPets directly
+                        getCurrentPets().map(pet => (
+                            <tr key={pet.id} className="hover:bg-gray-50">
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                    <div className="flex items-center">
+                                        <div className="h-10 w-10 rounded-full overflow-hidden bg-gray-200 mr-3">
+                                            {pet.photos && pet.photos.length > 0 ? (
+                                                <img
+                                                    src={getPhotoUrl(pet.photos.find(p => p.is_primary)?.id || pet.photos[0].id)}
+                                                    alt={pet.name}
+                                                    className="h-full w-full object-cover"
+                                                    onError={(e) => e.target.src = '/api/placeholder/40/40'}
+                                                />
+                                            ) : (
+                                                <div className="h-full w-full flex items-center justify-center bg-gray-200 text-gray-500">
+                                                    <PawPrint className="h-6 w-6" />
+                                                    <span className="sr-only">No photo provided</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="font-medium text-gray-900">{pet.name}</div>
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">{pet.type}</td>
+                                <td className="px-6 py-4 whitespace-nowrap">{pet.breed}</td>
+                                <td className="px-6 py-4 whitespace-nowrap">{pet.age_category}</td>
+                                <td className="px-6 py-4 whitespace-nowrap">{pet.gender}</td>
+                                <td className="px-6 py-4 whitespace-nowrap">{pet.location_city}</td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                    <div className="flex space-x-2">
+                                        <button
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                handleEditClick(pet, e);
+                                            }}
+                                            className="text-indigo-600 hover:text-indigo-900"
+                                            style={{
+                                                touchAction: 'manipulation !important',
+                                                minHeight: '44px',
+                                                minWidth: '44px',
+                                                position: 'relative',
+                                                zIndex: 10,
+                                                padding: '10px'
+                                            }}
+                                            aria-label={`Edit ${pet.name}`}
+                                        >
+                                            <Edit className="h-5 w-5" />
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                handleDeleteClick(pet, e);
+                                            }}
+                                            className="text-red-600 hover:text-red-900"
+                                            style={{
+                                                touchAction: 'manipulation !important',
+                                                minHeight: '44px',
+                                                minWidth: '44px',
+                                                position: 'relative',
+                                                zIndex: 10
+                                            }}
+                                            aria-label={`Delete ${pet.name}`}
+                                        >
+                                            <Trash2 className="h-5 w-5" />
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))
+                    )}
+                    </tbody>
+                </table>
+            </div>
+
+            {/* Pagination */}
+            <AdminPagination
+                itemsPerPage={petsPerPage}
+                totalItems={filteredPets.length}
+                currentPage={currentPage}
+                paginate={setCurrentPage}
+            />
+
+            {/* Add Pet Modal */}
+            <AdminModal
+                isOpen={showAddModal}
+                onClose={() => setShowAddModal(false)}
+                title="Add New Pet"
+            >
+                {renderAddEditForm(false)}
+            </AdminModal>
+
+            {/* Edit Pet Modal */}
+            <AdminModal
+                isOpen={showEditModal}
+                onClose={() => setShowEditModal(false)}
+                title={`Edit Pet: ${selectedPet?.name}`}
+            >
+                {renderAddEditForm(true)}
+            </AdminModal>
+
+            {/* Delete Confirmation Modal */}
+            <AdminModal
+                isOpen={showDeleteConfirm}
+                onClose={() => setShowDeleteConfirm(false)}
+                title="Delete Pet"
+                size="sm"
+            >
+                <div className="p-6">
+                    <p className="mb-6">
+                        Are you sure you want to delete {selectedPet?.name}? This action cannot be undone.
+                    </p>
+                    <div className="flex justify-end">
+                        <button
+                            onClick={() => setShowDeleteConfirm(false)}
+                            className="mr-4 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
+                            style={{ touchAction: 'manipulation', minWidth: '100px' }}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleDelete}
+                            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded flex items-center justify-center"
+                            style={{ touchAction: 'manipulation', minWidth: '120px' }}
+                        >
+                            <Trash2 className="h-5 w-5 mr-2" />
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            </AdminModal>
+        </div>
+    );
+};
+
+export default PetsManagement;
