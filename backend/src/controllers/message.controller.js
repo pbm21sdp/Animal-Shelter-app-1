@@ -5,7 +5,7 @@ import {sendMessageReplyEmail} from "../config/mailtrap/emails.js";
 // Create a new message
 export const createMessage = async (req, res) => {
     try {
-        const { email, message } = req.body;
+        const { name, email, message } = req.body;
 
         if (!email || !message) {
             return res.status(400).json({
@@ -24,8 +24,16 @@ export const createMessage = async (req, res) => {
         // Check if the email exists in our user database
         const user = await User.findOne({ email });
 
+        // Set the name - prioritize:
+        // 1. Name provided in the request
+        // 2. Name from the user record (if exists)
+        // 3. Empty string (frontend will handle display appropriately)
+
+        const messageName = name || (user ? user.name : '');
+
         // Create message object
         const newMessage = new Message({
+            name: messageName,
             email,
             message,
             userId: user ? user._id : null
@@ -186,9 +194,17 @@ export const replyToMessage = async (req, res) => {
 
 export const getUserMessages = async (req, res) => {
     try {
-        const userId = req.params.userId;
+        const { userId } = req.params;
 
-        const messages = await Message.find({ userId: userId }).sort({ createdAt: -1 });
+        // Validate userId
+        if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
+            return res.status(400).json({ success: false, message: 'Invalid user ID format' });
+        }
+
+        // Find messages by user ID and populate user data
+        const messages = await Message.find({ userId: userId })
+            .sort({ createdAt: -1 })
+            .populate('userId', 'name email');
 
         res.status(200).json({
             success: true,
@@ -203,3 +219,4 @@ export const getUserMessages = async (req, res) => {
         });
     }
 };
+

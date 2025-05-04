@@ -1,6 +1,5 @@
-// components/Admin/MessagesInbox.jsx
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, Calendar, ArrowLeft, Trash2, RefreshCw, Send } from 'lucide-react';
+import { MessageSquare, Calendar, ArrowLeft, Trash2, RefreshCw, Send, Users } from 'lucide-react';
 import axios from 'axios';
 import AdminTable from './shared/AdminTable';
 import AdminSearchBar from './shared/AdminSearchBar';
@@ -8,7 +7,7 @@ import AdminPagination from './shared/AdminPagination';
 import AdminModal from './shared/AdminModal';
 
 const MessagesInbox = () => {
-    // State variables
+    // Original state variables
     const [messages, setMessages] = useState([]);
     const [filteredMessages, setFilteredMessages] = useState([]);
     const [selectedMessage, setSelectedMessage] = useState(null);
@@ -20,9 +19,36 @@ const MessagesInbox = () => {
     const [showDeleteMessageModal, setShowDeleteMessageModal] = useState(false);
     const [messageToDelete, setMessageToDelete] = useState(null);
 
+    // Add these new state variables for user filtering
+    const [users, setUsers] = useState([]);
+    const [filteredUsers, setFilteredUsers] = useState([]);
+    const [selectedUser, setSelectedUser] = useState(null);
+    const [userMessages, setUserMessages] = useState([]);
+    const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+    const [userError, setUserError] = useState(null);
+    const [userSearchTerm, setUserSearchTerm] = useState('');
+
+    // Add scrollable height state
+    const [scrollableHeight, setScrollableHeight] = useState(400);
+
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
     const [messagesPerPage] = useState(10);
+    const [currentUserPage, setCurrentUserPage] = useState(1);
+    const [usersPerPage] = useState(10);
+
+    // Update heights based on window size (add this)
+    useEffect(() => {
+        const updateHeight = () => {
+            const calculatedHeight = Math.max(400, window.innerHeight * 0.6);
+            setScrollableHeight(calculatedHeight);
+        };
+
+        updateHeight();
+        window.addEventListener('resize', updateHeight);
+
+        return () => window.removeEventListener('resize', updateHeight);
+    }, []);
 
     // Fetch all messages
     const fetchMessages = async () => {
@@ -44,14 +70,85 @@ const MessagesInbox = () => {
         }
     };
 
-    // Initial fetch
+    // Add function to fetch users
+    const fetchUsers = async () => {
+        setIsLoadingUsers(true);
+        setUserError(null);
+        try {
+            const response = await axios.get('http://localhost:5000/api/users/admin', { withCredentials: true });
+            if (response.data.success) {
+                setUsers(response.data.users);
+                setFilteredUsers(response.data.users);
+            } else {
+                setUserError('Failed to fetch users');
+            }
+        } catch (error) {
+            console.error('Error fetching users:', error);
+            setUserError(error.response?.data?.message || 'Error fetching users');
+        } finally {
+            setIsLoadingUsers(false);
+        }
+    };
+
+    // Add function to fetch messages for a specific user
+    const fetchUserMessages = async (userId) => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const response = await axios.get(`http://localhost:5000/api/messages/admin/user/${userId}`, { withCredentials: true });
+            if (response.data.success) {
+                setUserMessages(response.data.messages || []);
+                setFilteredMessages(response.data.messages || []);
+            } else {
+                setError('Failed to fetch user messages');
+            }
+        } catch (error) {
+            console.error('Error fetching user messages:', error);
+            setError(error.response?.data?.message || 'Error fetching user messages');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Add function to handle user selection
+    const handleUserSelect = (user) => {
+        setSelectedUser(user);
+        setSelectedMessage(null);
+        setCurrentPage(1); // Reset pagination when changing user
+
+        if (user) {
+            fetchUserMessages(user._id);
+        } else {
+            // If deselecting user, show all messages
+            setFilteredMessages(messages);
+        }
+    };
+
+    // Update the getUserDisplayName function
+    const getUserDisplayName = (message) => {
+        // If message has a populated userId with name
+        if (message.userId && message.userId.name) {
+            return message.userId.name;
+        }
+
+        // If message has a name field
+        if (message.name && message.name.trim() !== '') {
+            return message.name;
+        }
+
+        // If all else fails, use email
+        return message.email ? message.email : 'Anonymous';
+    };
+
+    // Initial fetch - update to get both messages and users
     useEffect(() => {
         fetchMessages();
+        fetchUsers();
     }, []);
 
     // Filter messages based on search term
     useEffect(() => {
-        if (messages.length > 0) {
+        if (messages.length > 0 && !selectedUser) {
             setFilteredMessages(
                 messages.filter((message) =>
                     message.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -59,14 +156,39 @@ const MessagesInbox = () => {
                     message.message?.toLowerCase().includes(searchTerm.toLowerCase())
                 )
             );
+        } else if (userMessages.length > 0 && selectedUser) {
+            setFilteredMessages(
+                userMessages.filter((message) =>
+                    message.message?.toLowerCase().includes(searchTerm.toLowerCase())
+                )
+            );
         }
-    }, [searchTerm, messages]);
+    }, [searchTerm, messages, userMessages, selectedUser]);
 
-    // Pagination logic
+    // Add filter for users based on search term
+    useEffect(() => {
+        if (users.length) {
+            setFilteredUsers(
+                users.filter(user =>
+                    user.name?.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+                    user.email?.toLowerCase().includes(userSearchTerm.toLowerCase())
+                )
+            );
+        }
+    }, [userSearchTerm, users]);
+
+    // Pagination logic for messages
     const indexOfLastMessage = currentPage * messagesPerPage;
     const indexOfFirstMessage = indexOfLastMessage - messagesPerPage;
     const getCurrentMessages = () => {
         return filteredMessages.slice(indexOfFirstMessage, indexOfLastMessage);
+    };
+
+    // Add pagination for users
+    const indexOfLastUser = currentUserPage * usersPerPage;
+    const indexOfFirstUser = indexOfLastUser - usersPerPage;
+    const getCurrentUsers = () => {
+        return filteredUsers.slice(indexOfFirstUser, indexOfLastUser);
     };
 
     // Format date
@@ -255,11 +377,14 @@ const MessagesInbox = () => {
                         placeholder="Search messages..."
                     />
                     <button
-                        onClick={fetchMessages}
+                        onClick={() => {
+                            fetchMessages();
+                            fetchUsers();
+                        }}
                         className="bg-tealcustom hover:bg-teal-700 text-white px-4 py-2 rounded-md flex items-center w-full sm:w-auto justify-center"
                     >
                         <RefreshCw className="h-5 w-5 mr-1" />
-                        Refresh Messages
+                        Refresh
                     </button>
                 </div>
             </div>
@@ -296,7 +421,7 @@ const MessagesInbox = () => {
                     <div className="p-6">
                         <div className="flex justify-between items-center mb-2">
                             <div>
-                                <span className="font-semibold">From:</span> {selectedMessage.name || 'Anonymous'} ({selectedMessage.email})
+                                <span className="font-semibold">From:</span> {getUserDisplayName(selectedMessage)} ({selectedMessage.email})
                             </div>
                             <div className="text-sm text-gray-500">
                                 {formatDate(selectedMessage.createdAt)}
@@ -348,23 +473,190 @@ const MessagesInbox = () => {
                 </div>
             ) : (
                 // Messages Table
-                <>
-                    <AdminTable
-                        columns={columns}
-                        data={getCurrentMessages()}
-                        isLoading={isLoading}
-                        emptyMessage="No messages found"
-                        onRowClick={handleMessageSelect}
-                    />
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 w-full">
+                    {/* Users List with Scrollbar */}
+                    <div className="bg-white shadow-md rounded-lg overflow-hidden lg:col-span-1">
+                        <div className="p-4 bg-gray-50 border-b border-gray-200 font-semibold flex justify-between">
+                            <span>Users</span>
+                            <span className="text-sm text-gray-500">{filteredUsers.length} total</span>
+                        </div>
+                        <div className="p-4">
+                            <AdminSearchBar
+                                value={userSearchTerm}
+                                onChange={(e) => setUserSearchTerm(e.target.value)}
+                                placeholder="Search users..."
+                            />
+                        </div>
+                        <div className="overflow-y-auto" style={{ height: `${scrollableHeight}px` }}>
+                            {isLoadingUsers ? (
+                                <div className="p-6 text-center">Loading users...</div>
+                            ) : filteredUsers.length === 0 ? (
+                                <div className="p-6 text-center">No users found</div>
+                            ) : (
+                                <ul className="divide-y divide-gray-200">
+                                    <li
+                                        className={`p-4 hover:bg-gray-50 cursor-pointer ${!selectedUser ? 'bg-teal-50 border-l-4 border-tealcustom' : ''}`}
+                                        onClick={() => handleUserSelect(null)}
+                                    >
+                                        <div className="flex items-center">
+                                            <div className="flex-shrink-0">
+                                                <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
+                                                    <Users className="h-6 w-6 text-gray-500" />
+                                                </div>
+                                            </div>
+                                            <div className="ml-4">
+                                                <div className="font-medium text-gray-900">All Users</div>
+                                                <div className="text-sm text-gray-500">View all messages</div>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    {getCurrentUsers().map(user => (
+                                        <li
+                                            key={user._id}
+                                            onClick={() => handleUserSelect(user)}
+                                            className={`p-4 hover:bg-gray-50 cursor-pointer ${selectedUser?._id === user._id ? 'bg-teal-50 border-l-4 border-tealcustom' : ''}`}
+                                        >
+                                            <div className="flex items-center">
+                                                <div className="flex-shrink-0">
+                                                    <div className="h-10 w-10 rounded-full bg-teal-100 flex items-center justify-center">
+                                                        <span className="text-tealcustom font-semibold">{user.name?.charAt(0) || user.email?.charAt(0) || '?'}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="ml-4">
+                                                    <div className="font-medium text-gray-900">{user.name || 'Unnamed User'}</div>
+                                                    <div className="text-sm text-gray-500">{user.email}</div>
+                                                </div>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                        {/* Pagination for Users */}
+                        {filteredUsers.length > usersPerPage && (
+                            <div className="border-t border-gray-200 p-3">
+                                <AdminPagination
+                                    itemsPerPage={usersPerPage}
+                                    totalItems={filteredUsers.length}
+                                    currentPage={currentUserPage}
+                                    paginate={setCurrentUserPage}
+                                />
+                            </div>
+                        )}
+                    </div>
 
-                    {/* Pagination */}
-                    <AdminPagination
-                        itemsPerPage={messagesPerPage}
-                        totalItems={filteredMessages.length}
-                        currentPage={currentPage}
-                        paginate={setCurrentPage}
-                    />
-                </>
+                    {/* Messages Panel */}
+                    <div className="lg:col-span-3 bg-white shadow-md rounded-lg overflow-hidden">
+                        <div className="p-4 bg-gray-50 border-b border-gray-200 font-semibold flex justify-between items-center">
+                            <div>
+                                {selectedUser ? (
+                                    <div className="flex items-center">
+                                        <span>{`Messages from ${selectedUser.name || selectedUser.email}`}</span>
+                                        <span className="ml-2 text-sm text-gray-500">
+                                            {filteredMessages.length} total
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center">
+                                        <span>All Messages</span>
+                                        <span className="ml-2 text-sm text-gray-500">
+                                            {filteredMessages.length} total
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Messages Table */}
+                        <div className="overflow-hidden">
+                            {isLoading ? (
+                                <div className="p-6 text-center">Loading messages...</div>
+                            ) : filteredMessages.length === 0 ? (
+                                <div className="p-6 text-center text-gray-500">
+                                    <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                                    <p>No messages found</p>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="overflow-y-auto w-full" style={{ maxHeight: `${scrollableHeight}px` }}>
+                                        <table className="w-full divide-y divide-gray-200 table-fixed">
+                                            <thead className="bg-gray-50 sticky top-0 z-10">
+                                            <tr>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                                {!selectedUser && (
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">From</th>
+                                                )}
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Message</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody className="bg-white divide-y divide-gray-200">
+                                            {getCurrentMessages().map(message => (
+                                                <tr
+                                                    key={message._id}
+                                                    className="hover:bg-gray-50 cursor-pointer"
+                                                    onClick={() => handleMessageSelect(message)}
+                                                >
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <div className="flex items-center">
+                                                            <Calendar className="h-4 w-4 text-gray-400 mr-2" />
+                                                            <span className="text-sm text-gray-900">{formatDate(message.createdAt)}</span>
+                                                        </div>
+                                                    </td>
+                                                    {!selectedUser && (
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <div>
+                                                                <div className="font-medium text-gray-900">{getUserDisplayName(message)}</div>
+                                                                <div className="text-sm text-gray-500">{message.email}</div>
+                                                            </div>
+                                                        </td>
+                                                    )}
+                                                    <td className="px-6 py-4">
+                                                        <div className="text-sm text-gray-900 truncate max-w-xs">
+                                                            {message.message.length > 60
+                                                                ? `${message.message.substring(0, 60)}...`
+                                                                : message.message}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                                                message.read ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                                            }`}>
+                                                                {message.read ? 'Responded' : 'Unresponded'}
+                                                            </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <div className="flex space-x-2">
+                                                            <button
+                                                                onClick={(e) => handleDeleteClick(message, e)}
+                                                                className="text-red-600 hover:text-red-900 p-1"
+                                                                title="Delete Message"
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* Pagination for Messages */}
+                                    <div className="border-t border-gray-200 p-3">
+                                        <AdminPagination
+                                            itemsPerPage={messagesPerPage}
+                                            totalItems={filteredMessages.length}
+                                            currentPage={currentPage}
+                                            paginate={setCurrentPage}
+                                        />
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>
             )}
 
             {/* Delete Message Confirmation Modal */}
