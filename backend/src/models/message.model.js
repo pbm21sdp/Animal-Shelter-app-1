@@ -1,6 +1,10 @@
 import mongoose from 'mongoose';
 
 const messageSchema = new mongoose.Schema({
+    name: {
+        type: String,
+        default: ''
+    },
     email: {
         type: String,
         required: true
