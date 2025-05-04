@@ -135,6 +135,11 @@ const Footer = () => {
                         <MessageForm />
                     </div>
                 </div>
+                <div className="text-center">
+                    <aside>
+                        <p>Copyright © {new Date().getFullYear()} - All right reserved by Paws</p>
+                    </aside>
+                </div>
             </div>
         </footer>
     );
