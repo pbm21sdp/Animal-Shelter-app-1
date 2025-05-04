@@ -1,7 +1,9 @@
 import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
-import { ChevronLeft, PawPrint, CheckCircle, Shield, HomeIcon, DollarSign, Clock, Heart, X } from "lucide-react";
+import { PawPrint, CheckCircle, Shield, HomeIcon, DollarSign, Clock, Heart, X, LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useAuthStore } from "../store/authStore";
+import Footer from "../components/page/Footer.jsx";
 
 const AdoptionRequirementsPage = () => {
   // State for managing the modal
@@ -9,33 +11,17 @@ const AdoptionRequirementsPage = () => {
   const [selectedRequirements, setSelectedRequirements] = useState([]);
   const [showError, setShowError] = useState(false);
   const navigate = useNavigate();
+  const { logout } = useAuthStore();
   
-  // Ensure page starts at the top when loaded and remove any margin/padding that might affect full width
+  // Ensure page starts at the top when loaded
   useEffect(() => {
     window.scrollTo(0, 0);
-    
-    // Ensure full width by temporarily modifying body styles
-    const originalBodyStyle = document.body.style.cssText;
-    document.body.style.margin = "0";
-    document.body.style.padding = "0";
-    document.body.style.maxWidth = "100%";
-    document.body.style.overflowX = "hidden";
-    
-    // Add modern font to the page - using Poppins for a more modern look
-    const fontLink = document.createElement('link');
-    fontLink.href = 'https://cdnjs.cloudflare.com/ajax/libs/poppins/4.0.0/poppins.css';
-    fontLink.rel = 'stylesheet';
-    document.head.appendChild(fontLink);
-    document.body.style.fontFamily = "'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-    
-    return () => {
-      // Restore original body styles when component unmounts
-      document.body.style.cssText = originalBodyStyle;
-      if (document.head.contains(fontLink)) {
-        document.head.removeChild(fontLink);
-      }
-    };
   }, []);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   // Toggle a requirement selection
   const toggleRequirement = (index) => {
@@ -52,7 +38,7 @@ const AdoptionRequirementsPage = () => {
   const handleSubmit = () => {
     if (selectedRequirements.length === requirements.length) {
       // All requirements met, navigate to available pets
-      navigate('/available-pets');
+      navigate('/pet-search');
     } else {
       // Not all requirements met, show error message
       setShowError(true);
@@ -61,40 +47,34 @@ const AdoptionRequirementsPage = () => {
 
   const requirements = [
     {
-      icon: <CheckCircle className="h-6 w-6 text-indigo-500" />,
+      icon: <CheckCircle className="h-6 w-6 text-teal-600" />,
       title: "Age Requirement",
-      content: "Adopters must be at least 18 years old and provide valid ID verification.",
-      color: "from-purple-100 to-purple-200"
+      content: "Adopters must be at least 18 years old and provide valid ID verification."
     },
     {
-      icon: <Shield className="h-6 w-6 text-indigo-500" />,
+      icon: <Shield className="h-6 w-6 text-teal-600" />,
       title: "Home Stability",
-      content: "We need proof of residence and landlord permission if you're renting.",
-      color: "from-blue-100 to-blue-200"
+      content: "We need proof of residence and landlord permission if you're renting."
     },
     {
-      icon: <HomeIcon className="h-6 w-6 text-indigo-500" />,
+      icon: <HomeIcon className="h-6 w-6 text-teal-600" />,
       title: "Living Conditions",
-      content: "Your home must have adequate space and a safe environment for the pet.",
-      color: "from-yellow-100 to-yellow-200"
+      content: "Your home must have adequate space and a safe environment for the pet."
     },
     {
-      icon: <DollarSign className="h-6 w-6 text-indigo-500" />,
+      icon: <DollarSign className="h-6 w-6 text-teal-600" />,
       title: "Adoption Fee",
-      content: "A modest adoption fee helps cover vaccinations, microchipping, and spay/neuter.",
-      color: "from-pink-100 to-pink-200"
+      content: "A modest adoption fee helps cover vaccinations, microchipping, and spay/neuter."
     },
     {
-      icon: <Clock className="h-6 w-6 text-indigo-500" />,
+      icon: <Clock className="h-6 w-6 text-teal-600" />,
       title: "Time Commitment",
-      content: "You should have adequate time to spend with your new pet for bonding and care.",
-      color: "from-blue-100 to-blue-200"
+      content: "You should have adequate time to spend with your new pet for bonding and care."
     },
     {
-      icon: <Heart className="h-6 w-6 text-indigo-500" />,
+      icon: <Heart className="h-6 w-6 text-teal-600" />,
       title: "Commitment to Care",
-      content: "Ability to provide veterinary care, proper nutrition, and love for the animal's life.",
-      color: "from-purple-100 to-purple-200"
+      content: "Ability to provide veterinary care, proper nutrition, and love for the animal's life."
     }
   ];
   
@@ -104,7 +84,7 @@ const AdoptionRequirementsPage = () => {
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.2
+        staggerChildren: 0.1
       }
     }
   };
@@ -115,48 +95,52 @@ const AdoptionRequirementsPage = () => {
   };
   
   return (
-    <div className="min-h-screen bg-white w-full m-0 p-0 overflow-hidden" style={{ width: "100vw", maxWidth: "100%" }}>
-      {/* Simple Header */}
-      <div className="relative overflow-hidden">
-        <div className="bg-indigo-600 text-white py-8 w-full" style={{ width: "100vw", maxWidth: "100%" }}>
-          <div className="flex items-center px-8 w-full max-w-7xl mx-auto">
-            <Link to="/" className="flex items-center hover:text-white/80 transition-colors group">
-              <div className="bg-white/20 rounded-full p-2 group-hover:bg-white/30 transition-all">
-                <ChevronLeft className="h-5 w-5" />
-              </div>
-              <span className="ml-2 text-lg font-medium">Back</span>
-            </Link>
-            <h1 className="text-3xl sm:text-4xl font-bold mx-auto flex items-center" style={{ letterSpacing: "-0.5px" }}>
-              <PawPrint className="mr-3 h-8 w-8" />
-              Adoption Requirements
-            </h1>
-            <div className="w-20 opacity-0">
-              {/* Empty div for spacing */}
-            </div>
+    <div className="min-h-screen w-screen bg-white">
+      {/* Header */}
+      <header className="container mx-auto px-4 py-4 grid grid-cols-3 items-center relative">
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center">
+            <PawPrint className="text-tealcustom h-6 w-6"/>
+            <span className="ml-2 text-xl font-bold">Paws</span>
           </div>
         </div>
-      </div>
+        
+        <nav className="hidden md:flex space-x-6 items-center justify-center">
+          <a href="/" className="text-gray-500 hover:text-gray-900">Home</a>
+          <a href="/pet-search" className="text-gray-500 hover:text-gray-900">Pet search</a>
+          <a href="/adoption-process" className="text-gray-500 hover:text-gray-900">Adoption process</a>
+          <a href="/adoption-requirements" className="text-gray-900 border-b-2 border-gray-900">Requirements</a>
+          <a href="/adoption-faq" className="text-gray-500 hover:text-gray-900">FAQ</a>
+        </nav>
+        
+        <div className="flex justify-end">
+          <button 
+            onClick={handleLogout}
+            className="flex items-center text-gray-500 hover:text-gray-900 transition-colors"
+          >
+            <LogOut className="h-5 w-5 mr-2" />
+            <span>Logout</span>
+          </button>
+        </div>
+      </header>
+      
+      {/* Hero Section */}
+      <section className="bg-tealcustom text-white py-16">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto text-center">
+            <h1 className="text-4xl md:text-5xl font-bold mb-6">
+              Adoption Requirements
+            </h1>
+            <p className="text-xl mb-8 text-gray-100">
+              Make sure you meet all necessary requirements to complete the adoption process.
+            </p>
+          </div>
+        </div>
+      </section>
       
       {/* Main Content */}
-      <main className="w-full bg-white pt-12 pb-16" style={{ width: "100vw", maxWidth: "100%" }}>
-        <div className="px-4 sm:px-8 max-w-7xl mx-auto w-full">
-          <motion.h2 
-            initial={{ y: -20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            className="text-3xl sm:text-4xl font-bold mt-8 mb-4 text-indigo-700 text-center"
-            style={{ letterSpacing: "-0.5px" }}
-          >
-            Requirements
-          </motion.h2>
-          <motion.p
-            initial={{ y: -10, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="text-lg text-gray-700 max-w-2xl mx-auto text-center mb-12"
-          >
-            Make sure you meet all necessary requirements to complete the adoption process
-          </motion.p>
-          
+      <main className="container mx-auto px-4 py-16">
+        <div className="max-w-6xl mx-auto">
           <motion.div 
             className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16"
             variants={containerVariants}
@@ -167,22 +151,17 @@ const AdoptionRequirementsPage = () => {
               <motion.div
                 key={index}
                 variants={itemVariants}
-                className="relative"
+                className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden p-6"
               >
-                <div className={`bg-gradient-to-br ${requirement.color} rounded-xl shadow-lg overflow-hidden transition-transform duration-300 hover:translate-y-[-5px] hover:shadow-xl text-center`}>
-                  <div className="absolute top-0 right-0 bg-indigo-400/40 p-3 rounded-bl-xl">
-                    <span className="font-bold text-xl text-indigo-600">{index + 1}</span>
+                <div className="flex items-start space-x-4">
+                  <div className="bg-teal-50 p-3 rounded-lg">
+                    {requirement.icon}
                   </div>
-                  <div className="p-6 pt-12">
-                    <div className="flex flex-col items-center mb-4">
-                      <div className="bg-white/70 p-3 rounded-full mb-3">
-                        {requirement.icon}
-                      </div>
-                      <h3 className="text-xl font-bold text-indigo-700" style={{ letterSpacing: "-0.3px", fontSize: "1.3rem" }}>
-                        {requirement.title}
-                      </h3>
-                    </div>
-                    <p className="text-indigo-900/80 leading-relaxed px-3" style={{ fontSize: "1.05rem", fontWeight: "400" }}>
+                  <div>
+                    <h3 className="font-semibold text-lg text-teal-900 mb-2">
+                      {requirement.title}
+                    </h3>
+                    <p className="text-gray-700 leading-relaxed">
                       {requirement.content}
                     </p>
                   </div>
@@ -191,28 +170,14 @@ const AdoptionRequirementsPage = () => {
             ))}
           </motion.div>
           
-          <motion.div 
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.9 }}
-            className="text-center"
-          >
+          <div className="text-center mt-12">
             <button
               onClick={() => setIsModalOpen(true)}
-              className="inline-flex items-center bg-gradient-to-r from-indigo-500 to-indigo-600 text-white px-8 py-4 rounded-full text-lg font-medium transition-all duration-300 shadow-md hover:shadow-xl hover:scale-105"
-              style={{ letterSpacing: "-0.3px" }}
+              className="inline-flex items-center bg-tealcustom hover:bg-teal-800 text-white px-8 py-4 rounded-full text-lg font-medium transition-all duration-200"
             >
               <CheckCircle className="mr-2 h-5 w-5" />
               Check requirements
             </button>
-          </motion.div>
-          
-          {/* Decorative Paw Prints */}
-          <div className="absolute right-0 top-1/4 opacity-5 transform rotate-12">
-            <PawPrint className="h-40 w-40 text-indigo-400" />
-          </div>
-          <div className="absolute left-0 bottom-1/3 opacity-5 transform -rotate-12">
-            <PawPrint className="h-32 w-32 text-pink-300" />
           </div>
         </div>
       </main>
@@ -227,7 +192,7 @@ const AdoptionRequirementsPage = () => {
           >
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-2xl font-bold text-indigo-700">Confirm Requirements</h3>
+                <h3 className="text-2xl font-bold text-teal-900">Confirm Requirements</h3>
                 <button 
                   onClick={() => {
                     setIsModalOpen(false);
@@ -255,12 +220,12 @@ const AdoptionRequirementsPage = () => {
                     onClick={() => toggleRequirement(index)}
                     className={`flex items-center p-4 rounded-lg cursor-pointer transition-colors ${
                       selectedRequirements.includes(index) 
-                        ? 'bg-indigo-50 border border-indigo-200' 
+                        ? 'bg-teal-50 border border-teal-200' 
                         : 'bg-gray-50 border border-gray-100 hover:bg-gray-100'
                     }`}
                   >
                     <div className={`mr-4 rounded-full p-1 ${
-                      selectedRequirements.includes(index) ? 'bg-indigo-500 text-white' : 'bg-gray-200'
+                      selectedRequirements.includes(index) ? 'bg-tealcustom text-white' : 'bg-gray-200'
                     }`}>
                       <CheckCircle className="h-5 w-5" />
                     </div>
@@ -275,7 +240,7 @@ const AdoptionRequirementsPage = () => {
               <div className="flex justify-center">
                 <button
                   onClick={handleSubmit}
-                  className="px-6 py-3 bg-indigo-600 text-white rounded-full font-medium hover:bg-indigo-700 transition-colors"
+                  className="px-6 py-3 bg-tealcustom text-white rounded-full font-medium hover:bg-teal-800 transition-colors"
                 >
                   {selectedRequirements.length === requirements.length ? 'Continue to Available Pets' : 'Check Requirements'}
                 </button>
@@ -285,21 +250,8 @@ const AdoptionRequirementsPage = () => {
         </div>
       )}
       
-      {/* Modern Footer */}
-      <footer className="bg-indigo-600 py-10 mt-12 w-full text-white" style={{ width: "100vw", maxWidth: "100%" }}>
-        <div className="px-8 text-center w-full max-w-7xl mx-auto">
-          <p className="text-lg font-light mb-4">Begin your journey to bring a new furry friend into your life today!</p>
-          <div className="flex justify-center items-center mb-6">
-            <div className="bg-white/20 p-2 rounded-full">
-              <Heart className="h-6 w-6 text-pink-300" />
-            </div>
-            <span className="text-white font-medium ml-3 text-lg" style={{ letterSpacing: "-0.3px" }}>Make a difference. Adopt, don't shop.</span>
-          </div>
-          <div className="border-t border-white/20 pt-6 mt-6 text-sm text-white/70">
-            <p>© 2025 Paws. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
+      {/* Footer */}
+      <Footer />
     </div>
   );
 };
