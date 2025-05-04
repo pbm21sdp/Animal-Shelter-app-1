@@ -206,10 +206,16 @@ export default function PawsHomepage() {
             <section className="container mx-auto px-4 py-8 md:py-16">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
                     {/* Dog Category */}
-                    <div className="flex flex-col items-center justify-center"
+                    <motion.div className="flex flex-col items-center justify-center cursor-pointer"
                          onClick={() => navigate('/pet-search?type=dog')}
+
+                         whileHover={{ 
+                            scale: 1.05,
+                            transition: { duration: 0.2 }
+                        }}
+                        whileTap={{ scale: 0.95 }}
                     >
-                        <Blob type="dog" className="w-full aspect-square flex items-center justify-center">
+                        <Blob type="dog" className="w-full aspect-square flex items-center justify-center transition-all duration-200 hover:brightness-110">
                             <div className="flex flex-col items-center justify-center">
                                 <div className="mb-4">
                                     <DogIcon className="w-32 h-32"/>
@@ -217,13 +223,19 @@ export default function PawsHomepage() {
                                 <span className="text-lg font-medium">Dogs</span>
                             </div>
                         </Blob>
-                    </div>
+                    </motion.div>
 
                     {/* Cat Category */}
-                    <div className="flex flex-col items-center justify-center"
+                    <motion.div className="flex flex-col items-center justify-center cursor-pointer"
                          onClick={() => navigate('/pet-search?type=cat')}
+
+                         whileHover={{ 
+                            scale: 1.05,
+                            transition: { duration: 0.2 }
+                        }}
+                        whileTap={{ scale: 0.95 }}
                     >
-                        <Blob type="cat" className="w-full aspect-square flex items-center justify-center">
+                        <Blob type="cat" className="w-full aspect-square flex items-center justify-center transition-all duration-200 hover:brightness-110">
                             <div className="flex flex-col items-center justify-center">
                                 <div className="mb-4">
                                     <CatIcon className="w-32 h-32"/>
@@ -231,13 +243,19 @@ export default function PawsHomepage() {
                                 <span className="text-lg font-medium">Cats</span>
                             </div>
                         </Blob>
-                    </div>
+                    </motion.div>
 
                     {/* Bird Category */}
-                    <div className="flex flex-col items-center justify-center"
+                    <motion.div className="flex flex-col items-center justify-center cursor-pointer"
                          onClick={() => navigate('/pet-search?type=bird')}
+
+                         whileHover={{ 
+                            scale: 1.05,
+                            transition: { duration: 0.2 }
+                        }}
+                        whileTap={{ scale: 0.95 }}
                     >
-                        <Blob type="bird" className="w-full aspect-square flex items-center justify-center">
+                        <Blob type="bird" className="w-full aspect-square flex items-center justify-center transition-all duration-200 hover:brightness-110">
                             <div className="flex flex-col items-center justify-center">
                                 <div className="mb-4">
                                     <ParrotIcon className="w-32 h-32"/>
@@ -245,13 +263,19 @@ export default function PawsHomepage() {
                                 <span className="text-lg font-medium">Birds</span>
                             </div>
                         </Blob>
-                    </div>
+                    </motion.div>
 
                     {/* Other Animals Category */}
-                    <div className="flex flex-col items-center justify-center"
+                    <motion.div className="flex flex-col items-center justify-center cursor-pointer"
                          onClick={() => navigate('/pet-search?type=other')}
+
+                         whileHover={{ 
+                            scale: 1.05,
+                            transition: { duration: 0.2 }
+                        }}
+                        whileTap={{ scale: 0.95 }}
                     >
-                        <Blob type="other" className="w-full aspect-square flex items-center justify-center">
+                        <Blob type="other" className="w-full aspect-square flex items-center justify-center transition-all duration-200 hover:brightness-110">
                             <div className="flex flex-col items-center justify-center">
                                 <div className="mb-4">
                                     <RabbitIcon className="w-32 h-32"/>
@@ -259,7 +283,7 @@ export default function PawsHomepage() {
                                 <span className="text-lg font-medium">Other Animals</span>
                             </div>
                         </Blob>
-                    </div>
+                    </motion.div>
                 </div>
             </section>
 
