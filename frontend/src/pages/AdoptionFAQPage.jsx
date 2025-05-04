@@ -132,7 +132,7 @@ const AdoptionFAQPage = () => {
     <div className="min-h-screen bg-white w-full m-0 p-0 overflow-hidden" style={{ width: "100vw", maxWidth: "100%" }}>
       {/* Simple Header */}
       <div className="relative overflow-hidden">
-        <div className="bg-indigo-600 text-white py-8 w-full" style={{ width: "100vw", maxWidth: "100%" }}>
+        <div className="bg-teal-700 text-white py-8 w-full" style={{ width: "100vw", maxWidth: "100%" }}>
           <div className="flex items-center px-8 w-full max-w-7xl mx-auto">
             <Link to="/" className="flex items-center hover:text-white/80 transition-colors group">
               <div className="bg-white/20 rounded-full p-2 group-hover:bg-white/30 transition-all">
@@ -159,7 +159,7 @@ const AdoptionFAQPage = () => {
             <motion.h2 
               initial={{ y: -20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              className="text-3xl sm:text-4xl font-bold mt-8 mb-4 text-indigo-700 text-center"
+              className="text-3xl sm:text-4xl font-bold mt-8 mb-4 text-teal-700 text-center"
               style={{ letterSpacing: "-0.5px" }}
             >
               Pet Adoption FAQs
@@ -190,8 +190,8 @@ const AdoptionFAQPage = () => {
                   onClick={() => toggleFAQ(index)}
                   className="w-full px-6 py-5 text-left flex justify-between items-center hover:bg-gray-50 transition-colors"
                 >
-                  <h3 className="font-semibold text-lg text-indigo-900">{item.question}</h3>
-                  <div className="text-indigo-500">
+                  <h3 className="font-semibold text-lg text-teal-900">{item.question}</h3>
+                  <div className="text-teal-600">
                     {openFAQ === index ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                   </div>
                 </button>
@@ -219,7 +219,7 @@ const AdoptionFAQPage = () => {
           >
             <Link
               to="/adoption-process"
-              className="inline-flex items-center bg-gradient-to-r from-purple-400 to-purple-500 text-white px-8 py-4 rounded-full text-lg font-medium transition-all duration-300 shadow-md hover:shadow-xl hover:scale-105 mr-4"
+              className="inline-flex items-center bg-gradient-to-r from-teal-600 to-teal-700 text-white px-8 py-4 rounded-full text-lg font-medium transition-all duration-300 shadow-md hover:shadow-xl hover:scale-105 mr-4"
               style={{ letterSpacing: "-0.3px" }}
             >
               <PawPrint className="mr-2 h-5 w-5" />
@@ -227,7 +227,7 @@ const AdoptionFAQPage = () => {
             </Link>
             <Link
               to="/adoption-requirements"
-              className="inline-flex items-center bg-gradient-to-r from-indigo-500 to-indigo-600 text-white px-8 py-4 rounded-full text-lg font-medium transition-all duration-300 shadow-md hover:shadow-xl hover:scale-105"
+              className="inline-flex items-center bg-gradient-to-r from-teal-700 to-teal-800 text-white px-8 py-4 rounded-full text-lg font-medium transition-all duration-300 shadow-md hover:shadow-xl hover:scale-105"
               style={{ letterSpacing: "-0.3px" }}
             >
               View Requirements
@@ -236,7 +236,7 @@ const AdoptionFAQPage = () => {
           
           {/* Decorative Paw Prints */}
           <div className="absolute right-0 top-1/4 opacity-5 transform rotate-12">
-            <PawPrint className="h-40 w-40 text-indigo-400" />
+            <PawPrint className="h-40 w-40 text-teal-600" />
           </div>
           <div className="absolute left-0 bottom-1/3 opacity-5 transform -rotate-12">
             <PawPrint className="h-32 w-32 text-pink-300" />
@@ -245,7 +245,7 @@ const AdoptionFAQPage = () => {
       </main>
       
       {/* Modern Footer */}
-      <footer className="bg-indigo-600 py-10 mt-12 w-full text-white" style={{ width: "100vw", maxWidth: "100%" }}>
+      <footer className="bg-teal-700 py-10 mt-12 w-full text-white" style={{ width: "100vw", maxWidth: "100%" }}>
         <div className="px-8 text-center w-full max-w-7xl mx-auto">
           <p className="text-lg font-light mb-4">Begin your journey to bring a new furry friend into your life today!</p>
           <div className="flex justify-center items-center mb-6">
