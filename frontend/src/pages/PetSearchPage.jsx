@@ -85,6 +85,7 @@ function PetSearchPage() {
                     <a href="/" className="text-gray-500 hover:text-gray-900">Home</a>
                     <a href="/pet-search" className="text-gray-900 border-b-2 border-gray-900">Pet search</a>
                     <a href="/adoption-process" className="text-gray-500 hover:text-gray-900">Adoption process</a>
+                    <a href="/adoption-requirements" className="text-gray-500 hover:text-gray-900">Requirements</a>
                     <a href="/adoption-faq" className="text-gray-500 hover:text-gray-900">FAQ</a>
 
                     {/* Search Icon */}
