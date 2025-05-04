@@ -65,24 +65,31 @@ const AdoptionProcessPage = () => {
   };
   
   return (
-    <div className="min-h-screen w-screen bg-white">
+    <div className="min-h-screen w-screen bg-white overflow-x-hidden">
       {/* Header */}
-      <header className="container mx-auto px-4 py-4 flex items-center justify-between">
-        <div className="flex items-center">
-          <PawPrint className="text-teal-700 h-6 w-6"/>
-          <span className="ml-2 text-xl font-bold">Paws</span>
-        </div>
-        
-        <nav className="hidden md:flex space-x-6 items-center">
-          <Link to="/" className="text-gray-500 hover:text-gray-900">Home</Link>
-          <Link to="/pet-search" className="text-gray-500 hover:text-gray-900">Pet search</Link>
-          <Link to="/adoption-process" className="text-gray-900 border-b-2 border-gray-900">Adoption process</Link>
-          <Link to="/adoption-faq" className="text-gray-500 hover:text-gray-900">FAQ</Link>
-        </nav>
-      </header>
+        {/* Header */}
+        <header className="container mx-auto px-4 py-4 grid grid-cols-3 items-center relative z-50">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center">
+              <PawPrint className="text-tealcustom h-6 w-6"/>
+              <span className="ml-2 text-xl font-bold">Paws</span>
+            </div>
+          </div>
+          
+          <nav className="hidden md:flex space-x-6 items-center justify-center">
+            <a href="/" className="text-gray-500 hover:text-gray-900">Home</a>
+            <a href="/pet-search" className="text-gray-500 hover:text-gray-900">Pet search</a>
+            <a href="/adoption-process" className="text-gray-900 border-b-2 border-gray-900">Adoption process</a>
+            <a href="/adoption-faq" className="text-gray-500 hover:text-gray-900">FAQ</a>
+          </nav>
+          
+          <div className="flex justify-end">
+            {/* Spațiu gol pentru echilibrare */}
+          </div>
+        </header>
 
       {/* Hero Section */}
-      <section className="bg-teal-700 text-white py-16">
+      <section className="bg-tealcustom text-white py-16 relative z-10">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center">
             <h1 className="text-4xl md:text-5xl font-bold mb-6">
@@ -96,7 +103,7 @@ const AdoptionProcessPage = () => {
       </section>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-16">
+      <main className="container mx-auto px-4 py-16 relative">
         <motion.div 
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto"
           variants={containerVariants}
@@ -110,7 +117,7 @@ const AdoptionProcessPage = () => {
               className="relative"
             >
               <div className={`bg-gradient-to-br ${step.color} rounded-2xl p-8 h-full shadow-sm hover:shadow-md transition-all duration-300`}>
-                <div className="absolute -top-4 -right-4 bg-teal-700 text-white w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg">
+                <div className="absolute -top-4 -right-4 bg-tealcustom text-white w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg">
                   {index + 1}
                 </div>
                 
@@ -144,7 +151,7 @@ const AdoptionProcessPage = () => {
           </p>
           <Link
             to="/pet-search"
-            className="inline-flex items-center bg-teal-700 hover:bg-teal-800 text-white px-8 py-4 rounded-full text-lg font-medium transition-all duration-200"
+            className="inline-flex items-center bg-tealcustom hover:bg-teal-800 text-white px-8 py-4 rounded-full text-lg font-medium transition-all duration-200 cursor-pointer"
           >
             <span className="mr-2">View Available Pets</span>
             <ArrowRight className="h-5 w-5" />
@@ -152,16 +159,16 @@ const AdoptionProcessPage = () => {
         </motion.div>
 
         {/* Decorative Elements */}
-        <div className="absolute right-0 top-1/4 opacity-5 transform rotate-12">
-          <PawPrint className="h-40 w-40 text-teal-600" />
-        </div>
-        <div className="absolute left-0 bottom-1/3 opacity-5 transform -rotate-12">
-          <PawPrint className="h-32 w-32 text-pink-300" />
-        </div>
+      <div className="absolute right-0 top-1/4 opacity-5 transform rotate-12 pointer-events-none">
+        <PawPrint className="h-40 w-40 text-teal-600" />
+      </div>
+      <div className="absolute left-0 bottom-1/3 opacity-5 transform -rotate-12 pointer-events-none">
+        <PawPrint className="h-32 w-32 text-pink-300" />
+      </div>
       </main>
 
       {/* Footer */}
-    <Footer />
+      <Footer />
     </div>
   );
 };
