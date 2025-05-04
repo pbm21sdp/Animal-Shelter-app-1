@@ -62,7 +62,7 @@ export default function DonationSuccessPage() {
                         </div>
                     ) : donationDetails ? (
                         <div className="my-6 p-4 bg-yellow-50 rounded-lg">
-                            <p className="text-gray-700">Your donation of ${donationDetails.amount} was successful!</p>
+                            <p className="text-gray-700">Your donation of {donationDetails.amount} € was successful!</p>
                             <p className="text-sm text-gray-500 mt-2">
                                 A confirmation email has been sent to your email address.
                             </p>
