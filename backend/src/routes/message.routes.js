@@ -6,7 +6,8 @@ import {
     getAllMessages,
     markMessageAsRead,
     deleteMessage,
-    replyToMessage, getUserMessages
+    replyToMessage,
+    getUserMessages
 } from '../controllers/message.controller.js';
 
 const router = express.Router();
@@ -20,6 +21,5 @@ router.put('/admin/:id/mark-read', verifyToken, isAdmin, markMessageAsRead);
 router.delete('/admin/:id', verifyToken, isAdmin, deleteMessage);
 router.post('/admin/reply', verifyToken, isAdmin, replyToMessage);
 router.get('/admin/user/:userId', verifyToken, isAdmin, getUserMessages);
-
 
 export default router;
