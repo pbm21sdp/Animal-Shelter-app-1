@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { usePetStore } from '../store/petStore';
 import {motion} from "framer-motion";
 import {useAuthStore} from "../store/authStore.js";
+import PetCard from '../components/PetCard';
 
 function PetSearchPage() {
     const navigate = useNavigate();
@@ -60,9 +61,9 @@ function PetSearchPage() {
     };
 
     return (
-        <div className="min-h-screen w-full font-sans flex flex-col">
+        <div className="min-h-screen w-full font-sans flex flex-col overflow-x-hidden">
             {/* Header - Fixed Height */}
-            <header className="container mx-auto px-4 py-4 flex items-center justify-between">
+            <header className="container mx-auto px-4 py-4 flex items-center justify-between relative z-50">
                 <div className="flex items-center space-x-4">
                     <div className="flex items-center">
                         <PawPrint className="text-tealcustom h-6 w-6"/>
@@ -225,42 +226,7 @@ function PetSearchPage() {
                     ) : pets.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                             {pets.map((pet) => (
-                                <div key={pet.id} className="bg-white rounded-xl overflow-hidden shadow-md">
-                                    <div className="h-48 overflow-hidden">
-                                        <img
-                                            src={
-                                                pet.photos?.[0]?.id
-                                                    ? `http://localhost:5000/api/pets/photos/${pet.photos[0].id}`
-                                                    : '/images/pet-placeholder.png'
-                                            }
-                                            alt={`${pet.name} - ${pet.breed}`}
-                                            className="w-full h-full object-cover"
-                                            onError={(e) => {
-                                                e.target.src = '/images/pet-placeholder.png';
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="p-4">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <h3 className="text-xl font-bold">{pet.name}</h3>
-                                            <span className={`text-sm ${pet.gender === 'male' ? 'text-blue-500' : 'text-pink-500'}`}>
-                                                {pet.gender === 'male' ? '♂' : '♀'} {pet.gender?.charAt(0).toUpperCase() + pet.gender?.slice(1)}
-                                            </span>
-                                        </div>
-                                        <div className="flex justify-between text-sm text-gray-600">
-                                            <span>{pet.age_category?.charAt(0).toUpperCase() + pet.age_category?.slice(1)}</span>
-                                            <span>{pet.breed}</span>
-                                        </div>
-                                        <div className="mt-4 flex justify-end">
-                                            <button
-                                                onClick={() => navigate(`/pet/${pet.id}`)}
-                                                className="hover:text-teal-700"
-                                            >
-                                                <ArrowRight className="h-5 w-5 text-teal-700"/>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
+                                <PetCard key={pet.id} pet={pet} showArrow={true} />
                             ))}
                         </div>
                     ) : (
