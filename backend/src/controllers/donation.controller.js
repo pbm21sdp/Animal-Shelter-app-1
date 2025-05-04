@@ -177,16 +177,28 @@ export const handleStripeWebhook = async (req, res) => {
     res.status(200).json({ received: true });
 };
 
-// Get all donations (admin only)
 export const getAllDonations = async (req, res) => {
     try {
         const donations = await Donation.find()
             .sort({ createdAt: -1 })
             .populate('user', 'name email');
 
+        // Transform the data to include userName and userEmail fields
+        const transformedDonations = donations.map(donation => {
+            // Convert to plain object if it's a Mongoose document
+            const donationObj = donation.toObject ? donation.toObject() : {...donation};
+
+            return {
+                ...donationObj,
+                userName: donationObj.user?.name || 'Anonymous',
+                userEmail: donationObj.user?.email || 'No email',
+                userId: donationObj.user?._id || null
+            };
+        });
+
         res.status(200).json({
             success: true,
-            donations
+            donations: transformedDonations
         });
     } catch (error) {
         console.error('Error fetching all donations:', error);
