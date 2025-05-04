@@ -1,21 +1,24 @@
 import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
-import { PawPrint, Heart, ChevronDown, ChevronUp } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { PawPrint, Heart, ChevronDown, ChevronUp, LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
 import Footer from "../components/page/Footer.jsx";
+import { useAuthStore } from "../store/authStore";
 
 const AdoptionFAQPage = () => {
-  const [openFAQ, setOpenFAQ] = useState(null);
+  const [openFAQ, setOpenFAQ] = useState([]);
+  const { logout } = useAuthStore();
+  const navigate = useNavigate();
   
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
   const toggleFAQ = (index) => {
-    if (openFAQ === index) {
-      setOpenFAQ(null);
+    if (openFAQ.includes(index)) {
+      setOpenFAQ(openFAQ.filter(item => item !== index));
     } else {
-      setOpenFAQ(index);
+      setOpenFAQ([...openFAQ, index]);
     }
   };
 
@@ -105,6 +108,11 @@ const AdoptionFAQPage = () => {
     hidden: { y: 20, opacity: 0 },
     visible: { y: 0, opacity: 1 }
   };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login'); 
+  };
   
   return (
     <div className="min-h-screen w-screen bg-white overflow-x-hidden">
@@ -120,12 +128,19 @@ const AdoptionFAQPage = () => {
         <nav className="hidden md:flex space-x-6 items-center justify-center">
           <a href="/" className="text-gray-500 hover:text-gray-900">Home</a>
           <a href="/pet-search" className="text-gray-500 hover:text-gray-900">Pet search</a>
-          <a href="/adoption-process" className="text-gray-900 border-b-2 border-gray-900">Adoption process</a>
-          <a href="/adoption-faq" className="text-gray-500 hover:text-gray-900">FAQ</a>
+          <a href="/adoption-process" className="text-gray-500 hover:text-gray-900">Adoption process</a>
+          <a href="/adoption-requirements" className="text-gray-500 hover:text-gray-900">Requirements</a>
+          <a href="/adoption-faq" className="test-gray-900 border-b-2 border-gray-900">FAQ</a>
         </nav>
         
         <div className="flex justify-end">
-          {/* Spațiu gol pentru echilibrare */}
+          <button 
+            onClick={handleLogout}
+            className="flex items-center text-gray-500 hover:text-gray-900 transition-colors"
+          >
+            <LogOut className="h-5 w-5 mr-2" />
+            <span>Logout</span>
+          </button>
         </div>
       </header>
       
@@ -164,11 +179,11 @@ const AdoptionFAQPage = () => {
                 >
                   <h3 className="font-semibold text-lg text-teal-900">{item.question}</h3>
                   <div className="text-teal-600">
-                    {openFAQ === index ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                    {openFAQ.includes(index) ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                   </div>
                 </button>
                 
-                {openFAQ === index && (
+                {openFAQ.includes(index) && (
                   <motion.div 
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: "auto", opacity: 1 }}
