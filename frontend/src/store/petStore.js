@@ -15,10 +15,28 @@ export const usePetStore = create((set) => ({
     getAllPets: async (filters = {}) => {
         set({ isLoading: true, error: null });
         try {
+            // Get filtered pets (with limit if specified)
             const queryParams = new URLSearchParams(filters).toString();
             const response = await axios.get(`${API_URL}?${queryParams}`);
-
-            // Handle different response formats
+            
+            // Get total count without limit if a limit was specified
+            let totalPets = 0;
+            if (filters.limit) {
+                const totalResponse = await axios.get(API_URL);
+                let totalPetsData = [];
+                
+                if (Array.isArray(totalResponse.data)) {
+                    totalPetsData = totalResponse.data;
+                } else if (totalResponse.data && totalResponse.data.success && Array.isArray(totalResponse.data.pets)) {
+                    totalPetsData = totalResponse.data.pets;
+                } else if (totalResponse.data && Array.isArray(totalResponse.data.data)) {
+                    totalPetsData = totalResponse.data.data;
+                }
+                
+                totalPets = totalPetsData.length;
+            }
+            
+            // Handle different response formats for the main request
             let petsData = [];
             if (Array.isArray(response.data)) {
                 petsData = response.data;
@@ -27,11 +45,16 @@ export const usePetStore = create((set) => ({
             } else if (response.data && Array.isArray(response.data.data)) {
                 petsData = response.data.data;
             }
-
+            
+            // If we have a limit but didn't fetch total, use the current pets length
+            if (!filters.limit) {
+                totalPets = petsData.length;
+            }
+            
             set({
                 pets: petsData,
                 isLoading: false,
-                totalPets: response.data.totalPets || petsData.length
+                totalPets: totalPets
             });
         } catch (error) {
             console.error('Error fetching pets:', error);
