@@ -1,36 +1,14 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { ChevronLeft, PawPrint, Heart, ChevronDown, ChevronUp } from "lucide-react";
+import { PawPrint, Heart, ChevronDown, ChevronUp } from "lucide-react";
 import { useEffect, useState } from "react";
+import Footer from "../components/page/Footer.jsx";
 
 const AdoptionFAQPage = () => {
   const [openFAQ, setOpenFAQ] = useState(null);
   
-  // Ensure page starts at the top when loaded and remove any margin/padding that might affect full width
   useEffect(() => {
     window.scrollTo(0, 0);
-    
-    // Ensure full width by temporarily modifying body styles
-    const originalBodyStyle = document.body.style.cssText;
-    document.body.style.margin = "0";
-    document.body.style.padding = "0";
-    document.body.style.maxWidth = "100%";
-    document.body.style.overflowX = "hidden";
-    
-    // Add modern font to the page - using Poppins for a more modern look
-    const fontLink = document.createElement('link');
-    fontLink.href = 'https://cdnjs.cloudflare.com/ajax/libs/poppins/4.0.0/poppins.css';
-    fontLink.rel = 'stylesheet';
-    document.head.appendChild(fontLink);
-    document.body.style.fontFamily = "'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-    
-    return () => {
-      // Restore original body styles when component unmounts
-      document.body.style.cssText = originalBodyStyle;
-      if (document.head.contains(fontLink)) {
-        document.head.removeChild(fontLink);
-      }
-    };
   }, []);
 
   const toggleFAQ = (index) => {
@@ -129,51 +107,45 @@ const AdoptionFAQPage = () => {
   };
   
   return (
-    <div className="min-h-screen bg-white w-full m-0 p-0 overflow-hidden" style={{ width: "100vw", maxWidth: "100%" }}>
-      {/* Simple Header */}
-      <div className="relative overflow-hidden">
-        <div className="bg-teal-700 text-white py-8 w-full" style={{ width: "100vw", maxWidth: "100%" }}>
-          <div className="flex items-center px-8 w-full max-w-7xl mx-auto">
-            <Link to="/" className="flex items-center hover:text-white/80 transition-colors group">
-              <div className="bg-white/20 rounded-full p-2 group-hover:bg-white/30 transition-all">
-                <ChevronLeft className="h-5 w-5" />
-              </div>
-              <span className="ml-2 text-lg font-medium">Back</span>
-            </Link>
-            <h1 className="text-3xl sm:text-4xl font-bold mx-auto flex items-center" style={{ letterSpacing: "-0.5px" }}>
-              <PawPrint className="mr-3 h-8 w-8" />
-              Pet Adoption FAQs
-            </h1>
-            <div className="w-20 opacity-0">
-              {/* Empty div for spacing */}
-            </div>
+    <div className="min-h-screen w-screen bg-white overflow-x-hidden">
+      {/* Header */}
+      <header className="container mx-auto px-4 py-4 grid grid-cols-3 items-center relative">
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center">
+            <PawPrint className="text-tealcustom h-6 w-6"/>
+            <span className="ml-2 text-xl font-bold">Paws</span>
           </div>
         </div>
-      </div>
+        
+        <nav className="hidden md:flex space-x-6 items-center justify-center">
+          <a href="/" className="text-gray-500 hover:text-gray-900">Home</a>
+          <a href="/pet-search" className="text-gray-500 hover:text-gray-900">Pet search</a>
+          <a href="/adoption-process" className="text-gray-900 border-b-2 border-gray-900">Adoption process</a>
+          <a href="/adoption-faq" className="text-gray-500 hover:text-gray-900">FAQ</a>
+        </nav>
+        
+        <div className="flex justify-end">
+          {/* Spațiu gol pentru echilibrare */}
+        </div>
+      </header>
+      
+      {/* Hero Section */}
+      <section className="bg-tealcustom text-white py-16">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto text-center">
+            <h1 className="text-4xl md:text-5xl font-bold mb-6">
+              Pet Adoption FAQs
+            </h1>
+            <p className="text-xl mb-8 text-gray-100">
+              Got any questions? See if you can find your answer here.
+            </p>
+          </div>
+        </div>
+      </section>
       
       {/* Main Content */}
-      <main className="w-full bg-white pt-12 pb-16" style={{ width: "100vw", maxWidth: "100%" }}>
-        <div className="px-4 sm:px-8 max-w-3xl mx-auto w-full">
-          {/* Feature Image */}
-          <div className="text-center mb-12">
-            <motion.h2 
-              initial={{ y: -20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              className="text-3xl sm:text-4xl font-bold mt-8 mb-4 text-teal-700 text-center"
-              style={{ letterSpacing: "-0.5px" }}
-            >
-              Pet Adoption FAQs
-            </motion.h2>
-            <motion.p
-              initial={{ y: -10, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.2 }}
-              className="text-lg text-gray-700 max-w-2xl mx-auto text-center mb-12"
-            >
-              Got any questions? See if you can find your answer here.
-            </motion.p>
-          </div>
-          
+      <main className="container mx-auto px-4 py-16">
+        <div className="max-w-3xl mx-auto">
           <motion.div 
             className="space-y-4"
             variants={containerVariants}
@@ -211,54 +183,27 @@ const AdoptionFAQPage = () => {
             ))}
           </motion.div>
           
-          <motion.div 
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.9 }}
-            className="text-center mt-12"
-          >
+          <div className="text-center mt-12">
             <Link
               to="/adoption-process"
-              className="inline-flex items-center bg-gradient-to-r from-teal-600 to-teal-700 text-white px-8 py-4 rounded-full text-lg font-medium transition-all duration-300 shadow-md hover:shadow-xl hover:scale-105 mr-4"
-              style={{ letterSpacing: "-0.3px" }}
+              className="inline-flex items-center bg-tealcustom hover:bg-teal-800 text-white px-8 py-4 rounded-full text-lg font-medium transition-all duration-200 mr-4"
             >
               <PawPrint className="mr-2 h-5 w-5" />
               Adoption Process
             </Link>
             <Link
               to="/adoption-requirements"
-              className="inline-flex items-center bg-gradient-to-r from-teal-700 to-teal-800 text-white px-8 py-4 rounded-full text-lg font-medium transition-all duration-300 shadow-md hover:shadow-xl hover:scale-105"
-              style={{ letterSpacing: "-0.3px" }}
+              className="inline-flex items-center bg-tealcustom hover:bg-teal-800 text-white px-8 py-4 rounded-full text-lg font-medium transition-all duration-200 mr-4"
             >
+              <PawPrint className="mr-2 h-5 w-5" />
               View Requirements
             </Link>
-          </motion.div>
-          
-          {/* Decorative Paw Prints */}
-          <div className="absolute right-0 top-1/4 opacity-5 transform rotate-12">
-            <PawPrint className="h-40 w-40 text-teal-600" />
-          </div>
-          <div className="absolute left-0 bottom-1/3 opacity-5 transform -rotate-12">
-            <PawPrint className="h-32 w-32 text-pink-300" />
           </div>
         </div>
       </main>
       
-      {/* Modern Footer */}
-      <footer className="bg-teal-700 py-10 mt-12 w-full text-white" style={{ width: "100vw", maxWidth: "100%" }}>
-        <div className="px-8 text-center w-full max-w-7xl mx-auto">
-          <p className="text-lg font-light mb-4">Begin your journey to bring a new furry friend into your life today!</p>
-          <div className="flex justify-center items-center mb-6">
-            <div className="bg-white/20 p-2 rounded-full">
-              <Heart className="h-6 w-6 text-pink-300" />
-            </div>
-            <span className="text-white font-medium ml-3 text-lg" style={{ letterSpacing: "-0.3px" }}>Make a difference. Adopt, don't shop.</span>
-          </div>
-          <div className="border-t border-white/20 pt-6 mt-6 text-sm text-white/70">
-            <p>© 2025 Paws. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
+      {/* Footer */}
+      <Footer />
     </div>
   );
 };
