@@ -9,7 +9,8 @@ import { useAuthStore } from "../store/authStore";
 import { usePetStore } from "../store/petStore";
 import { useNavigate } from 'react-router-dom';
 import { Link } from "react-router-dom";
-import Footer from "../components/page/Footer"; // Import the new Footer component
+import Footer from "../components/page/Footer"; 
+import PetCard from '../components/PetCard';
 
 // Images imports
 import info1 from "../assets/PawHomePage/req.jpg"
@@ -30,7 +31,7 @@ const steps = Object.values(stepImages).map((mod) => mod.default);
 export default function PawsHomepage() {
     const { user, logout } = useAuthStore();
     const navigate = useNavigate();
-    const { pets, isLoading, error, getAllPets } = usePetStore();
+    const { pets, isLoading, error, getAllPets, totalPets } = usePetStore();
 
     useEffect(() => {
         // Fetch only 3 pets for the homepage
@@ -291,42 +292,7 @@ export default function PawsHomepage() {
                     ) : pets.length > 0 ? (
                         <>
                             {pets.slice(0, 3).map((pet) => (
-                                <div key={pet.id} className="bg-white rounded-xl overflow-hidden shadow-md">
-                                    <div className="h-48 overflow-hidden">
-                                        <img
-                                            src={
-                                            pet.photos?.[0]?.id
-                                                ? `http://localhost:5000/api/pets/photos/${pet.photos[0].id}`
-                                                : '/images/pet-placeholder.png'
-                                        }
-                                            alt={`${pet.name} - ${pet.breed}`}
-                                            className="w-full h-full object-cover"
-                                            onError={(e) => {
-                                            e.target.src = '/images/pet-placeholder.png';
-                                        }}
-                                            />
-                                    </div>
-                                    <div className="p-4">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <h3 className="text-xl font-bold">{pet.name}</h3>
-                                            <span className={`text-sm ${pet.gender === 'male' ? 'text-blue-500' : 'text-pink-500'}`}>
-                                            {pet.gender === 'male' ? '♂' : '♀'} {pet.gender}
-                                        </span>
-                                        </div>
-                                        <div className="flex justify-between text-sm text-gray-600">
-                                            <span>{pet.age_category}</span>
-                                            <span>{pet.breed}</span>
-                                        </div>
-                                        <div className="mt-4 flex justify-end">
-                                            <button
-                                                onClick={() => navigate(`/pet/${pet.id}`)}
-                                                className="hover:text-teal-700"
-                                            >
-                                                <ArrowRight className="h-5 w-5 text-teal-700"/>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
+                            <PetCard key={pet.id} pet={pet} showArrow={true} />
                             ))}
 
                             <div className="bg-tealcustom rounded-xl overflow-hidden shadow-md text-white flex flex-col justify-center items-center p-8">
@@ -347,9 +313,11 @@ export default function PawsHomepage() {
                                         ? 'Searching for pets...'
                                         : error
                                             ? `Error: ${error}`
-                                            : pets.length > 0
-                                                ? `${pets.length} pets are waiting for you`
-                                                : 'No pets available at the moment.'}
+                                            : totalPets > 3
+                                                ? `${totalPets - 3} more pets are waiting for you`
+                                                : totalPets === 3
+                                                    ? '3 pets are waiting for you'
+                                                    : `${totalPets} pets are waiting for you`}
                                 </p>
                                 <div className="mt-4 flex justify-end">
                                     <button onClick={() => navigate('/pet-search')}>
@@ -410,7 +378,7 @@ export default function PawsHomepage() {
                             <img src={info3} alt="Pet Adoption FAQs" className="rounded-full w-96 h-64"/>
                         </div>
                         <h3 className="text-xl font-bold mb-4">Pet Adoption FAQs</h3>
-                        <p className="text-gray-600 mb-6">Got any questions? Make sure to check the pet adoption FAQ
+                        <p className="text-gray-600 mb-6">Got any questions? Make sure to check the pet adoption FAQ to find your answer!
                             page</p>
                         <Link to="/adoption-faq">
                             <motion.button
