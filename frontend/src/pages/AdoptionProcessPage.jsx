@@ -1,13 +1,17 @@
 import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
-import { ChevronLeft, PawPrint, Heart, FileText, Phone, Users, Home, Search, ArrowRight } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { ChevronLeft, PawPrint, Heart, FileText, Phone, Users, Home, Search, ArrowRight, LogOut } from "lucide-react";
 import { useEffect } from "react";
 import Footer from "../components/page/Footer.jsx";
+import { useAuthStore } from "../store/authStore";
 
 const AdoptionProcessPage = () => {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  const { logout } = useAuthStore();
+  const navigate = useNavigate();
 
   const steps = [
     {
@@ -63,9 +67,14 @@ const AdoptionProcessPage = () => {
     hidden: { y: 20, opacity: 0 },
     visible: { y: 0, opacity: 1 }
   };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login'); 
+  };
   
   return (
-    <div className="min-h-screen w-screen bg-white overflow-x-hidden">
+    <div className="min-h-screen w-screen bg-white overflow-x-hidden z-30">
       {/* Header */}
         {/* Header */}
         <header className="container mx-auto px-4 py-4 grid grid-cols-3 items-center relative z-50">
@@ -80,11 +89,18 @@ const AdoptionProcessPage = () => {
             <a href="/" className="text-gray-500 hover:text-gray-900">Home</a>
             <a href="/pet-search" className="text-gray-500 hover:text-gray-900">Pet search</a>
             <a href="/adoption-process" className="text-gray-900 border-b-2 border-gray-900">Adoption process</a>
+            <a href="/adoption-requirements" className="text-gray-500 hover:text-gray-900">Requirements</a>
             <a href="/adoption-faq" className="text-gray-500 hover:text-gray-900">FAQ</a>
           </nav>
           
           <div className="flex justify-end">
-            {/* Spațiu gol pentru echilibrare */}
+            <button 
+              onClick={handleLogout}
+              className="flex items-center text-gray-500 hover:text-gray-900 transition-colors"
+            >
+              <LogOut className="h-5 w-5 mr-2" />
+              <span>Logout</span>
+            </button>
           </div>
         </header>
 
@@ -103,7 +119,7 @@ const AdoptionProcessPage = () => {
       </section>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-16 relative">
+      <main className="container mx-auto px-4 py-16 relative z-10">
         <motion.div 
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto"
           variants={containerVariants}
