@@ -6,9 +6,8 @@ import Footer from "../components/page/Footer.jsx";
 import { useAuthStore } from "../store/authStore";
 import DonationModal from "../components/DonationModal"; 
 import { useDonationStore } from "../store/donationStore";
-import MessageForm from "../components/MessageForm"; // Importăm MessageForm
+import MessageForm from "../components/MessageForm"; 
 
-// Modal pentru formularul de mesaje
 const MessageModal = ({ isOpen, onClose, children }) => {
   if (!isOpen) return null;
 
@@ -66,7 +65,7 @@ const Team = () => {
     const navigate = useNavigate();
     const { createDonation } = useDonationStore();
     const [isDonationModalOpen, setIsDonationModalOpen] = useState(false);
-    const [isMessageModalOpen, setIsMessageModalOpen] = useState(false); // State pentru modal-ul de mesaje
+    const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
 
     useEffect(() => {
         window.scrollTo(0, 0);
@@ -87,7 +86,6 @@ const Team = () => {
         setIsDonationModalOpen(false);
     };
 
-    // Funcții pentru modal-ul de mesaje
     const openMessageModal = () => {
         setIsMessageModalOpen(true);
     };
@@ -244,7 +242,7 @@ const Team = () => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={openDonationModal}
-              className="bg-yellow-200 text-tealcustom font-bold py-3 px-8 rounded-md"
+              className="bg-yellow-200 hover:bg-yellow-100 text-tealcustom font-bold py-3 px-8 rounded-md"
             >
               Support Our Cause
             </motion.button>
@@ -283,27 +281,37 @@ const Team = () => {
                 <p><span className="font-medium">Sunday:</span> Closed</p>
               </div>
             </div>
-            {/* Butonul modificat pentru a deschide modal-ul cu formular */}
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              onClick={openMessageModal} // Adăugăm handler-ul pentru deschiderea modal-ului
-              className="w-full bg-yellow-200 text-tealcustom font-bold py-3 rounded-md"
+              onClick={openMessageModal} 
+              className="w-full bg-yellow-200 hover:bg-yellow-100 text-tealcustom font-bold py-3 rounded-md"
             >
               Send Us a Message
             </motion.button>
           </div>
+
+          {/* Bottom navigation */}
+            <div className="container mx-auto px-4 py-8">
+            <div className="max-w-4xl mx-auto flex justify-between">
+                <Link to="/partnerships" className="text-tealcustom hover:text-teal-900 font-medium">
+                ← Partnerships
+                </Link>
+                <Link to="/terms" className="text-tealcustom hover:text-teal-900 font-medium">
+                Terms of Service →
+                </Link>
+            </div>
+            </div>
+            
         </div>
       </div>
 
-      {/* Modal-ul pentru donații */}
       <DonationModal
         isOpen={isDonationModalOpen}
         onClose={closeDonationModal}
         onDonate={handleDonate}
       /> 
 
-      {/* Modal-ul pentru formular de mesaje */}
       <MessageModal 
         isOpen={isMessageModalOpen} 
         onClose={closeMessageModal}

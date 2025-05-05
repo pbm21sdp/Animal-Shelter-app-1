@@ -1,28 +1,53 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { PawPrint, Building, ThumbsUp, Gift, ShieldCheck, Globe, LogOut } from 'lucide-react';
+import { PawPrint, Building, ThumbsUp, Gift, ShieldCheck, Globe, LogOut, X } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import Footer from "../components/page/Footer.jsx";
 import { useAuthStore } from "../store/authStore";
+import MessageForm from "../components/MessageForm"; 
+
+const MessageModal = ({ isOpen, onClose, children }) => {
+    if (!isOpen) return null;
+  
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.9 }}
+          className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 relative"
+        >
+          <button 
+            onClick={onClose}
+            className="absolute top-3 right-3 text-gray-500 hover:text-gray-800"
+          >
+            <X className="h-6 w-6" />
+          </button>
+          <h2 className="text-2xl font-bold text-tealcustom mb-4">Send Us a Message</h2>
+          {children}
+        </motion.div>
+      </div>
+    );
+  };
 
 const PartnerCard = ({ name, logo, description, type }) => {
   return (
     <motion.div
       whileHover={{ y: -5 }}
-      className="bg-white rounded-lg shadow-md overflow-hidden"
+      className="bg-yellow-100 rounded-lg shadow-md overflow-hidden"
     >
       <div className="h-85 bg-gray-100 flex items-center justify-center p-4">
         <img src={logo} alt={name} className="max-h-full max-w-full object-contain" />
       </div>
       <div className="p-6">
         <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium mb-3 
-          ${type === 'Sponsor' ? 'bg-yellow-100 text-yellow-800' : 
+          ${type === 'Sponsor' ? 'bg-pink-100 text-pink-800' : 
             type === 'Veterinary' ? 'bg-teal-100 text-teal-800' : 
             'bg-purple-100 text-purple-800'}`}
         >
           {type}
         </span>
-        <h3 className="text-xl font-bold mb-2">{name}</h3>
+        <h3 className="text-xl text-tealcustom font-bold mb-2">{name}</h3>
         <p className="text-gray-700">{description}</p>
       </div>
     </motion.div>
@@ -115,6 +140,7 @@ const Partnerships = () => {
 
     const { logout } = useAuthStore();
     const navigate = useNavigate();
+    const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
 
     useEffect(() => {
         window.scrollTo(0, 0);
@@ -124,6 +150,14 @@ const Partnerships = () => {
         logout();
         navigate('/login'); 
         };
+
+    const openMessageModal = () => {
+        setIsMessageModalOpen(true);
+    };
+
+    const closeMessageModal = () => {
+        setIsMessageModalOpen(false);
+    };
 
   return (
     <div className="bg-yellow-50 w-full min-h-screen">
@@ -156,13 +190,13 @@ const Partnerships = () => {
       </header>
 
       {/* Hero Section */}
-      <div className="bg-tealcustom text-white py-16">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center mb-6">
-            <PawPrint className="text-teal-500 h-8 w-8" />
+      <div className="bg-tealcustom text-white py-16 items-center justify-center">
+        <div className="container mx-auto px-4 text-center">
+          <div className="flex items-center justify-center text-center mb-6">
+            <PawPrint className="text-yellow-200 h-8 w-8" />
             <h1 className="text-4xl font-bold ml-2">Our Partnerships</h1>
           </div>
-          <p className="text-xl max-w-3xl">
+          <p className="text-xl mx-auto max-w-3xl">
             We collaborate with businesses, veterinarians, and community organizations to provide the best care for our animals and enhance our adoption services. Together, we're making a bigger impact on animal welfare.
           </p>
         </div>
@@ -170,7 +204,7 @@ const Partnerships = () => {
 
       {/* Current Partners Section */}
       <div className="container mx-auto px-4 py-16">
-        <h2 className="text-3xl font-bold mb-8 text-center">Our Current Partners</h2>
+        <h2 className="text-3xl text-tealcustom font-bold mb-8 text-center">Our Current Partners</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {partners.map((partner, index) => (
             <PartnerCard key={index} {...partner} />
@@ -189,18 +223,18 @@ const Partnerships = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            <div className="bg-white rounded-lg shadow-md p-6 text-gray-800">
-              <h3 className="text-xl font-bold mb-4 text-teal-700">Corporate Sponsorship</h3>
+            <div className="bg-yellow-100 rounded-lg shadow-md p-6 text-gray-800">
+              <h3 className="text-xl font-bold mb-4 text-tealcustom">Corporate Sponsorship</h3>
               <p className="mb-4">Financial support for our shelter operations and adoption programs.</p>
               <ul className="space-y-2 mb-6">
                 <li className="flex items-start">
-                  <svg className="h-5 w-5 text-teal-700 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="h-5 w-5 text-tealcustom mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                   Logo placement on our website
                 </li>
                 <li className="flex items-start">
-                  <svg className="h-5 w-5 text-teal-700 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="h-5 w-5 text-tealcustom mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                   Recognition at events
@@ -214,24 +248,24 @@ const Partnerships = () => {
               </ul>
             </div>
 
-            <div className="bg-white rounded-lg shadow-md p-6 text-gray-800">
-              <h3 className="text-xl font-bold mb-4 text-teal-700">In-Kind Donations</h3>
+            <div className="bg-yellow-100 rounded-lg shadow-md p-6 text-gray-800">
+              <h3 className="text-xl font-bold mb-4 text-tealcustom">In-Kind Donations</h3>
               <p className="mb-4">Provide products or services that help our shelter animals.</p>
               <ul className="space-y-2 mb-6">
                 <li className="flex items-start">
-                  <svg className="h-5 w-5 text-teal-700 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="h-5 w-5 text-tealcustom mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                   Pet food and supplies
                 </li>
                 <li className="flex items-start">
-                  <svg className="h-5 w-5 text-teal-700 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="h-5 w-5 text-tealcustom mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                   Veterinary services
                 </li>
                 <li className="flex items-start">
-                  <svg className="h-5 w-5 text-teal-700 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="h-5 w-5 text-tealcustom mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                   Professional services
@@ -239,24 +273,24 @@ const Partnerships = () => {
               </ul>
             </div>
 
-            <div className="bg-white rounded-lg shadow-md p-6 text-gray-800">
-              <h3 className="text-xl font-bold mb-4 text-teal-700">Event Partnerships</h3>
+            <div className="bg-yellow-100 rounded-lg shadow-md p-6 text-gray-800">
+              <h3 className="text-xl font-bold mb-4 text-tealcustom">Event Partnerships</h3>
               <p className="mb-4">Collaborate on adoption events, fundraisers, or educational programs.</p>
               <ul className="space-y-2 mb-6">
                 <li className="flex items-start">
-                  <svg className="h-5 w-5 text-teal-700 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="h-5 w-5 text-tealcustom mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                   Co-branded events
                 </li>
                 <li className="flex items-start">
-                  <svg className="h-5 w-5 text-teal-700 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="h-5 w-5 text-tealcustom mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                   Venue provision
                 </li>
                 <li className="flex items-start">
-                  <svg className="h-5 w-5 text-teal-700 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="h-5 w-5 text-tealcustom mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                   Community outreach
@@ -269,7 +303,7 @@ const Partnerships = () => {
 
       {/* Benefits Section */}
       <div className="container mx-auto px-4 py-16">
-        <h2 className="text-3xl font-bold mb-12 text-center">Partnership Benefits</h2>
+        <h2 className="text-3xl text-tealcustom font-bold mb-12 text-center">Partnership Benefits</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           {benefits.map((benefit, index) => (
             <BenefitItem key={index} {...benefit} />
@@ -287,7 +321,8 @@ const Partnerships = () => {
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="bg-teal-700 hover:bg-teal-800 text-white font-bold py-3 px-8 rounded-md inline-flex items-center"
+            onClick={openMessageModal}
+            className="bg-yellow-200 hover:bg-yellow-100 text-tealcustom font-bold py-3 px-8 rounded-md inline-flex items-center"
           >
             <span>Contact Our Partnership Team</span>
             <svg className="w-5 h-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -296,6 +331,26 @@ const Partnerships = () => {
           </motion.button>
         </div>
       </div>
+
+      {/* Bottom navigation */}
+        <div className="container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto flex justify-between">
+            <Link to="/team" className="text-tealcustom hover:text-teal-900 font-medium">
+            ← Team
+            </Link>
+            <Link to="/terms" className="text-tealcustom hover:text-teal-900 font-medium">
+            Terms of Service →
+            </Link>
+        </div>
+        </div>
+
+      <MessageModal 
+        isOpen={isMessageModalOpen} 
+        onClose={closeMessageModal}
+      >
+        <MessageForm />
+      </MessageModal>
+
       <Footer />
     </div>
   );
