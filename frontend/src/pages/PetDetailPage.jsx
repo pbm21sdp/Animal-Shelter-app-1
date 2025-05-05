@@ -316,14 +316,14 @@ export function PetDetailPage() {
                         <div className="flex gap-4 mb-8">
                             <button 
                                 onClick={() => setShowAdoptionForm(true)}
-                                className="bg-tealcustom text-white px-6 py-3 rounded-md flex items-center"
+                                className="bg-tealcustom hover:bg-teal-600 text-white px-6 py-3 rounded-md flex items-center"
                             >
                                 Adopt me
                                 <PawPrint className="ml-2 h-5 w-5" />
                             </button>
                             <button 
                                 onClick={() => setShowQuestionForm(true)}
-                                className="bg-red-100 text-gray-800 px-6 py-3 rounded-md flex items-center"
+                                className="bg-yellow-200 hover:bg-yellow-100 text-tealcustom px-6 py-3 rounded-md flex items-center"
                             >
                                 Ask about me ?
                                 <MessageCircle className="ml-2 h-5 w-5" />
