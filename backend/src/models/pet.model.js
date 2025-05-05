@@ -48,12 +48,15 @@ export const PetModel = {
     },
 
     // Search pets
+    // Update the search function to handle the new suggestion format
     search: async (searchParams) => {
         try {
+            // console.log('Search method received params:', searchParams);
+
             let query = `
                 SELECT p.*,
                        json_agg(DISTINCT pp.*) FILTER (WHERE pp.id IS NOT NULL) as photos,
-                    json_agg(DISTINCT pt.trait) FILTER (WHERE pt.id IS NOT NULL) as traits
+                       json_agg(DISTINCT pt.trait) FILTER (WHERE pt.id IS NOT NULL) as traits
                 FROM pets p
                          LEFT JOIN pet_photos pp ON p.id = pp.pet_id
                          LEFT JOIN pet_traits pt ON p.id = pt.pet_id
@@ -63,23 +66,68 @@ export const PetModel = {
             const values = [];
             let paramCount = 1;
 
+            // Add type filter
             if (searchParams.type && searchParams.type !== 'any') {
-                query += ` AND p.type = $${paramCount}`;
+                query += ` AND LOWER(p.type) = LOWER($${paramCount})`;
                 values.push(searchParams.type);
                 paramCount++;
             }
 
-            // Handle radius and zipCode together
+            // Handle radius and zipCode
             if (searchParams.radius && searchParams.zipCode) {
-                // For now, simple zip code exact match
-                // You can implement more complex radius search using PostGIS if needed
                 query += ` AND p.zip_code = $${paramCount}`;
                 values.push(searchParams.zipCode);
                 paramCount++;
             } else if (searchParams.zipCode) {
-                // If only zipCode is provided
                 query += ` AND p.zip_code = $${paramCount}`;
                 values.push(searchParams.zipCode);
+                paramCount++;
+            }
+
+            // Add search term filter
+            if (searchParams.term) {
+                query += ` AND (
+                LOWER(p.name) ILIKE LOWER($${paramCount}) OR 
+                LOWER(p.breed) ILIKE LOWER($${paramCount}) OR 
+                LOWER(p.description) ILIKE LOWER($${paramCount}) OR
+                LOWER(p.type) ILIKE LOWER($${paramCount})
+            )`;
+                values.push(`%${searchParams.term}%`);
+                paramCount++;
+            }
+
+            // Add gender filter
+            if (searchParams.gender && searchParams.gender !== 'any') {
+                query += ` AND LOWER(p.gender) = LOWER($${paramCount})`;
+                values.push(searchParams.gender);
+                paramCount++;
+            }
+
+            // Add age category filter
+            if (searchParams.ageCategory && searchParams.ageCategory !== 'any') {
+                query += ` AND LOWER(p.age_category) = LOWER($${paramCount})`;
+                values.push(searchParams.ageCategory);
+                paramCount++;
+            }
+
+            // Add size filter
+            if (searchParams.size && searchParams.size !== 'any') {
+                query += ` AND LOWER(p.size) = LOWER($${paramCount})`;
+                values.push(searchParams.size);
+                paramCount++;
+            }
+
+            // Add color filter
+            if (searchParams.color) {
+                query += ` AND LOWER(p.color) ILIKE LOWER($${paramCount})`;
+                values.push(`%${searchParams.color}%`);
+                paramCount++;
+            }
+
+            // Add breed filter
+            if (searchParams.breed) {
+                query += ` AND LOWER(p.breed) ILIKE LOWER($${paramCount})`;
+                values.push(`%${searchParams.breed}%`);
                 paramCount++;
             }
 
@@ -89,11 +137,15 @@ export const PetModel = {
             } else if (searchParams.sortBy === 'oldest') {
                 query += ` GROUP BY p.id ORDER BY p.created_at ASC`;
             } else {
-                // Default to newest
+                // Default to nearest (could be enhanced with actual geo proximity)
                 query += ` GROUP BY p.id ORDER BY p.created_at DESC`;
             }
 
+            // console.log('Search query:', query);
+            // console.log('Values:', values);
+
             const result = await pool.query(query, values);
+            // console.log(`Found ${result.rows.length} matching pets`);
             return result.rows || [];
         } catch (error) {
             console.error('Error in PetModel.search:', error);
@@ -316,6 +368,88 @@ export const PetModel = {
             console.error('Error in PetModel.delete:', error);
             throw error;
         }
+    },
+
+    // Get search suggestions for autocomplete
+    // Replace this method in your PetModel object
+    getSuggestions: async (term) => {
+        try {
+            if (!term || term.length < 1) {
+                return [];
+            }
+
+            // Query for pet names, breeds, and types that match the term
+            const query = `
+                SELECT id, name, type, breed
+                FROM pets
+                WHERE
+                    name ILIKE $1 OR
+                    breed ILIKE $1 OR
+                    type ILIKE $1
+                LIMIT 20
+            `;
+
+            const result = await pool.query(query, [`%${term}%`]);
+
+            // Format suggestions in Emag style: primary text + category
+            const suggestions = [];
+            const uniqueValues = new Set();
+
+            result.rows.forEach(row => {
+                // Pet name suggestions
+                if (row.name && row.name.toLowerCase().includes(term.toLowerCase())) {
+                    const key = `name-${row.name}`;
+                    if (!uniqueValues.has(key)) {
+                        uniqueValues.add(key);
+                        suggestions.push({
+                            text: row.name,
+                            category: row.type ? row.type.charAt(0).toUpperCase() + row.type.slice(1) : 'Pet'
+                        });
+                    }
+                }
+
+                // Breed suggestions
+                if (row.breed && row.breed.toLowerCase().includes(term.toLowerCase())) {
+                    const key = `breed-${row.breed}`;
+                    if (!uniqueValues.has(key)) {
+                        uniqueValues.add(key);
+                        suggestions.push({
+                            text: row.breed,
+                            category: 'Breed'
+                        });
+                    }
+                }
+
+                // Type suggestions
+                if (row.type && row.type.toLowerCase().includes(term.toLowerCase())) {
+                    const key = `type-${row.type}`;
+                    if (!uniqueValues.has(key)) {
+                        uniqueValues.add(key);
+                        suggestions.push({
+                            text: row.type.charAt(0).toUpperCase() + row.type.slice(1),
+                            category: 'Type'
+                        });
+                    }
+                }
+            });
+
+            // Add direct search suggestion if no results or as additional option
+            if (suggestions.length === 0 || term.length >= 3) {
+                suggestions.push({
+                    text: term,
+                    category: 'Search'
+                });
+            }
+
+            return suggestions.slice(0, 8); // Limit to 8 suggestions
+        } catch (error) {
+            console.error('Error in PetModel.getSuggestions:', error);
+            return [{
+                text: term,
+                category: 'Search'
+            }];
+        }
     }
+
 
 };

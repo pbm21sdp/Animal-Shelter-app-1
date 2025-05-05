@@ -33,20 +33,39 @@ export const getAllPets = async (req, res) => {
 };
 
 
+// Update this method in your pet.controller.js
 export const searchPets = async (req, res) => {
     try {
-        const {type, radius, zipCode, sortBy} = req.query;
+        // Extract all possible filter parameters
+        const {
+            type, radius, zipCode, sortBy, term,
+            gender, ageCategory, size, color, breed
+        } = req.query;
+
+        // Create search parameters object with all possible filters
         const searchParams = {};
 
-        // Only add search parameters if they have values
+        // Only add search parameters if they have values and are not 'any'
         if (type && type !== 'any') searchParams.type = type;
         if (radius && radius !== '') searchParams.radius = radius;
         if (zipCode && zipCode !== '') searchParams.zipCode = zipCode;
         if (sortBy) searchParams.sortBy = sortBy;
+        if (term) searchParams.term = term;
+
+        // Add the additional filter parameters
+        if (gender && gender !== 'any') searchParams.gender = gender;
+        if (ageCategory && ageCategory !== 'any') searchParams.ageCategory = ageCategory;
+        if (size && size !== 'any') searchParams.size = size;
+        if (color && color !== '') searchParams.color = color;
+        if (breed && breed !== '') searchParams.breed = breed;
+
+        // console.log('Backend received search params:', searchParams);
 
         const pets = await PetModel.search(searchParams);
+
         res.status(200).json({
             success: true,
+            totalCount: pets.length,
             pets
         });
     } catch (error) {
@@ -168,6 +187,34 @@ export const deletePet = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Failed to delete pet',
+            error: error.message
+        });
+    }
+};
+
+export const getSearchSuggestions = async (req, res) => {
+    try {
+        const { term } = req.query;
+
+        if (!term || term.length < 2) {
+            return res.status(200).json({
+                success: true,
+                suggestions: []
+            });
+        }
+
+        // Use the model function we'll create
+        const suggestions = await PetModel.getSuggestions(term);
+
+        res.status(200).json({
+            success: true,
+            suggestions
+        });
+    } catch (error) {
+        console.error('Error getting search suggestions:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get search suggestions',
             error: error.message
         });
     }

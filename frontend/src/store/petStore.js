@@ -11,6 +11,7 @@ export const usePetStore = create((set) => ({
     isLoading: false,
     error: null,
     totalPets: 0,
+    searchSuggestions: [],
 
     getAllPets: async (filters = {}) => {
         set({ isLoading: true, error: null });
@@ -70,7 +71,26 @@ export const usePetStore = create((set) => ({
     searchPets: async (searchParams) => {
         set({ isLoading: true, error: null });
         try {
-            const queryParams = new URLSearchParams(searchParams).toString();
+            // Create a cleaned copy of the search params to remove empty values
+            const cleanedParams = {};
+
+            // Only add parameters if they have meaningful values
+            Object.keys(searchParams).forEach(key => {
+                const value = searchParams[key];
+                if (value === 'any' && key !== 'type') {
+                    // Skip 'any' values except for type (which backend handles)
+                    return;
+                }
+                if (value === '' || value === null || value === undefined) {
+                    // Skip empty values
+                    return;
+                }
+                cleanedParams[key] = value;
+            });
+
+            // console.log("Sending search params to API:", cleanedParams);
+
+            const queryParams = new URLSearchParams(cleanedParams).toString();
             const response = await axios.get(`${API_URL}/search?${queryParams}`);
 
             // Handle different response formats
@@ -88,6 +108,8 @@ export const usePetStore = create((set) => ({
                 isLoading: false,
                 totalPets: response.data.totalPets || petsData.length
             });
+
+            return petsData;
         } catch (error) {
             console.error('Error searching pets:', error);
             set({
@@ -216,6 +238,30 @@ export const usePetStore = create((set) => ({
                 isLoading: false
             });
             throw error;
+        }
+    },
+
+    // Get search suggestions as user types
+    getSearchSuggestions: async (term) => {
+        try {
+            if (!term || term.length < 2) {
+                set({searchSuggestions: []});
+                return [];
+            }
+
+            const response = await axios.get(`${API_URL}/suggestions?term=${encodeURIComponent(term)}`);
+
+            let suggestions = [];
+            if (response.data && response.data.success && Array.isArray(response.data.suggestions)) {
+                suggestions = response.data.suggestions;
+            }
+
+            set({searchSuggestions: suggestions});
+            return suggestions;
+        } catch (error) {
+            console.error('Error fetching search suggestions:', error);
+            set({searchSuggestions: []});
+            return [];
         }
     },
 
