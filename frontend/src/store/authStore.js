@@ -2,6 +2,7 @@ import {create} from "zustand";
 import axios from "axios";
 
 const API_URL = "http://localhost:5000/api/auth"
+const USER_API_URL = "http://localhost:5000/api/users";
 
 axios.defaults.withCredentials = true;
 
@@ -25,7 +26,6 @@ export const useAuthStore = create((set) => ({
     },
 
     login: async (email, password) => {
-
         set({isLoading:true, error:null});
 
         try{
@@ -103,4 +103,49 @@ export const useAuthStore = create((set) => ({
             throw error;
         }
     },
+
+    // Add these new methods for profile management
+    updateProfile: async (profileData) => {
+        set({ isLoading: true, error: null });
+        try {
+            const response = await axios.put(`${USER_API_URL}/profile`, profileData);
+            set(state => ({
+                user: { ...state.user, ...response.data.user },
+                isLoading: false,
+                error: null
+            }));
+            return response.data;
+        } catch (error) {
+            set({ 
+                error: error.response?.data?.message || "Error updating profile", 
+                isLoading: false 
+            });
+            throw error;
+        }
+    },
+
+    uploadAvatar: async (file) => {
+        set({ isLoading: true, error: null });
+        try {
+            const formData = new FormData();
+            formData.append('avatar', file);
+            
+            const response = await axios.post(`${USER_API_URL}/avatar`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            
+            set(state => ({
+                user: { ...state.user, avatar: response.data.avatarUrl },
+                isLoading: false,
+                error: null
+            }));
+            return response.data;
+        } catch (error) {
+            set({ 
+                error: error.response?.data?.message || "Error uploading avatar", 
+                isLoading: false 
+            });
+            throw error;
+        }
+    }
 }));

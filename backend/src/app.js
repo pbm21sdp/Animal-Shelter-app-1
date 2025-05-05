@@ -3,11 +3,12 @@ import swaggerUi from 'swagger-ui-express';
 import cors from 'cors';
 import specs from './config/swagger.js';
 import cookieParser from 'cookie-parser';
+import path from 'path';
 
 import { connectPostgresDB } from './config/database/connectPostgresDB.js';
 import { config } from 'dotenv';
 import { connectMongoDB } from "./config/database/connectMongoDB.js";
-
+import { fileURLToPath } from 'url';
 import { authRoutes } from "./routes/auth/auth.routes.js"
 
 // Import routes
@@ -27,6 +28,8 @@ if (!process.env.DOCKER_ENV) {
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Middleware
 app.use(cors({origin: "http://localhost:5173", credentials: true}));
@@ -41,8 +44,15 @@ app.post('/api/donations/webhook',
 app.use(express.json()); // allow us to parse incoming requests:req.body
 app.use(cookieParser()); // allow us to parse incoming cookies
 
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Swagger documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
+
+app.post('/api/donations/webhook', 
+    express.raw({ type: 'application/json' }), 
+    donationRoutes
+);
 
 // API ROUTES
 app.use('/api/adoptions', adoptionRoutes);
