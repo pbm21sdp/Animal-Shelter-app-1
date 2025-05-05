@@ -1,18 +1,60 @@
-import React from 'react';
-import { PawPrint, Shield, FileText, AlertCircle } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { PawPrint, Shield, FileText, AlertCircle, LogOut } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuthStore } from "../store/authStore";
+import Footer from "../components/page/Footer.jsx";
 
 const TermsOfService = () => {
+  const { logout } = useAuthStore();
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login'); 
+  };
+
   return (
     <div className="bg-yellow-50 w-full min-h-screen">
+      {/* Header */}
+      <header className="container mx-auto px-4 py-4 grid grid-cols-3 items-center relative">
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center">
+            <PawPrint className="text-tealcustom h-6 w-6"/>
+            <span className="ml-2 text-xl font-bold">Paws</span>
+          </div>
+        </div>
+        
+        <nav className="hidden md:flex space-x-6 items-center justify-center">
+          <a href="/" className="text-gray-500 hover:text-gray-900">Home</a>
+          <a href="/pet-search" className="text-gray-500 hover:text-gray-900">Pet search</a>
+          <a href="/adoption-process" className="text-gray-500 hover:text-gray-900">Adoption process</a>
+          <a href="/adoption-requirements" className="text-gray-500 hover:text-gray-900">Requirements</a>
+          <a href="/adoption-faq" className="test-gray-900 border-b-2 border-gray-900">FAQ</a>
+        </nav>
+        
+        <div className="flex justify-end">
+          <button 
+            onClick={handleLogout}
+            className="flex items-center text-gray-500 hover:text-gray-900 transition-colors"
+          >
+            <LogOut className="h-5 w-5 mr-2" />
+            <span>Logout</span>
+          </button>
+        </div>
+      </header>
+
       {/* Hero Section */}
-      <div className="bg-yellow-200 py-12">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center mb-6">
-            <PawPrint className="text-teal-700 h-8 w-8" />
+      <div className="bg-tealcustom text-white py-16 items-center justify-center">
+        <div className="container mx-auto px-4 text-center">
+          <div className="flex items-center justify-center text-center mb-6">
+            <PawPrint className="text-yellow-200 h-8 w-8" />
             <h1 className="text-4xl font-bold ml-2">Terms of Service</h1>
           </div>
-          <p className="text-xl max-w-3xl">
+          <p className="text-xl mx-auto max-w-3xl">
             Please read these terms and conditions carefully before using our website and services. These terms outline your rights and responsibilities when using the Paws adoption platform.
           </p>
         </div>
@@ -20,11 +62,11 @@ const TermsOfService = () => {
 
       {/* Main Content */}
       <div className="container mx-auto px-4 py-12">
-        <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-8">
+        <div className="max-w-4xl mx-auto bg-yellow-100 rounded-lg shadow-md p-8">
           <div className="mb-8">
             <div className="flex items-center mb-4">
-              <FileText className="text-teal-700 h-6 w-6 mr-2" />
-              <h2 className="text-2xl font-bold">Introduction</h2>
+              <FileText className="text-tealcustom h-6 w-6 mr-2" />
+              <h2 className="text-2xl text-tealcustom font-bold">Introduction</h2>
             </div>
             <p className="mb-4">
               Welcome to Paws ("we," "our," or "us"). By accessing or using our website, mobile application, and services, you agree to be bound by these Terms of Service and our Privacy Policy.
@@ -36,8 +78,8 @@ const TermsOfService = () => {
 
           <div className="mb-8">
             <div className="flex items-center mb-4">
-              <Shield className="text-teal-700 h-6 w-6 mr-2" />
-              <h2 className="text-2xl font-bold">User Accounts</h2>
+              <Shield className="text-tealcustom h-6 w-6 mr-2" />
+              <h2 className="text-2xl text-tealcustom font-bold">User Accounts</h2>
             </div>
             <p className="mb-4">
               To use certain features of our platform, you may need to register for an account. When you register, you agree to provide accurate, current, and complete information about yourself.
@@ -52,27 +94,27 @@ const TermsOfService = () => {
 
           <div className="mb-8">
             <div className="flex items-center mb-4">
-              <AlertCircle className="text-teal-700 h-6 w-6 mr-2" />
-              <h2 className="text-2xl font-bold">Adoption Process and Services</h2>
+              <AlertCircle className="text-tealcustom h-6 w-6 mr-2" />
+              <h2 className="text-2xl text-tealcustom font-bold">Adoption Process and Services</h2>
             </div>
-            <h3 className="text-xl font-semibold mb-2">2.1 Adoption Applications</h3>
+            <h3 className="text-xl text-tealcustom font-semibold mb-2">2.1 Adoption Applications</h3>
             <p className="mb-4">
               By submitting an adoption application through our platform, you represent and warrant that all information provided is accurate, complete, and truthful. Submitting an application does not guarantee approval or placement of any pet.
             </p>
             
-            <h3 className="text-xl font-semibold mb-2">2.2 Adoption Fees</h3>
+            <h3 className="text-xl text-tealcustom font-semibold mb-2">2.2 Adoption Fees</h3>
             <p className="mb-4">
               Adoption fees vary depending on the type and age of the pet. All adoption fees are non-refundable once an adoption is finalized, unless otherwise stated in a specific adoption agreement.
             </p>
             
-            <h3 className="text-xl font-semibold mb-2">2.3 Post-Adoption Services</h3>
+            <h3 className="text-xl text-tealcustom font-semibold mb-2">2.3 Post-Adoption Services</h3>
             <p>
               We may offer post-adoption support services. These services are provided on an "as available" basis and may be modified or discontinued at any time without prior notice.
             </p>
           </div>
 
           <div className="mb-8">
-            <h2 className="text-2xl font-bold mb-4">User Conduct</h2>
+            <h2 className="text-2xl text-tealcustom font-bold mb-4">User Conduct</h2>
             <p className="mb-4">
               When using our platform, you agree not to:
             </p>
@@ -90,7 +132,7 @@ const TermsOfService = () => {
           </div>
 
           <div className="mb-8">
-            <h2 className="text-2xl font-bold mb-4">Intellectual Property</h2>
+            <h2 className="text-2xl text-tealcustom font-bold mb-4">Intellectual Property</h2>
             <p className="mb-4">
               Our platform and its original content, features, and functionality are owned by Paws and are protected by international copyright, trademark, and other intellectual property laws.
             </p>
@@ -100,7 +142,7 @@ const TermsOfService = () => {
           </div>
 
           <div className="mb-8">
-            <h2 className="text-2xl font-bold mb-4">Privacy and Data Protection</h2>
+            <h2 className="text-2xl text-tealcustom font-bold mb-4">Privacy and Data Protection</h2>
             <p className="mb-4">
               We collect and process personal data in accordance with our Privacy Policy. By using our platform, you consent to our data practices as described in our Privacy Policy.
             </p>
@@ -110,7 +152,7 @@ const TermsOfService = () => {
           </div>
 
           <div className="mb-8">
-            <h2 className="text-2xl font-bold mb-4">Limitation of Liability</h2>
+            <h2 className="text-2xl text-tealcustom font-bold mb-4">Limitation of Liability</h2>
             <p className="mb-4">
               To the maximum extent permitted by law, Paws and its officers, directors, employees, and agents shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including but not limited to loss of profits, data, or use, arising out of or in connection with your use of our platform.
             </p>
@@ -120,7 +162,7 @@ const TermsOfService = () => {
           </div>
 
           <div className="mb-8">
-            <h2 className="text-2xl font-bold mb-4">Modifications to Terms</h2>
+            <h2 className="text-2xl text-tealcustom font-bold mb-4">Modifications to Terms</h2>
             <p className="mb-4">
               We reserve the right to modify these Terms of Service at any time. When we make changes, we will update the "Last Modified" date at the bottom of this page and notify you through the platform or via email.
             </p>
@@ -130,7 +172,7 @@ const TermsOfService = () => {
           </div>
 
           <div className="mb-8">
-            <h2 className="text-2xl font-bold mb-4">Termination</h2>
+            <h2 className="text-2xl text-tealcustom font-bold mb-4">Termination</h2>
             <p className="mb-4">
               We may terminate or suspend your account and access to our platform at any time, without prior notice or liability, for any reason, including if you violate these Terms of Service.
             </p>
@@ -140,22 +182,22 @@ const TermsOfService = () => {
           </div>
 
           <div className="mb-8">
-            <h2 className="text-2xl font-bold mb-4">Governing Law</h2>
+            <h2 className="text-2xl text-tealcustom font-bold mb-4">Governing Law</h2>
             <p>
               These Terms of Service shall be governed by and construed in accordance with the laws of Romania, without regard to its conflict of law provisions. Any legal action or proceeding arising out of or relating to these Terms of Service shall be brought exclusively in the courts of Timișoara, Romania.
             </p>
           </div>
 
           <div className="mb-8">
-            <h2 className="text-2xl font-bold mb-4">Contact Us</h2>
+            <h2 className="text-2xl text-tealcustom font-bold mb-4">Contact Us</h2>
             <p className="mb-4">
               If you have any questions about these Terms of Service, please contact us at:
             </p>
             <address className="not-italic">
               <p>Paws Adoption</p>
-              <p>123 Adoption Street</p>
-              <p>Timișoara, 300001</p>
-              <p>Romania</p>
+              <p>Bd. Vasile Pârvan</p>
+              <p>Timișoara, 300223</p>
+              <p>România</p>
               <p>Email: legal@pawsadoption.com</p>
             </address>
           </div>
@@ -166,15 +208,17 @@ const TermsOfService = () => {
         </div>
 
         {/* Bottom navigation */}
-        <div className="max-w-4xl mx-auto mt-8 flex justify-between">
-          <Link to="/" className="text-teal-700 hover:text-teal-900 font-medium">
-            ← Back to Home
+        <div className="max-w-4xl mt-8 flex w-full">
+          <Link to="/team" className="text-tealcustom hover:text-teal-900 text-lg font-bold">
+            ← Team
           </Link>
-          <Link to="/privacy-policy" className="text-teal-700 hover:text-teal-900 font-medium">
-            Privacy Policy →
+          <Link to="/partnerships" className="text-tealcustom hover:text-teal-900 text-lg font-bold">
+            Partnerships →
           </Link>
         </div>
       </div>
+
+      <Footer />
     </div>
   );
 };
