@@ -179,7 +179,7 @@ function PetSearchPage() {
                 {/* Search Section */}
                 <div className="mb-8">
                     {/* Search Filters */}
-                    <div className="bg-teal-700 rounded-xl p-6 flex flex-wrap items-center justify-between gap-4 mb-6">
+                    <div className="bg-tealcustom rounded-xl p-6 flex flex-wrap items-center justify-between gap-4 mb-6">
                         <div className="flex items-center gap-4 flex-1">
                             <div className="text-white">
                                 <svg viewBox="0 0 24 24" className="w-10 h-10">
@@ -192,7 +192,7 @@ function PetSearchPage() {
                                 <select
                                     value={filters.type}
                                     onChange={(e) => handleFilterChange('type', e.target.value)}
-                                    className="bg-teal-700 text-white border-none outline-none text-lg cursor-pointer appearance-none pr-8 w-full"
+                                    className="bg-tealcustom text-white border-none outline-none text-lg cursor-pointer appearance-none pr-8 w-full"
                                 >
                                     <option value="any">Any</option>
                                     <option value="dog">Dogs</option>
@@ -242,7 +242,7 @@ function PetSearchPage() {
 
                         <button
                             onClick={() => searchPets(filters)}
-                            className="bg-red-200 hover:bg-red-300 text-gray-800 px-6 py-3 rounded-md flex items-center transition duration-200"
+                            className="bg-yellow-200 hover:bg-yellow-100 text-tealcustom px-6 py-3 rounded-md flex items-center transition duration-200"
                         >
                             Find your best match
                             <Search className="ml-2 h-5 w-5"/>
@@ -253,7 +253,7 @@ function PetSearchPage() {
                         <div className="flex items-center gap-4">
                             <button
                                 onClick={() => setShowMoreFilters(!showMoreFilters)}
-                                className="text-teal-700 flex items-center"
+                                className="text-tealcustom flex items-center"
                             >
                                 {showMoreFilters ? 'Less Filters' : 'More Filters'}
                                 <ChevronDown className={`ml-1 h-4 w-4 transform transition-transform ${showMoreFilters ? 'rotate-180' : ''}`}/>
@@ -286,7 +286,7 @@ function PetSearchPage() {
 
                     {/* Additional filters panel - shown when 'More Filters' is clicked */}
                     {showMoreFilters && (
-                        <div className="bg-teal-700 rounded-xl p-6 flex flex-wrap items-center gap-6 mb-6 transition-all duration-300">
+                        <div className="bg-tealcustom rounded-xl p-6 flex flex-wrap items-center gap-6 mb-6 transition-all duration-300">
                             <div className="flex flex-col">
                                 <label className="text-white text-sm mb-1">Gender</label>
                                 <select
