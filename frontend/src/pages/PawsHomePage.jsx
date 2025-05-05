@@ -364,7 +364,7 @@ export default function PawsHomepage() {
 
                             <div className="bg-tealcustom rounded-xl overflow-hidden shadow-md text-white flex flex-col justify-center items-center p-8">
                                 <div className="mb-4">
-                                    <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1">
+                                    <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#fef08a" strokeWidth="1">
                                         <path d="M12 20a8 8 0 100-16 8 8 0 000 16z"/>
                                         <path d="M8 9a1 1 0 100-2 1 1 0 000 2z"/>
                                         <path d="M12 9a1 1 0 100-2 1 1 0 000 2z"/>
@@ -388,7 +388,7 @@ export default function PawsHomepage() {
                                 </p>
                                 <div className="mt-4 flex justify-end">
                                     <button onClick={() => navigate('/pet-search')}>
-                                        <ArrowRight className="h-5 w-5"/>
+                                        <ArrowRight className="text-yellow-200 h-5 w-5"/>
                                     </button>
                                 </div>
                             </div>
@@ -406,14 +406,14 @@ export default function PawsHomepage() {
                         <div className="rounded-full bg-white p-4 shadow-md inline-block mb-4">
                             <img src={info1} alt="Adoption process" className="rounded-full w-96 h-64"/>
                         </div>
-                        <h3 className="text-xl font-bold mb-4">Adoption process</h3>
+                        <h3 className="text-xl text-tealcustom font-bold mb-4">Adoption process</h3>
                         <p className="text-gray-600 mb-6">Get familiar with the details about the pet adoption process
                             for all each type of our little friends</p>
                         <Link to="/adoption-process">
                             <motion.button
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
-                                className="bg-red-200 hover:bg-red-300 text-gray-800 px-6 py-2 rounded-md flex items-center justify-center mx-auto transition duration-200"
+                                className="bg-tealcustom hover:bg-teal-600 text-white px-6 py-2 rounded-md flex items-center justify-center mx-auto transition duration-200"
                             >
                                 <span>Learn more</span>
                                 <ArrowRight className="h-4 w-4 ml-2"/>
@@ -425,14 +425,14 @@ export default function PawsHomepage() {
                         <div className="rounded-full bg-white p-4 shadow-md inline-block mb-4">
                             <img src={info2} alt="Requirements" className="rounded-full w-96 h-64 object-contain"/>
                         </div>
-                        <h3 className="text-xl font-bold mb-4">Requirements</h3>
+                        <h3 className="text-xl text-tealcustom font-bold mb-4">Requirements</h3>
                         <p className="text-gray-600 mb-6">Make sure you meet all necessary requirements to complete the
                             adoption process</p>
                         <Link to="/adoption-requirements">
                             <motion.button
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
-                                className="bg-red-200 hover:bg-red-300 text-gray-800 px-6 py-2 rounded-md flex items-center justify-center mx-auto transition duration-200"
+                                className="bg-tealcustom hover:bg-teal-600 text-white px-6 py-2 rounded-md flex items-center justify-center mx-auto transition duration-200"
                             >
                                 <span>Requirements</span>
                                 <ArrowRight className="h-4 w-4 ml-2"/>
@@ -444,14 +444,14 @@ export default function PawsHomepage() {
                         <div className="rounded-full bg-white p-4 shadow-md inline-block mb-4">
                             <img src={info3} alt="Pet Adoption FAQs" className="rounded-full w-96 h-64"/>
                         </div>
-                        <h3 className="text-xl font-bold mb-4">Pet Adoption FAQs</h3>
+                        <h3 className="text-xl text-tealcustom font-bold mb-4">Pet Adoption FAQs</h3>
                         <p className="text-gray-600 mb-6">Got any questions? Make sure to check the pet adoption FAQ to find your answer!
                             page</p>
                         <Link to="/adoption-faq">
                             <motion.button
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
-                                className="bg-red-200 hover:bg-red-300 text-gray-800 px-6 py-2 rounded-md flex items-center justify-center mx-auto transition duration-200"
+                                className="bg-tealcustom hover:bg-teal-600 text-white px-6 py-2 rounded-md flex items-center justify-center mx-auto transition duration-200"
                             >
                                 <span>FAQs</span>
                                 <ArrowRight className="h-4 w-4 ml-2"/>
