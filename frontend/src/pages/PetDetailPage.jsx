@@ -20,6 +20,8 @@ import {
     MessageCircle
 } from 'lucide-react';
 import { usePetStore } from '../store/petStore';
+import Footer from "../components/page/Footer.jsx";
+import DynamicSearch from "../components/DynamicSearch.jsx";
 
 export function PetDetailPage() {
     const { id } = useParams();
@@ -235,7 +237,7 @@ export function PetDetailPage() {
                     <a href="/pet-search" className="text-gray-900 border-b-2 border-gray-900">Pet search</a>
                     <a href="#" className="text-gray-500 hover:text-gray-900">Adoption process</a>
                     <a href="#" className="text-gray-500 hover:text-gray-900">FAQ</a>
-                    <Search className="h-5 w-5 text-gray-500"/>
+                    <DynamicSearch redirectOnSelect={true}/>
                 </nav>
 
                 <div className="flex items-center space-x-4">
@@ -932,90 +934,7 @@ export function PetDetailPage() {
             )}
 
             {/* Footer */}
-            <footer className="bg-yellow-100 py-8 md:py-16 mt-16">
-                <div className="container mx-auto px-4">
-                    <div className="flex items-center mb-6">
-                        <PawPrint className="text-teal-700 h-6 w-6"/>
-                        <span className="ml-2 text-xl font-bold">Paws</span>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-                        <div>
-                            <h3 className="text-lg font-bold mb-4">About us</h3>
-                            <ul className="space-y-2">
-                                <li><a href="#" className="text-gray-700 hover:text-gray-900">Team</a></li>
-                                <li><a href="#" className="text-gray-700 hover:text-gray-900">Partnerships</a></li>
-                                <li><a href="#" className="text-gray-700 hover:text-gray-900">Terms of service</a></li>
-                                <li><a href="#" className="text-gray-700 hover:text-gray-900">Mobile App</a></li>
-                            </ul>
-                        </div>
-
-                        <div>
-                            <h3 className="text-lg font-bold mb-4">Pet Adoption</h3>
-                            <ul className="space-y-2">
-                                <li><a href="#" className="text-gray-700 hover:text-gray-900">Dog Adoption</a></li>
-                                <li><a href="#" className="text-gray-700 hover:text-gray-900">Cat Adoption</a></li>
-                                <li><a href="#" className="text-gray-700 hover:text-gray-900">Bird Adoption</a></li>
-                                <li><a href="#" className="text-gray-700 hover:text-gray-900">Other Pets Adoption</a></li>
-                            </ul>
-                        </div>
-
-                        <div>
-                            <h3 className="text-lg font-bold mb-4">Social Media</h3>
-                            <ul className="space-y-2">
-                                <li>
-                                    <a href="#" className="flex items-center text-gray-700 hover:text-gray-900">
-                                        <Facebook className="h-5 w-5 mr-2"/>
-                                        <span>Facebook</span>
-                                    </a>
-                                </li>
-                                <li>
-                                    <a href="#" className="flex items-center text-gray-700 hover:text-gray-900">
-                                        <Twitter className="h-5 w-5 mr-2"/>
-                                        <span>Twitter</span>
-                                    </a>
-                                </li>
-                                <li>
-                                    <a href="#" className="flex items-center text-gray-700 hover:text-gray-900">
-                                        <Instagram className="h-5 w-5 mr-2"/>
-                                        <span>Instagram</span>
-                                    </a>
-                                </li>
-                            </ul>
-                        </div>
-
-                        <div>
-                            <h3 className="text-lg font-bold mb-4">Have a question?</h3>
-                            <form className="space-y-4">
-                                <div>
-                                    <label htmlFor="email" className="block text-sm mb-1">Email</label>
-                                    <input
-                                        type="email"
-                                        id="email"
-                                        className="w-full px-4 py-2 rounded-md border border-gray-300"
-                                        placeholder="Your email"
-                                    />
-                                </div>
-                                <div>
-                                    <label htmlFor="message" className="block text-sm mb-1">Message</label>
-                                    <textarea
-                                        id="message"
-                                        rows="3"
-                                        className="w-full px-4 py-2 rounded-md border border-gray-300"
-                                        placeholder="Your message"
-                                    ></textarea>
-                                </div>
-                                <button
-                                    type="submit"
-                                    className="bg-tealcustom text-white px-6 py-2 rounded-md"
-                                >
-                                    Send
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </footer>
+            <Footer />
         </div>
     );
 }

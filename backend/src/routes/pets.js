@@ -7,7 +7,8 @@ import {
     getSimilarPets,
     createPet,
     updatePet,
-    deletePet
+    deletePet,
+    getSearchSuggestions
 } from '../controllers/pet.controller.js';
 import {
     uploadPhoto,
@@ -23,11 +24,13 @@ import { upload } from '../handlers/dbPhotoUpload.js';
 const router = express.Router();
 
 // Public routes - anyone can access these
-// Data comes from PostgreSQL
-router.get('/', getAllPets);
+router.get('/suggestions', getSearchSuggestions); // This must come BEFORE /:id routes
 router.get('/search', searchPets);
-router.get('/:id', getPetById);
+router.get('/', getAllPets);
+
+// ID-based routes
 router.get('/:id/similar', getSimilarPets);
+router.get('/:id', getPetById);
 
 // Photo routes
 router.get('/photos/:photoId', getPhotoById); // Public route to fetch photos

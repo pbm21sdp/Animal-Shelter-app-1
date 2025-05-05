@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import { Link } from "react-router-dom";
 import Footer from "../components/page/Footer"; 
 import PetCard from '../components/PetCard';
+import DynamicSearch from '../components/DynamicSearch';
 
 // Images imports
 import info1 from "../assets/PawHomePage/req.jpg"
@@ -94,22 +95,7 @@ export default function PawsHomepage() {
                     <a href="/adoption-faq" className="text-gray-500 hover:text-gray-900">FAQ</a>
 
                     {/* Search Icon */}
-                    <div className="relative flex items-center">
-                        <button
-                            onClick={handleSearchClick}
-                            className="text-gray-500 hover:text-gray-900"
-                        >
-                            <Search className="h-5 w-5"/>
-                        </button>
-
-                        {/* Search Input */}
-                        <input
-                            ref={inputRef}
-                            type="text"
-                            placeholder="Search..."
-                            className="ml-2 p-2 border border-gray-200 rounded-full"
-                        />
-                    </div>
+                    <DynamicSearch redirectOnSelect={true} />
                 </nav>
 
                 <div className="flex items-center space-x-4">
