@@ -18,6 +18,9 @@ import AdoptionRequirementsPage from "./pages/AdoptionRequirementsPage";
 import AdoptionFAQPage from './pages/AdoptionFAQPage';
 import DonationSuccessPage from './pages/DonationSuccessPage'; 
 import UserProfilePage from './pages/UserProfilePage';
+import Team from './pages/Team';
+import Partnerships from './pages/Partnerships';
+import TermsOfService from './pages/TermsOfService';
 
 // Protect routes that require authentication
 const ProtectedRoute = ({children}) => {
@@ -151,6 +154,24 @@ function App() {
                         <UserProfilePage />
                     </ProtectedRoute>
                 }
+                />
+                <Route path="/team" element={
+                    <ProtectedRoute>
+                        <Team />
+                    </ProtectedRoute>
+                } 
+                />
+                <Route path="/partnerships" element={
+                    <ProtectedRoute>
+                        <Partnerships />
+                    </ProtectedRoute>
+                } 
+                />
+                <Route path="/terms" element={
+                    <ProtectedRoute>
+                        <TermsOfService />
+                    </ProtectedRoute>
+                } 
                 />
 
                 <Route path="*" element={<Navigate to="/" replace />} />
