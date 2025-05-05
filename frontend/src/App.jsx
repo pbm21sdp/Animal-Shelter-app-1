@@ -16,7 +16,8 @@ import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
 import AdoptionProcessPage from "./pages/AdoptionProcessPage";
 import AdoptionRequirementsPage from "./pages/AdoptionRequirementsPage";
 import AdoptionFAQPage from './pages/AdoptionFAQPage';
-import DonationSuccessPage from './pages/DonationSuccessPage'; // NEW: Import donation success page
+import DonationSuccessPage from './pages/DonationSuccessPage'; 
+import UserProfilePage from './pages/UserProfilePage';
 
 // Protect routes that require authentication
 const ProtectedRoute = ({children}) => {
@@ -121,32 +122,33 @@ function App() {
                     </ProtectedRoute>
                 }
                 />
-
                 <Route path="/adoption-process" element={
                     <ProtectedRoute>
                         <AdoptionProcessPage />
                     </ProtectedRoute>
                 }
                 />
-
                 <Route path="/adoption-requirements" element={
                     <ProtectedRoute>
                         <AdoptionRequirementsPage />
                     </ProtectedRoute>
                 }
                 />
-
                 <Route path="/adoption-faq" element={
                     <ProtectedRoute>
                         <AdoptionFAQPage />
                     </ProtectedRoute>
                 }
                 />
-
-                {/* Donation success route */}
                 <Route path="/donation-success" element={
                     <ProtectedRoute>
                         <DonationSuccessPage />
+                    </ProtectedRoute>
+                }
+                />
+                <Route path="/profile" element={
+                    <ProtectedRoute>
+                        <UserProfilePage />
                     </ProtectedRoute>
                 }
                 />

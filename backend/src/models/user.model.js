@@ -8,11 +8,15 @@ const userSchema = new mongoose.Schema({
     },
     password: {
         type: String,
-        required:true
+        required: true
     },
-    name:{
+    name: {
         type: String,
-        required:true
+        required: true
+    },
+    avatar: {
+        type: String,
+        default: null
     },
     lastLogin: {
         type: Date,
@@ -30,6 +34,6 @@ const userSchema = new mongoose.Schema({
     resetPasswordExpiresAt: Date,
     verificationToken: String,
     verificationTokenExpiresAt: Date,
-}, {timestamps:true});
+}, { timestamps: true });
 
 export const User = mongoose.model('User', userSchema);

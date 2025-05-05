@@ -7,7 +7,11 @@ import {
     updateUserProfile,
     getAllUsers,
     getUserById,
-    updateUserAdminStatus
+    updateUserAdminStatus,
+    uploadAvatar,
+    upload,
+    getUserMessages,
+    getUserAdoptionRequests
 } from '../controllers/user.controller.js';
 
 const router = express.Router();
@@ -15,6 +19,11 @@ const router = express.Router();
 // User routes (authenticated)
 router.get('/profile', verifyToken, getUserProfile);
 router.put('/profile', verifyToken, updateUserProfile);
+router.post('/avatar', verifyToken, upload.single('avatar'), uploadAvatar);
+
+// User messages and adoption requests
+router.get('/messages', verifyToken, getUserMessages);
+router.get('/adoptions', verifyToken, getUserAdoptionRequests);
 
 // Admin routes
 router.get('/admin', verifyToken, isAdmin, getAllUsers);
