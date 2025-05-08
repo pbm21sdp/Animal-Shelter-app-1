@@ -1,6 +1,6 @@
 // PawsHomePage.jsx
 import React, {useRef, useEffect, useState } from 'react';
-import { Search, Heart, ArrowRight, PawPrint, User } from 'lucide-react';
+import {Search, Heart, ArrowRight, PawPrint, User, LogOut} from 'lucide-react';
 import { motion } from "framer-motion";
 
 // Components
@@ -164,13 +164,18 @@ export default function PawsHomepage() {
                                 </Link>
                             </div>
                         )}
-                        
-                        <motion.button
-                            whileHover={{scale: 1.05}}
-                            whileTap={{scale: 0.95}}
-                            onClick={handleLogout}
-                            className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900">Logout
-                        </motion.button>
+
+                        <div className="flex justify-end">
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={handleLogout}
+                                className="flex items-center text-gray-500 hover:text-gray-900 transition-colors"
+                            >
+                                <LogOut className="h-5 w-5 mr-2" />
+                                <span>Logout</span>
+                            </motion.button>
+                        </div>
                     </div>
                 </div>
             </header>
