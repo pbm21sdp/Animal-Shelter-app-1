@@ -3,13 +3,19 @@ import {PetModel} from '../models/pet.model.js';
 
 export const getAllPets = async (req, res) => {
     try {
-        const {type, city, zipCode, limit} = req.query;
+        const {type, city, zipCode, limit, showAll} = req.query;
         const filters = {};
 
         // Only add filters if they have values
         if (type && type !== 'any') filters.type = type;
         if (city) filters.city = city;
         if (zipCode) filters.zipCode = zipCode;
+
+        // Only apply the availability filter for non-admin requests
+        // This allows admins to see all pets regardless of adoption status
+        if (showAll !== 'true') {
+            filters.is_available = true;
+        }
 
         let pets = await PetModel.findAll(filters);
 
