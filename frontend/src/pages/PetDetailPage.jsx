@@ -1,5 +1,6 @@
 // pages/PetDetailPage.jsx
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     PawPrint,
@@ -14,7 +15,7 @@ import {
     Facebook,
     ArrowLeft,
     X,
-    User,
+    LogOut,
     Home,
     MessageSquare,
     MessageCircle
@@ -24,10 +25,12 @@ import { usePetStore } from '../store/petStore';
 import Footer from "../components/page/Footer.jsx";
 import DynamicSearch from "../components/DynamicSearch.jsx";
 import UserAdoptionForm from "../components/UserAdoptionForm";
+import {useAuthStore} from "../store/authStore.js";
 
 export function PetDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const {user, logout} = useAuthStore();
     const {
         selectedPet: pet,
         similarPets,
@@ -59,6 +62,10 @@ export function PetDetailPage() {
             clearSelectedPet();
         };
     }, [id, getPetById, getSimilarPets, clearSelectedPet]);
+
+    const handleLogout = () => {
+        logout();
+    };
 
     const handleQuestionInputChange = (e) => {
         const { name, value } = e.target;
@@ -148,9 +155,16 @@ export function PetDetailPage() {
                     <DynamicSearch redirectOnSelect={true}/>
                 </nav>
 
-                <div className="flex items-center space-x-4">
-                    <button className="text-gray-700 hover:text-gray-900">Sign up</button>
-                    <button className="text-gray-700 hover:text-gray-900">Log in</button>
+                <div className="flex justify-end">
+                    <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={handleLogout}
+                        className="flex items-center text-gray-500 hover:text-gray-900 transition-colors"
+                    >
+                        <LogOut className="h-5 w-5 mr-2" />
+                        <span>Logout</span>
+                    </motion.button>
                 </div>
             </header>
 

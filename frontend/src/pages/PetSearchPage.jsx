@@ -1,5 +1,5 @@
 import React, {useState, useEffect, useRef} from 'react';
-import { Search, PawPrint, ArrowRight, ChevronDown } from 'lucide-react';
+import { Search, PawPrint, LogOut, ChevronDown } from 'lucide-react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { usePetStore } from '../store/petStore';
 import {motion} from "framer-motion";
@@ -163,12 +163,15 @@ function PetSearchPage() {
                 </nav>
 
                 <div className="flex items-center space-x-4">
-                    <div className="flex space-x-4">
+                    <div className="flex justify-end">
                         <motion.button
-                            whileHover={{scale: 1.05}}
-                            whileTap={{scale: 0.95}}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
                             onClick={handleLogout}
-                            className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900">Logout
+                            className="flex items-center text-gray-500 hover:text-gray-900 transition-colors"
+                        >
+                            <LogOut className="h-5 w-5 mr-2" />
+                            <span>Logout</span>
                         </motion.button>
                     </div>
                 </div>
