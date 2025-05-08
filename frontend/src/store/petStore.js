@@ -16,16 +16,28 @@ export const usePetStore = create((set) => ({
     getAllPets: async (filters = {}) => {
         set({ isLoading: true, error: null });
         try {
+            // Create a clean copy of filters
+            const cleanFilters = { ...filters };
+
+            // For admin dashboard, we want to see ALL pets regardless of adoption status
+            // So we'll add a flag to indicate this is an admin request
+            if (filters.isAdminRequest) {
+                // Remove this flag before sending to backend
+                delete cleanFilters.isAdminRequest;
+                // Add a showAll flag to tell the backend to include all pets
+                cleanFilters.showAll = true;
+            }
+
             // Get filtered pets (with limit if specified)
-            const queryParams = new URLSearchParams(filters).toString();
+            const queryParams = new URLSearchParams(cleanFilters).toString();
             const response = await axios.get(`${API_URL}?${queryParams}`);
-            
+
             // Get total count without limit if a limit was specified
             let totalPets = 0;
             if (filters.limit) {
                 const totalResponse = await axios.get(API_URL);
                 let totalPetsData = [];
-                
+
                 if (Array.isArray(totalResponse.data)) {
                     totalPetsData = totalResponse.data;
                 } else if (totalResponse.data && totalResponse.data.success && Array.isArray(totalResponse.data.pets)) {
@@ -33,10 +45,10 @@ export const usePetStore = create((set) => ({
                 } else if (totalResponse.data && Array.isArray(totalResponse.data.data)) {
                     totalPetsData = totalResponse.data.data;
                 }
-                
+
                 totalPets = totalPetsData.length;
             }
-            
+
             // Handle different response formats for the main request
             let petsData = [];
             if (Array.isArray(response.data)) {
@@ -46,17 +58,19 @@ export const usePetStore = create((set) => ({
             } else if (response.data && Array.isArray(response.data.data)) {
                 petsData = response.data.data;
             }
-            
+
             // If we have a limit but didn't fetch total, use the current pets length
             if (!filters.limit) {
                 totalPets = petsData.length;
             }
-            
+
             set({
                 pets: petsData,
                 isLoading: false,
                 totalPets: totalPets
             });
+
+            return petsData;
         } catch (error) {
             console.error('Error fetching pets:', error);
             set({
