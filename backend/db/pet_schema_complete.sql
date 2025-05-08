@@ -20,10 +20,12 @@ CREATE TABLE pets (
                       zip_code VARCHAR(20),
                       shelter_contact_email VARCHAR(255),
                       shelter_contact_phone VARCHAR(50),
+                      adoption_status VARCHAR(20) DEFAULT 'available', -- available, pending, in_review, adopted
                       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create pet_photos table
 CREATE TABLE pet_photos (
                             id SERIAL PRIMARY KEY,
                             pet_id INTEGER REFERENCES pets(id) ON DELETE CASCADE,
@@ -43,9 +45,31 @@ CREATE TABLE pet_traits (
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Add documentation comments for important fields
+COMMENT ON COLUMN pets.adoption_status IS 'Status of adoption process: available, pending, in_review, adopted';
+COMMENT ON COLUMN pets.is_available IS 'Boolean indicating if pet is available for adoption (false when adopted or pending)';
+
+-- Create a function to automatically update is_available based on adoption_status
+CREATE OR REPLACE FUNCTION update_is_available()
+    RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.adoption_status = 'available' THEN
+        NEW.is_available := TRUE;
+    ELSE
+        NEW.is_available := FALSE;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create a trigger to call the function before insert or update
+CREATE TRIGGER set_is_available
+    BEFORE INSERT OR UPDATE ON pets
+    FOR EACH ROW
+EXECUTE FUNCTION update_is_available();
+
 -- Create indexes for better performance
 CREATE INDEX idx_pets_type ON pets(type);
 CREATE INDEX idx_pets_available ON pets(is_available);
 CREATE INDEX idx_pets_location ON pets(location_city);
-
-
+CREATE INDEX idx_pets_adoption_status ON pets(adoption_status);
