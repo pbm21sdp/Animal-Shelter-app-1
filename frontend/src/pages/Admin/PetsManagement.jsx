@@ -105,10 +105,25 @@ const PetsManagement = () => {
     // Handle form input changes
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: value
-        }));
+
+        // Special handling for boolean values like is_available
+        if (name === 'is_available') {
+            // Convert string 'true'/'false' to actual boolean
+            const boolValue = value === 'true';
+
+            // Update both is_available and adoption_status fields
+            setFormData(prev => ({
+                ...prev,
+                [name]: boolValue,
+                // Also update adoption_status based on is_available
+                adoption_status: boolValue ? 'available' : 'unavailable'
+            }));
+        } else {
+            setFormData(prev => ({
+                ...prev,
+                [name]: value
+            }));
+        }
     };
 
     // Handle photo selection
@@ -226,7 +241,7 @@ const PetsManagement = () => {
             zip_code: pet.zip_code || '',
             traits: pet.traits ? (Array.isArray(pet.traits) ? pet.traits : [pet.traits]) : [],
             is_available: pet.is_available !== undefined ? pet.is_available : true,
-            adoption_status: pet.adoption_status || 'available'
+            adoption_status: pet.is_available !== undefined && !pet.is_available ? 'unavailable' : pet.adoption_status || 'available'
         });
 
         // Fetch photos for this pet
@@ -495,7 +510,7 @@ const PetsManagement = () => {
                         </label>
                         <select
                             name="is_available"
-                            value={formData.is_available.toString()} // Convert boolean to string
+                            value={String(formData.is_available)} // Convert boolean to string 'true' or 'false'
                             onChange={handleChange}
                             className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                         >

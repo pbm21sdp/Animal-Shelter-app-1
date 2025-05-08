@@ -417,4 +417,29 @@ export const getUserAdoptionsByUserId = async (req, res) => {
     }
 };
 
+export const checkForPet = async (req, res) => {
+    try {
+        const {petId} = req.params;
+        const userId = req.user._id; // Assuming your auth middleware sets req.user
+
+        // Check if user has a pending/in-review application for this pet
+        const adoption = await Adoption.findOne({
+            user: userId,
+            petId: parseInt(petId),
+            status: {$in: ['pending', 'in_review']}
+        });
+
+        return res.json({
+            success: true,
+            isApplicant: !!adoption // true if adoption exists, false otherwise
+        });
+    } catch (error) {
+        console.error('Error checking adoption application:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Server error checking adoption application'
+        });
+    }
+};
+
 

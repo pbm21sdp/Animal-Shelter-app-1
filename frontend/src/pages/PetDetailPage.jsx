@@ -26,19 +26,24 @@ import Footer from "../components/page/Footer.jsx";
 import DynamicSearch from "../components/DynamicSearch.jsx";
 import UserAdoptionForm from "../components/UserAdoptionForm";
 import {useAuthStore} from "../store/authStore.js";
+import NotFoundPage from './NotFoundPage'; // Make sure you have this component
 
 export function PetDetailPage() {
+
     const { id } = useParams();
     const navigate = useNavigate();
     const {user, logout} = useAuthStore();
+    const [setNotFound] = useState(false);
     const {
         selectedPet: pet,
         similarPets,
         isLoading,
         error,
+        notFound,
         getPetById,
         getSimilarPets,
-        clearSelectedPet
+        clearSelectedPet,
+        resetNotFound
     } = usePetStore();
 
     const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
@@ -54,14 +59,27 @@ export function PetDetailPage() {
     const [questionSubmitStatus, setQuestionSubmitStatus] = useState('');
 
     useEffect(() => {
-        getPetById(id);
-        getSimilarPets(id);
+        // Reset notFound state when component mounts
+        resetNotFound();
+
+        // Get pet data and pass the current user for access control
+        const loadPetDetails = async () => {
+            const result = await getPetById(id, user);
+
+            // If pet was found and access is allowed, load similar pets
+            if (result && result.success) {
+                getSimilarPets(id);
+            }
+        };
+
+        loadPetDetails();
 
         // Cleanup when component unmounts
         return () => {
             clearSelectedPet();
         };
-    }, [id, getPetById, getSimilarPets, clearSelectedPet]);
+    }, [id, user, getPetById, getSimilarPets, clearSelectedPet, resetNotFound]);
+
 
     const handleLogout = () => {
         logout();
@@ -130,12 +148,16 @@ export function PetDetailPage() {
         }
     };
 
+    if (notFound) {
+        return <NotFoundPage />;
+    }
+
     if (isLoading) {
         return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
     }
 
     if (error || !pet) {
-        return <div className="min-h-screen flex items-center justify-center text-red-500">{error || 'PetModel not found'}</div>;
+        return <div className="min-h-screen flex items-center justify-center text-red-500">{error || 'Pet not found'}</div>;
     }
 
     return (
@@ -241,7 +263,11 @@ export function PetDetailPage() {
                                 className="bg-tealcustom hover:bg-teal-600 text-white px-6 py-3 rounded-md flex items-center"
                                 disabled={pet.adoption_status !== 'available'}
                             >
-                                {pet.adoption_status === 'available' ? 'Adopt me' : 'Currently in adoption process'}
+                                {pet.adoption_status === 'available'
+                                    ? 'Adopt me'
+                                    : pet.adoption_status === 'adopted'
+                                        ? 'Pet adopted'
+                                        : 'Currently in adoption process'}
                                 <PawPrint className="ml-2 h-5 w-5" />
                             </button>
                             <button
@@ -344,7 +370,7 @@ export function PetDetailPage() {
                     </div>
 
                     {/* Contact Information */}
-                    <div className="bg-gray-50 rounded-xl p-6">
+                    <div className="bg-gray-50 rounded-xl p-6 z-10">
                         <div className="mb-6">
                             <h3 className="text-lg font-bold mb-2">I am staying at:</h3>
                             <p>{pet.location_address || `${pet.location_city}, ${pet.location_country}`}</p>
@@ -370,7 +396,11 @@ export function PetDetailPage() {
                                 }`}
                                 disabled={pet.adoption_status !== 'available'}
                             >
-                                {pet.adoption_status === 'available' ? 'Adopt me' : 'Currently in adoption process'}
+                                {pet.adoption_status === 'available'
+                                ? 'Adopt me'
+                                : pet.adoption_status === 'adopted'
+                                ? 'Pet adopted'
+                                : 'Currently in adoption process'}
                                 <PawPrint className="ml-2 h-5 w-5" />
                             </button>
                             <button
