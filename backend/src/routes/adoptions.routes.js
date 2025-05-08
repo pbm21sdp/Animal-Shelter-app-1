@@ -8,7 +8,8 @@ import {
     getAllAdoptions,
     updateAdoptionStatus,
     deleteAdoption,
-    getUserAdoptionsByUserId
+    getUserAdoptionsByUserId,
+    checkForPet
 } from '../controllers/adoption.controller.js';
 
 const router = express.Router();
@@ -16,6 +17,7 @@ const router = express.Router();
 // User routes
 router.post('/', verifyToken, submitAdoptionApplication);
 router.get('/user', verifyToken, getUserAdoptions);
+router.get('/check/:petId', verifyToken, checkForPet);
 
 // Admin routes - these should come BEFORE the /:adoptionId route
 router.get('/admin/user/:userId', verifyToken, isAdmin, getUserAdoptionsByUserId);

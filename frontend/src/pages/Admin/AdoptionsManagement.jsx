@@ -237,14 +237,16 @@ const AdoptionsManagement = () => {
             pending: 'bg-yellow-100 text-yellow-800',
             in_review: 'bg-blue-100 text-blue-800',
             approved: 'bg-green-100 text-green-800',
-            rejected: 'bg-red-100 text-red-800'
+            rejected: 'bg-red-100 text-red-800',
+            unavailable: 'bg-gray-100 text-gray-800' // Add this for unavailable pets
         };
 
         const statusText = {
             pending: 'Pending',
             in_review: 'In Review',
             approved: 'Approved',
-            rejected: 'Rejected'
+            rejected: 'Rejected',
+            unavailable: 'Unavailable' // Add this for unavailable pets
         };
 
         const statusIcons = {
@@ -795,41 +797,6 @@ const AdoptionsManagement = () => {
                             </div>
                         </div>
 
-                        <div className="mb-6">
-                            <h3 className="text-lg font-semibold mb-3 flex items-center">
-                                <Clock className="h-5 w-5 mr-2 text-tealcustom" />
-                                Availability & Experience
-                            </h3>
-                            <div className="bg-gray-50 rounded-md p-4">
-                                {selectedAdoption.timeAvailability && (
-                                    <div className="mb-4">
-                                        <div className="text-gray-600 text-sm mb-1">Time Availability:</div>
-                                        <p className="text-gray-900">{selectedAdoption.timeAvailability}</p>
-                                    </div>
-                                )}
-
-                                {selectedAdoption.veterinarianInfo && (
-                                    <div className="mb-4">
-                                        <div className="text-gray-600 text-sm mb-1">Veterinarian Information:</div>
-                                        <p className="text-gray-900">{selectedAdoption.veterinarianInfo}</p>
-                                    </div>
-                                )}
-
-                                {selectedAdoption.previousPetExperience && (
-                                    <div className="mb-4">
-                                        <div className="text-gray-600 text-sm mb-1">Previous Pet Experience:</div>
-                                        <p className="text-gray-900">{selectedAdoption.previousPetExperience}</p>
-                                    </div>
-                                )}
-
-                                {selectedAdoption.homeVisitAgreement !== undefined && (
-                                    <div className="mb-4">
-                                        <div className="text-gray-600 text-sm mb-1">Home Visit Agreement:</div>
-                                        <p className="text-gray-900">{selectedAdoption.homeVisitAgreement ? 'Agreed' : 'Not agreed'}</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
 
                         <div className="mb-6">
                             <h3 className="text-lg font-semibold mb-3 flex items-center">

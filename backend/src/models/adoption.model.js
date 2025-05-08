@@ -1,4 +1,4 @@
-// Update the adoption schema model to include additional fields from the form
+// Updated Adoption model - models/Adoption.js
 
 import mongoose from 'mongoose';
 
@@ -52,18 +52,8 @@ const adoptionSchema = new mongoose.Schema({
     otherPetsDetails: {
         type: String
     },
-    veterinarianInfo: {
-        type: String
-    },
     adoptionReason: {
         type: String
-    },
-    timeAvailability: {
-        type: String
-    },
-    homeVisitAgreement: {
-        type: Boolean,
-        default: false
     },
 
     // Additional fields from the new form
