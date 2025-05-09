@@ -170,16 +170,13 @@ export const getUserAdoptions = async (req, res) => {
 export const getAdoptionDetails = async (req, res) => {
     try {
         const { adoptionId } = req.params;
+        const isAdminRequest = req.query.adminAction === 'true' || req.query.forScheduling === 'true';
 
-        // Validate MongoDB ID
-        if (!mongoose.Types.ObjectId.isValid(adoptionId)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid adoption ID format'
-            });
-        }
+        console.log('getAdoptionDetails executing for adoption ID:', adoptionId);
+        console.log('User ID:', req.userId);
+        console.log('Is admin?', !!req.isAdmin); // Note the double negation to ensure boolean value
+        console.log('Is admin request?', isAdminRequest);
 
-        // Use populate to get user details
         const adoption = await Adoption.findById(adoptionId).populate('user', 'name email');
 
         if (!adoption) {
@@ -189,19 +186,44 @@ export const getAdoptionDetails = async (req, res) => {
             });
         }
 
-        // Check if user is authorized (either the applicant or an admin)
-        // We need to check if user.id or user._id depending on how it's populated
+        // Extract user ID from adoption
         const adoptionUserId = typeof adoption.user === 'object' ?
             (adoption.user._id ? adoption.user._id.toString() : adoption.user.id ? adoption.user.id.toString() : '') :
             adoption.user ? adoption.user.toString() : '';
 
-        if (adoptionUserId !== req.userId && !req.isAdmin) {
+        console.log('Adoption user ID:', adoptionUserId);
+        console.log('Request user ID:', req.userId);
+        console.log('Do they match?', adoptionUserId === req.userId);
+
+        // Admin access check
+        if (req.isAdmin === true) {
+            console.log('User is admin, granting access');
+            return res.status(200).json({
+                success: true,
+                adoption
+            });
+        }
+
+        // Admin request but not admin
+        if (isAdminRequest && !req.isAdmin) {
+            console.log('Admin request detected but user is not admin, denying access');
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied. Admin privileges required.'
+            });
+        }
+
+        // Check if user is the owner
+        if (adoptionUserId !== req.userId) {
+            console.log('User does not own this adoption, denying access');
             return res.status(403).json({
                 success: false,
                 message: 'Not authorized to view this adoption application'
             });
         }
 
+        // User is the owner
+        console.log('User owns this adoption, granting access');
         res.status(200).json({
             success: true,
             adoption
@@ -215,6 +237,7 @@ export const getAdoptionDetails = async (req, res) => {
         });
     }
 };
+
 
 
 // Admin: Get all adoption applications
@@ -272,6 +295,14 @@ export const updateAdoptionStatus = async (req, res) => {
         const { adoptionId } = req.params;
         const { status, adminNotes } = req.body;
 
+        // Verify admin access - this is redundant with the middleware, but it's a good safety check
+        if (!req.isAdmin) {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied. Admin privileges required.'
+            });
+        }
+
         // Validate status
         const validStatuses = ['pending', 'in_review', 'approved', 'rejected'];
         if (!validStatuses.includes(status)) {
@@ -314,7 +345,6 @@ export const updateAdoptionStatus = async (req, res) => {
         }
 
         // This is where the PetModel.updateAdoptionStatus method is called
-        // It should update both adoption_status and is_available fields
         await PetModel.updateAdoptionStatus(adoption.petId, petStatus);
 
         res.status(200).json({
@@ -336,6 +366,14 @@ export const updateAdoptionStatus = async (req, res) => {
 export const deleteAdoption = async (req, res) => {
     try {
         const { adoptionId } = req.params;
+
+        // Verify admin access - this is redundant with the middleware, but it's a good safety check
+        if (!req.isAdmin) {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied. Admin privileges required.'
+            });
+        }
 
         // Find the adoption
         const adoption = await Adoption.findById(adoptionId);
@@ -417,6 +455,38 @@ export const getUserAdoptionsByUserId = async (req, res) => {
     }
 };
 
+// Get user's adoptions for a specific pet
+export const getUserAdoptionsByPetId = async (req, res) => {
+    try {
+        const { petId } = req.query;
+
+        if (!petId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Pet ID is required'
+            });
+        }
+
+        // Find adoptions for this user and the specific pet
+        const adoptions = await Adoption.find({
+            user: req.userId,
+            petId: Number(petId)
+        }).sort({ createdAt: -1 });
+
+        res.status(200).json({
+            success: true,
+            adoptions
+        });
+    } catch (error) {
+        console.error('Error fetching user adoptions by pet ID:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch adoptions',
+            error: error.message
+        });
+    }
+};
+
 export const checkForPet = async (req, res) => {
     try {
         const {petId} = req.params;
@@ -438,6 +508,37 @@ export const checkForPet = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: 'Server error checking adoption application'
+        });
+    }
+};
+
+// Add this endpoint to your controller:
+export const getAdoptionDetailsAdmin = async (req, res) => {
+    try {
+        const { adoptionId } = req.params;
+
+        console.log('getAdoptionDetailsAdmin called for ID:', adoptionId);
+
+        // Since this is being called after isAdmin middleware, we know the user is an admin
+        const adoption = await Adoption.findById(adoptionId).populate('user', 'name email');
+
+        if (!adoption) {
+            return res.status(404).json({
+                success: false,
+                message: 'Adoption application not found'
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            adoption
+        });
+    } catch (error) {
+        console.error('Error in admin adoption details:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
         });
     }
 };
