@@ -1,3 +1,4 @@
+// Complete version of adoptionStore.js with fixes
 import { create } from "zustand";
 import axios from "axios";
 
@@ -58,11 +59,22 @@ export const useAdoptionStore = create((set, get) => ({
         }
     },
 
-    // Get adoption details
-    getAdoptionDetails: async (adoptionId) => {
+    // Get adoption details - updated to support both forScheduling and adminAction
+    getAdoptionDetails: async (adoptionId, forScheduling = false, adminAction = false) => {
         set({ isLoading: true, error: null });
         try {
-            const response = await axios.get(`${API_URL}/${adoptionId}`, {
+            // Build the query parameters based on the action type
+            const queryParams = new URLSearchParams();
+            if (forScheduling) queryParams.append('forScheduling', 'true');
+            if (adminAction) queryParams.append('adminAction', 'true');
+
+            // Include query parameters if they exist
+            const queryString = queryParams.toString();
+            const url = queryString
+                ? `${API_URL}/${adoptionId}?${queryString}`
+                : `${API_URL}/${adoptionId}`;
+
+            const response = await axios.get(url, {
                 withCredentials: true
             });
 
@@ -113,10 +125,13 @@ export const useAdoptionStore = create((set, get) => ({
         }
     },
 
-    // Admin: Update adoption status
+    // Admin: Update adoption status - updated to use adminAction
     updateAdoptionStatus: async (adoptionId, data) => {
         set({ isLoading: true, error: null });
         try {
+            // First get the adoption details with admin flag
+            await get().getAdoptionDetails(adoptionId, false, true);
+
             const response = await axios.put(`${API_URL}/admin/${adoptionId}`, data, {
                 withCredentials: true
             });
@@ -141,10 +156,13 @@ export const useAdoptionStore = create((set, get) => ({
         }
     },
 
-    // Admin: Delete adoption
+    // Admin: Delete adoption - updated to use adminAction
     deleteAdoption: async (adoptionId) => {
         set({ isLoading: true, error: null });
         try {
+            // First get the adoption details with admin flag
+            await get().getAdoptionDetails(adoptionId, false, true);
+
             await axios.delete(`${API_URL}/admin/${adoptionId}`, {
                 withCredentials: true
             });
@@ -189,6 +207,29 @@ export const useAdoptionStore = create((set, get) => ({
                 userAdoptions: []
             });
             return [];
+        }
+    },
+
+    getAdoptionDetailsAdmin: async (adoptionId) => {
+        set({ isLoading: true, error: null });
+        try {
+            const response = await axios.get(`${API_URL}/admin/details/${adoptionId}`, {
+                withCredentials: true
+            });
+
+            set({
+                selectedAdoption: response.data.adoption,
+                isLoading: false
+            });
+
+            return response.data.adoption;
+        } catch (error) {
+            console.error('Error fetching adoption details (admin):', error);
+            set({
+                error: error.response?.data?.message || 'Error fetching adoption details',
+                isLoading: false
+            });
+            return null;
         }
     },
 
