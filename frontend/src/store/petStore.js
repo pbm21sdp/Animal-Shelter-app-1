@@ -157,7 +157,7 @@ export const usePetStore = create((set) => ({
 
             const pet = response.data.pet;
 
-            // Check pet availability based on status
+            // Check pet availability
             if (pet && pet.adoption_status !== 'available') {
                 // Admin users can always access
                 if (currentUser && currentUser.isAdmin) {
@@ -165,33 +165,33 @@ export const usePetStore = create((set) => ({
                     return { success: true, pet };
                 }
 
-                // For pending adoptions, check if current user is the applicant
-                if (pet.adoption_status === 'pending' && currentUser) {
+                // Check if current user has adopted this pet
+                if (currentUser && currentUser._id) {
                     try {
-                        const applicantCheck = await axios.get(
-                            `http://localhost:5000/api/adoptions/check/${id}`,
+                        const adoptionsResponse = await axios.get(
+                            `http://localhost:5000/api/adoptions/user/pet?petId=${id}`,
                             { withCredentials: true }
                         );
 
-                        // If user is the applicant, allow access
-                        if (applicantCheck.data.success && applicantCheck.data.isApplicant) {
+                        if (adoptionsResponse.data.success &&
+                            adoptionsResponse.data.adoptions &&
+                            adoptionsResponse.data.adoptions.length > 0) {
                             set({ selectedPet: pet });
                             return { success: true, pet };
                         }
                     } catch (error) {
-                        console.error("Error checking adoption applicant status:", error);
+                        console.error("Error checking user adoptions:", error);
                     }
                 }
 
-                // If we reach here, pet is not available and user is not admin or applicant
+                // Not available and user is not admin or adopter
                 set({ notFound: true, isLoading: false });
                 return { success: false };
             }
 
-            // Pet is available, store it and return success
+            // Pet is available
             set({ selectedPet: pet });
             return { success: true, pet };
-
         } catch (error) {
             console.error("Error fetching pet details:", error);
             const errorMessage = error.response?.data?.message || "Failed to fetch pet details";

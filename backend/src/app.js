@@ -17,6 +17,7 @@ import petRoutes from './routes/pets.js';
 import donationRoutes from './routes/donations.routes.js';
 import userRoutes from './routes/user.routes.js';
 import messageRoutes from './routes/message.routes.js';
+import scheduledMeetingRoutes from './routes/scheduledMeeting.routes.js';
 
 // Load .env only in non-Docker environment
 if (!process.env.DOCKER_ENV) {
@@ -68,6 +69,7 @@ app.use('/api/pets', petRoutes);
 app.use('/api/donations', donationRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/meetings', scheduledMeetingRoutes);
 
 // Root route
 app.get("/", (req, res) => {
