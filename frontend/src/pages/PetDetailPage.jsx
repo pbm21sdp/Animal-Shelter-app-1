@@ -1,5 +1,6 @@
 // pages/PetDetailPage.jsx
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     PawPrint,
@@ -14,46 +15,41 @@ import {
     Facebook,
     ArrowLeft,
     X,
-    User,
+    LogOut,
     Home,
     MessageSquare,
     MessageCircle
 } from 'lucide-react';
+
 import { usePetStore } from '../store/petStore';
 import Footer from "../components/page/Footer.jsx";
 import DynamicSearch from "../components/DynamicSearch.jsx";
+import UserAdoptionForm from "../components/UserAdoptionForm";
+import PetCard from '../components/PetCard';
+
+import {useAuthStore} from "../store/authStore.js";
+import NotFoundPage from './NotFoundPage'; // Make sure you have this component
 
 export function PetDetailPage() {
+
     const { id } = useParams();
     const navigate = useNavigate();
+    const {user, logout} = useAuthStore();
+    const [setNotFound] = useState(false);
     const {
         selectedPet: pet,
         similarPets,
         isLoading,
         error,
+        notFound,
         getPetById,
         getSimilarPets,
-        clearSelectedPet
+        clearSelectedPet,
+        resetNotFound
     } = usePetStore();
 
     const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
     const [showAdoptionForm, setShowAdoptionForm] = useState(false);
-    const [formData, setFormData] = useState({
-        fullName: '',
-        email: '',
-        phone: '',
-        address: '',
-        city: '',
-        postalCode: '',
-        housingType: '',
-        hasYard: '',
-        otherPets: '',
-        children: '',
-        previousPetExperience: '',
-        message: ''
-    });
-    const [formErrors, setFormErrors] = useState({});
-    const [submitStatus, setSubmitStatus] = useState('');
     const [showQuestionForm, setShowQuestionForm] = useState(false);
     const [questionFormData, setQuestionFormData] = useState({
         name: '',
@@ -65,28 +61,30 @@ export function PetDetailPage() {
     const [questionSubmitStatus, setQuestionSubmitStatus] = useState('');
 
     useEffect(() => {
-        getPetById(id);
-        getSimilarPets(id);
+        // Reset notFound state when component mounts
+        resetNotFound();
+
+        // Get pet data and pass the current user for access control
+        const loadPetDetails = async () => {
+            const result = await getPetById(id, user);
+
+            // If pet was found and access is allowed, load similar pets
+            if (result && result.success) {
+                getSimilarPets(id);
+            }
+        };
+
+        loadPetDetails();
 
         // Cleanup when component unmounts
         return () => {
             clearSelectedPet();
         };
-    }, [id, getPetById, getSimilarPets, clearSelectedPet]);
+    }, [id, user, getPetById, getSimilarPets, clearSelectedPet, resetNotFound]);
 
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: value
-        }));
-        // Clear error when user starts typing
-        if (formErrors[name]) {
-            setFormErrors(prev => ({
-                ...prev,
-                [name]: ''
-            }));
-        }
+
+    const handleLogout = () => {
+        logout();
     };
 
     const handleQuestionInputChange = (e) => {
@@ -104,30 +102,9 @@ export function PetDetailPage() {
         }
     };
 
-    const validateForm = () => {
-        const errors = {};
-        
-        if (!formData.fullName.trim()) errors.fullName = 'Full name is required';
-        if (!formData.email.trim()) {
-            errors.email = 'Email is required';
-        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-            errors.email = 'Invalid email format';
-        }
-        if (!formData.phone.trim()) errors.phone = 'Phone number is required';
-        if (!formData.address.trim()) errors.address = 'Address is required';
-        if (!formData.city.trim()) errors.city = 'City is required';
-        if (!formData.postalCode.trim()) errors.postalCode = 'Postal code is required';
-        if (!formData.housingType) errors.housingType = 'Please select housing type';
-        if (!formData.hasYard) errors.hasYard = 'Please specify if you have a yard';
-        if (!formData.otherPets) errors.otherPets = 'Please specify if you have other pets';
-        
-        setFormErrors(errors);
-        return Object.keys(errors).length === 0;
-    };
-
     const validateQuestionForm = () => {
         const errors = {};
-        
+
         if (!questionFormData.name.trim()) errors.name = 'Name is required';
         if (!questionFormData.email.trim()) {
             errors.email = 'Email is required';
@@ -135,69 +112,27 @@ export function PetDetailPage() {
             errors.email = 'Invalid email format';
         }
         if (!questionFormData.question.trim()) errors.question = 'Please enter your question';
-        
+
         setQuestionFormErrors(errors);
         return Object.keys(errors).length === 0;
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        
-        if (!validateForm()) {
-            return;
-        }
-        
-        setSubmitStatus('submitting');
-        
-        try {
-            // Here you would typically send the form data to your backend
-            // For now, we'll simulate an API call
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            
-            // Simulate successful submission
-            setSubmitStatus('success');
-            
-            // Reset form after 3 seconds
-            setTimeout(() => {
-                setShowAdoptionForm(false);
-                setFormData({
-                    fullName: '',
-                    email: '',
-                    phone: '',
-                    address: '',
-                    city: '',
-                    postalCode: '',
-                    housingType: '',
-                    hasYard: '',
-                    otherPets: '',
-                    children: '',
-                    previousPetExperience: '',
-                    message: ''
-                });
-                setSubmitStatus('');
-            }, 3000);
-            
-        } catch (error) {
-            setSubmitStatus('error');
-        }
-    };
-
     const handleQuestionSubmit = async (e) => {
         e.preventDefault();
-        
+
         if (!validateQuestionForm()) {
             return;
         }
-        
+
         setQuestionSubmitStatus('submitting');
-        
+
         try {
             // Simulate API call
             await new Promise(resolve => setTimeout(resolve, 1500));
-            
+
             // Simulate successful submission
             setQuestionSubmitStatus('success');
-            
+
             // Reset form after 3 seconds
             setTimeout(() => {
                 setShowQuestionForm(false);
@@ -209,18 +144,22 @@ export function PetDetailPage() {
                 });
                 setQuestionSubmitStatus('');
             }, 3000);
-            
+
         } catch (error) {
             setQuestionSubmitStatus('error');
         }
     };
+
+    if (notFound) {
+        return <NotFoundPage />;
+    }
 
     if (isLoading) {
         return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
     }
 
     if (error || !pet) {
-        return <div className="min-h-screen flex items-center justify-center text-red-500">{error || 'PetModel not found'}</div>;
+        return <div className="min-h-screen flex items-center justify-center text-red-500">{error || 'Pet not found'}</div>;
     }
 
     return (
@@ -240,9 +179,16 @@ export function PetDetailPage() {
                     <DynamicSearch redirectOnSelect={true}/>
                 </nav>
 
-                <div className="flex items-center space-x-4">
-                    <button className="text-gray-700 hover:text-gray-900">Sign up</button>
-                    <button className="text-gray-700 hover:text-gray-900">Log in</button>
+                <div className="flex justify-end">
+                    <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={handleLogout}
+                        className="flex items-center text-gray-500 hover:text-gray-900 transition-colors"
+                    >
+                        <LogOut className="h-5 w-5 mr-2" />
+                        <span>Logout</span>
+                    </motion.button>
                 </div>
             </header>
 
@@ -314,14 +260,19 @@ export function PetDetailPage() {
                         )}
 
                         <div className="flex gap-4 mb-8">
-                            <button 
+                            <button
                                 onClick={() => setShowAdoptionForm(true)}
                                 className="bg-tealcustom hover:bg-teal-600 text-white px-6 py-3 rounded-md flex items-center"
+                                disabled={pet.adoption_status !== 'available'}
                             >
-                                Adopt me
+                                {pet.adoption_status === 'available'
+                                    ? 'Adopt me'
+                                    : pet.adoption_status === 'adopted'
+                                        ? 'Pet adopted'
+                                        : 'Currently in adoption process'}
                                 <PawPrint className="ml-2 h-5 w-5" />
                             </button>
-                            <button 
+                            <button
                                 onClick={() => setShowQuestionForm(true)}
                                 className="bg-yellow-200 hover:bg-yellow-100 text-tealcustom px-6 py-3 rounded-md flex items-center"
                             >
@@ -421,7 +372,7 @@ export function PetDetailPage() {
                     </div>
 
                     {/* Contact Information */}
-                    <div className="bg-gray-50 rounded-xl p-6">
+                    <div className="bg-gray-50 rounded-xl p-6 z-10">
                         <div className="mb-6">
                             <h3 className="text-lg font-bold mb-2">I am staying at:</h3>
                             <p>{pet.location_address || `${pet.location_city}, ${pet.location_country}`}</p>
@@ -440,15 +391,26 @@ export function PetDetailPage() {
                         </div>
 
                         <div className="flex gap-4">
-                            <button 
+                            <button
                                 onClick={() => setShowAdoptionForm(true)}
-                                className="bg-tealcustom text-white px-6 py-3 rounded-md flex items-center"
+                                className={`bg-tealcustom text-white px-6 py-3 rounded-md flex items-center ${
+                                    pet.adoption_status !== 'available' ? 'opacity-50 cursor-not-allowed' : 'hover:bg-teal-700'
+                                }`}
+                                disabled={pet.adoption_status !== 'available'}
                             >
-                                Adopt me
+                                {pet.adoption_status === 'available'
+                                ? 'Adopt me'
+                                : pet.adoption_status === 'adopted'
+                                ? 'Pet adopted'
+                                : 'Currently in adoption process'}
                                 <PawPrint className="ml-2 h-5 w-5" />
                             </button>
-                            <button className="bg-red-100 text-gray-800 px-6 py-3 rounded-md">
+                            <button
+                                onClick={() => setShowQuestionForm(true)}
+                                className="bg-red-100 text-gray-800 px-6 py-3 rounded-md flex items-center"
+                            >
                                 Ask about me ?
+                                <MessageCircle className="ml-2 h-5 w-5" />
                             </button>
                         </div>
                     </div>
@@ -458,37 +420,13 @@ export function PetDetailPage() {
                 {similarPets && similarPets.length > 0 && (
                     <div className="mt-16">
                         <h2 className="text-2xl font-bold mb-8">Other pets like {pet.name}</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
                             {similarPets.map((similarPet) => (
-                                <div key={similarPet.id} className="bg-white rounded-xl overflow-hidden shadow-md">
-                                    <div className="h-48 overflow-hidden">
-                                        <img
-                                            src={similarPet.photos?.[0]?.photo_url || '/images/pet-placeholder.png'}
-                                            alt={`${similarPet.name} - ${similarPet.breed}`}
-                                            className="w-full h-full object-cover"
-                                        />
-                                    </div>
-                                    <div className="p-4">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <h3 className="text-xl font-bold">{similarPet.name}</h3>
-                                            <span className={`text-sm ${similarPet.gender === 'male' ? 'text-blue-500' : 'text-pink-500'}`}>
-                                                {similarPet.gender === 'male' ? '♂' : '♀'} {similarPet.gender}
-                                            </span>
-                                        </div>
-                                        <div className="flex justify-between text-sm text-gray-600">
-                                            <span>{similarPet.age_category}</span>
-                                            <span>{similarPet.breed}</span>
-                                        </div>
-                                        <div className="mt-4 flex justify-end">
-                                            <button
-                                                onClick={() => navigate(`/pet/${similarPet.id}`)}
-                                                className="hover:text-teal-700"
-                                            >
-                                                <ArrowRight className="h-5 w-5 text-teal-700"/>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
+                                <PetCard
+                                    key={similarPet.id}
+                                    pet={similarPet}
+                                    showArrow={true}
+                                />
                             ))}
 
                             {similarPets.length === 3 && (
@@ -511,298 +449,18 @@ export function PetDetailPage() {
 
             {/* Adoption Form Modal */}
             {showAdoptionForm && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-                    <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-                        <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
-                            <h2 className="text-2xl font-bold">Adopt {pet.name}</h2>
-                            <button 
-                                onClick={() => setShowAdoptionForm(false)}
-                                className="text-gray-500 hover:text-gray-700"
-                            >
-                                <X className="h-6 w-6" />
-                            </button>
-                        </div>
-                        
-                        <form onSubmit={handleSubmit} className="p-6">
-                            {/* Success/Error Messages */}
-                            {submitStatus === 'success' && (
-                                <div className="mb-6 p-4 bg-green-100 text-green-700 rounded-lg">
-                                    Thank you for your application! We'll contact you soon.
-                                </div>
-                            )}
-                            
-                            {submitStatus === 'error' && (
-                                <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-lg">
-                                    There was an error submitting your application. Please try again.
-                                </div>
-                            )}
-                            
-                            {/* Personal Information */}
-                            <div className="mb-8">
-                                <h3 className="text-xl font-semibold mb-4 flex items-center">
-                                    <User className="h-5 w-5 mr-2" />
-                                    Personal Information
-                                </h3>
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Full Name *</label>
-                                        <input
-                                            type="text"
-                                            name="fullName"
-                                            value={formData.fullName}
-                                            onChange={handleInputChange}
-                                            className={`w-full px-4 py-2 border rounded-md ${
-                                                formErrors.fullName ? 'border-red-500' : 'border-gray-300'
-                                            }`}
-                                        />
-                                        {formErrors.fullName && (
-                                            <p className="text-red-500 text-sm mt-1">{formErrors.fullName}</p>
-                                        )}
-                                    </div>
-                                    
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Email *</label>
-                                        <input
-                                            type="email"
-                                            name="email"
-                                            value={formData.email}
-                                            onChange={handleInputChange}
-                                            className={`w-full px-4 py-2 border rounded-md ${
-                                                formErrors.email ? 'border-red-500' : 'border-gray-300'
-                                            }`}
-                                        />
-                                        {formErrors.email && (
-                                            <p className="text-red-500 text-sm mt-1">{formErrors.email}</p>
-                                        )}
-                                    </div>
-                                    
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Phone *</label>
-                                        <input
-                                            type="tel"
-                                            name="phone"
-                                            value={formData.phone}
-                                            onChange={handleInputChange}
-                                            className={`w-full px-4 py-2 border rounded-md ${
-                                                formErrors.phone ? 'border-red-500' : 'border-gray-300'
-                                            }`}
-                                        />
-                                        {formErrors.phone && (
-                                            <p className="text-red-500 text-sm mt-1">{formErrors.phone}</p>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            {/* Address Information */}
-                            <div className="mb-8">
-                                <h3 className="text-xl font-semibold mb-4 flex items-center">
-                                    <Home className="h-5 w-5 mr-2" />
-                                    Living Situation
-                                </h3>
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium mb-1">Address *</label>
-                                        <input
-                                            type="text"
-                                            name="address"
-                                            value={formData.address}
-                                            onChange={handleInputChange}
-                                            className={`w-full px-4 py-2 border rounded-md ${
-                                                formErrors.address ? 'border-red-500' : 'border-gray-300'
-                                            }`}
-                                        />
-                                        {formErrors.address && (
-                                            <p className="text-red-500 text-sm mt-1">{formErrors.address}</p>
-                                        )}
-                                    </div>
-                                    
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">City *</label>
-                                        <input
-                                            type="text"
-                                            name="city"
-                                            value={formData.city}
-                                            onChange={handleInputChange}
-                                            className={`w-full px-4 py-2 border rounded-md ${
-                                                formErrors.city ? 'border-red-500' : 'border-gray-300'
-                                            }`}
-                                        />
-                                        {formErrors.city && (
-                                            <p className="text-red-500 text-sm mt-1">{formErrors.city}</p>
-                                        )}
-                                    </div>
-                                    
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Postal Code *</label>
-                                        <input
-                                            type="text"
-                                            name="postalCode"
-                                            value={formData.postalCode}
-                                            onChange={handleInputChange}
-                                            className={`w-full px-4 py-2 border rounded-md ${
-                                                formErrors.postalCode ? 'border-red-500' : 'border-gray-300'
-                                            }`}
-                                        />
-                                        {formErrors.postalCode && (
-                                            <p className="text-red-500 text-sm mt-1">{formErrors.postalCode}</p>
-                                        )}
-                                    </div>
-                                    
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Housing Type *</label>
-                                        <select
-                                            name="housingType"
-                                            value={formData.housingType}
-                                            onChange={handleInputChange}
-                                            className={`w-full px-4 py-2 border rounded-md ${
-                                                formErrors.housingType ? 'border-red-500' : 'border-gray-300'
-                                            }`}
-                                        >
-                                            <option value="">Select housing type</option>
-                                            <option value="house">House</option>
-                                            <option value="apartment">Apartment</option>
-                                            <option value="condo">Condo</option>
-                                            <option value="other">Other</option>
-                                        </select>
-                                        {formErrors.housingType && (
-                                            <p className="text-red-500 text-sm mt-1">{formErrors.housingType}</p>
-                                        )}
-                                    </div>
-                                    
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Do you have a yard? *</label>
-                                        <select
-                                            name="hasYard"
-                                            value={formData.hasYard}
-                                            onChange={handleInputChange}
-                                            className={`w-full px-4 py-2 border rounded-md ${
-                                                formErrors.hasYard ? 'border-red-500' : 'border-gray-300'
-                                            }`}
-                                        >
-                                            <option value="">Select option</option>
-                                            <option value="yes">Yes</option>
-                                            <option value="no">No</option>
-                                        </select>
-                                        {formErrors.hasYard && (
-                                            <p className="text-red-500 text-sm mt-1">{formErrors.hasYard}</p>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            {/* Pet Experience */}
-                            <div className="mb-8">
-                                <h3 className="text-xl font-semibold mb-4 flex items-center">
-                                    <PawPrint className="h-5 w-5 mr-2" />
-                                    Pet Experience
-                                </h3>
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Do you have other pets? *</label>
-                                        <select
-                                            name="otherPets"
-                                            value={formData.otherPets}
-                                            onChange={handleInputChange}
-                                            className={`w-full px-4 py-2 border rounded-md ${
-                                                formErrors.otherPets ? 'border-red-500' : 'border-gray-300'
-                                            }`}
-                                        >
-                                            <option value="">Select option</option>
-                                            <option value="none">No other pets</option>
-                                            <option value="dogs">Dogs</option>
-                                            <option value="cats">Cats</option>
-                                            <option value="both">Dogs and Cats</option>
-                                            <option value="other">Other animals</option>
-                                        </select>
-                                        {formErrors.otherPets && (
-                                            <p className="text-red-500 text-sm mt-1">{formErrors.otherPets}</p>
-                                        )}
-                                    </div>
-                                    
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Children in household?</label>
-                                        <select
-                                            name="children"
-                                            value={formData.children}
-                                            onChange={handleInputChange}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-md"
-                                        >
-                                            <option value="">Select option</option>
-                                            <option value="none">No children</option>
-                                            <option value="young">Young children (0-5)</option>
-                                            <option value="school">School age (6-12)</option>
-                                            <option value="teens">Teenagers (13-17)</option>
-                                            <option value="mixed">Mixed ages</option>
-                                        </select>
-                                    </div>
-                                    
-                                    <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium mb-1">Previous Pet Experience</label>
-                                        <textarea
-                                            name="previousPetExperience"
-                                            value={formData.previousPetExperience}
-                                            onChange={handleInputChange}
-                                            rows="3"
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-md"
-                                            placeholder="Tell us about your experience with pets..."
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            {/* Additional Information */}
-                            <div className="mb-8">
-                                <h3 className="text-xl font-semibold mb-4 flex items-center">
-                                    <MessageSquare className="h-5 w-5 mr-2" />
-                                    Additional Information
-                                </h3>
-                                
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Why would you like to adopt {pet.name}?</label>
-                                    <textarea
-                                        name="message"
-                                        value={formData.message}
-                                        onChange={handleInputChange}
-                                        rows="4"
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-md"
-                                        placeholder="Tell us why you'd be a great match for this pet..."
-                                    />
-                                </div>
-                            </div>
-                            
-                            {/* Submit Button */}
-                            <div className="flex justify-end space-x-4">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowAdoptionForm(false)}
-                                    className="px-6 py-3 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={submitStatus === 'submitting'}
-                                    className={`px-6 py-3 bg-tealcustom text-white rounded-md flex items-center ${
-                                        submitStatus === 'submitting' ? 'opacity-50 cursor-not-allowed' : 'hover:bg-teal-700'
-                                    }`}
-                                >
-                                    {submitStatus === 'submitting' ? (
-                                        <>Submitting...</>
-                                    ) : (
-                                        <>
-                                            Submit Application
-                                            <PawPrint className="ml-2 h-5 w-5" />
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+                <UserAdoptionForm
+                    pet={pet}
+                    onClose={() => setShowAdoptionForm(false)}
+                    onSuccess={(adoption) => {
+                        // Handle successful submission
+                        setTimeout(() => {
+                            setShowAdoptionForm(false);
+                            // Reload pet data to show updated adoption status
+                            getPetById(id);
+                        }, 2000);
+                    }}
+                />
             )}
 
             {/* Question Form Modal */}
@@ -811,14 +469,14 @@ export function PetDetailPage() {
                     <div className="bg-white rounded-lg max-w-md w-full">
                         <div className="border-b px-6 py-4 flex justify-between items-center">
                             <h2 className="text-2xl font-bold">Ask about {pet.name}</h2>
-                            <button 
+                            <button
                                 onClick={() => setShowQuestionForm(false)}
                                 className="text-gray-500 hover:text-gray-700"
                             >
                                 <X className="h-6 w-6" />
                             </button>
                         </div>
-                        
+
                         <form onSubmit={handleQuestionSubmit} className="p-6">
                             {/* Success/Error Messages */}
                             {questionSubmitStatus === 'success' && (
@@ -826,13 +484,13 @@ export function PetDetailPage() {
                                     Thank you for your question! We'll get back to you soon.
                                 </div>
                             )}
-                            
+
                             {questionSubmitStatus === 'error' && (
                                 <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-lg">
                                     There was an error submitting your question. Please try again.
                                 </div>
                             )}
-                            
+
                             <div className="space-y-4">
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Your Name *</label>
@@ -850,7 +508,7 @@ export function PetDetailPage() {
                                         <p className="text-red-500 text-sm mt-1">{questionFormErrors.name}</p>
                                     )}
                                 </div>
-                                
+
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Email *</label>
                                     <input
@@ -867,7 +525,7 @@ export function PetDetailPage() {
                                         <p className="text-red-500 text-sm mt-1">{questionFormErrors.email}</p>
                                     )}
                                 </div>
-                                
+
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Question Type</label>
                                     <select
@@ -884,7 +542,7 @@ export function PetDetailPage() {
                                         <option value="other">Other</option>
                                     </select>
                                 </div>
-                                
+
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Your Question *</label>
                                     <textarea
@@ -902,7 +560,7 @@ export function PetDetailPage() {
                                     )}
                                 </div>
                             </div>
-                            
+
                             <div className="flex justify-end space-x-4 mt-6">
                                 <button
                                     type="button"

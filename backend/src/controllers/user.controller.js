@@ -3,11 +3,17 @@ import { User } from '../models/user.model.js';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
+
+// Get directory name properly with ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const uploadsDir = path.join(__dirname, '..', 'uploads');
 
 // Configure multer for avatar uploads
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        const uploadDir = 'uploads/avatars';
+        const uploadDir = path.join(uploadsDir, 'avatars');
         if (!fs.existsSync(uploadDir)) {
             fs.mkdirSync(uploadDir, { recursive: true });
         }
@@ -113,14 +119,26 @@ export const uploadAvatar = async (req, res) => {
 
         // Delete old avatar if exists
         if (user.avatar) {
-            const oldAvatarPath = user.avatar.replace('/uploads/', 'uploads/');
+            // Get absolute path by joining the root directory with the relative path
+            // Example: '/uploads/avatars/file.jpg' -> '/path/to/project/uploads/avatars/file.jpg'
+            const oldAvatarPath = path.join(
+                __dirname,
+                '..',
+                user.avatar.replace(/^\/uploads/, 'uploads')
+            );
+
+            // Check if file exists before attempting to delete
             if (fs.existsSync(oldAvatarPath)) {
                 fs.unlinkSync(oldAvatarPath);
             }
         }
 
+        // Generate correct URL path for the avatar
+        // Important: The path must start with / for correct URL formatting
+        const avatarUrlPath = `/uploads/avatars/${path.basename(req.file.path)}`;
+
         // Update user avatar
-        user.avatar = `/uploads/avatars/${req.file.filename}`;
+        user.avatar = avatarUrlPath;
         await user.save();
 
         res.status(200).json({

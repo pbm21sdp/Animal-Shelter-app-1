@@ -12,20 +12,35 @@ export const usePetStore = create((set) => ({
     error: null,
     totalPets: 0,
     searchSuggestions: [],
+    notFound: false,
+
+    resetNotFound: () => set({ notFound: false }),
 
     getAllPets: async (filters = {}) => {
         set({ isLoading: true, error: null });
         try {
+            // Create a clean copy of filters
+            const cleanFilters = { ...filters };
+
+            // For admin dashboard, we want to see ALL pets regardless of adoption status
+            // So we'll add a flag to indicate this is an admin request
+            if (filters.isAdminRequest) {
+                // Remove this flag before sending to backend
+                delete cleanFilters.isAdminRequest;
+                // Add a showAll flag to tell the backend to include all pets
+                cleanFilters.showAll = true;
+            }
+
             // Get filtered pets (with limit if specified)
-            const queryParams = new URLSearchParams(filters).toString();
+            const queryParams = new URLSearchParams(cleanFilters).toString();
             const response = await axios.get(`${API_URL}?${queryParams}`);
-            
+
             // Get total count without limit if a limit was specified
             let totalPets = 0;
             if (filters.limit) {
                 const totalResponse = await axios.get(API_URL);
                 let totalPetsData = [];
-                
+
                 if (Array.isArray(totalResponse.data)) {
                     totalPetsData = totalResponse.data;
                 } else if (totalResponse.data && totalResponse.data.success && Array.isArray(totalResponse.data.pets)) {
@@ -33,10 +48,10 @@ export const usePetStore = create((set) => ({
                 } else if (totalResponse.data && Array.isArray(totalResponse.data.data)) {
                     totalPetsData = totalResponse.data.data;
                 }
-                
+
                 totalPets = totalPetsData.length;
             }
-            
+
             // Handle different response formats for the main request
             let petsData = [];
             if (Array.isArray(response.data)) {
@@ -46,17 +61,19 @@ export const usePetStore = create((set) => ({
             } else if (response.data && Array.isArray(response.data.data)) {
                 petsData = response.data.data;
             }
-            
+
             // If we have a limit but didn't fetch total, use the current pets length
             if (!filters.limit) {
                 totalPets = petsData.length;
             }
-            
+
             set({
                 pets: petsData,
                 isLoading: false,
                 totalPets: totalPets
             });
+
+            return petsData;
         } catch (error) {
             console.error('Error fetching pets:', error);
             set({
@@ -65,6 +82,9 @@ export const usePetStore = create((set) => ({
                 pets: []
             });
             throw error;
+        }
+        finally {
+            set({ isLoading: false });
         }
     },
 
@@ -121,61 +141,79 @@ export const usePetStore = create((set) => ({
         }
     },
 
-    getPetById: async (id) => {
-        set({ isLoading: true, error: null });
-        try {
-            const response = await axios.get(`${API_URL}/${id}`);
+    getPetById: async (id, currentUser = null) => {
+        set({ isLoading: true, error: null, notFound: false });
 
-            let petData = null;
-            if (response.data && response.data.success && response.data.pet) {
-                petData = response.data.pet;
-            } else if (response.data && response.data.data) {
-                petData = response.data.data;
-            } else {
-                petData = response.data;
+        try {
+            // Fetch the pet data
+            const response = await axios.get(`http://localhost:5000/api/pets/${id}`, {
+                withCredentials: true
+            });
+
+            if (!response.data || !response.data.success) {
+                set({ notFound: true, isLoading: false });
+                return { success: false };
             }
 
-            set({
-                selectedPet: petData,
-                isLoading: false
-            });
-            return petData;
+            const pet = response.data.pet;
+
+            // Check pet availability
+            if (pet && pet.adoption_status !== 'available') {
+                // Admin users can always access
+                if (currentUser && currentUser.isAdmin) {
+                    set({ selectedPet: pet });
+                    return { success: true, pet };
+                }
+
+                // Check if current user has adopted this pet
+                if (currentUser && currentUser._id) {
+                    try {
+                        const adoptionsResponse = await axios.get(
+                            `http://localhost:5000/api/adoptions/user/pet?petId=${id}`,
+                            { withCredentials: true }
+                        );
+
+                        if (adoptionsResponse.data.success &&
+                            adoptionsResponse.data.adoptions &&
+                            adoptionsResponse.data.adoptions.length > 0) {
+                            set({ selectedPet: pet });
+                            return { success: true, pet };
+                        }
+                    } catch (error) {
+                        console.error("Error checking user adoptions:", error);
+                    }
+                }
+
+                // Not available and user is not admin or adopter
+                set({ notFound: true, isLoading: false });
+                return { success: false };
+            }
+
+            // Pet is available
+            set({ selectedPet: pet });
+            return { success: true, pet };
         } catch (error) {
-            console.error('Error fetching pet:', error);
-            set({
-                error: error.response?.data?.message || "Error fetching pet",
-                isLoading: false
-            });
-            throw error;
+            console.error("Error fetching pet details:", error);
+            const errorMessage = error.response?.data?.message || "Failed to fetch pet details";
+            set({ error: errorMessage, notFound: true });
+            return { success: false, error: errorMessage };
+        } finally {
+            set({ isLoading: false });
         }
     },
 
-    getSimilarPets: async (id) => {
-        set({ isLoading: true, error: null });
+    getSimilarPets: async (petId) => {
         try {
-            const response = await axios.get(`${API_URL}/${id}/similar`);
+            const response = await axios.get(
+                `http://localhost:5000/api/pets/${petId}/similar`,
+                { withCredentials: true }
+            );
 
-            let similarPetsData = [];
-            if (Array.isArray(response.data)) {
-                similarPetsData = response.data;
-            } else if (response.data && response.data.success && Array.isArray(response.data.pets)) {
-                similarPetsData = response.data.pets;
-            } else if (response.data && Array.isArray(response.data.data)) {
-                similarPetsData = response.data.data;
+            if (response.data.success) {
+                set({ similarPets: response.data.pets });
             }
-
-            set({
-                similarPets: similarPetsData,
-                isLoading: false
-            });
         } catch (error) {
-            console.error('Error fetching similar pets:', error);
-            set({
-                error: error.response?.data?.message || "Error fetching similar pets",
-                isLoading: false,
-                similarPets: []
-            });
-            throw error;
+            console.error("Error fetching similar pets:", error);
         }
     },
 

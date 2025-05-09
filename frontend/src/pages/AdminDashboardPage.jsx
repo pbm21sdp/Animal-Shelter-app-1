@@ -1,8 +1,7 @@
-// pages/AdminDashboardPage.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { PawPrint, ArrowLeft, Users, MessageSquare, BarChart3, Settings } from 'lucide-react';
+import { PawPrint, ArrowLeft, Users, MessageSquare, BarChart3, Settings, Heart, Calendar } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 // Import admin panel components
@@ -10,7 +9,9 @@ import PetsManagement from './Admin/PetsManagement';
 import UsersManagement from './Admin/UsersManagement';
 import MessagesInbox from './Admin/MessagesInbox';
 import DonationsStats from './Admin/DonationsStats';
+import AdoptionsManagement from './Admin/AdoptionsManagement';
 import AdminSettings from './Admin/AdminSettings';
+import MeetingsManagement from "./Admin/MeetingsManagement.jsx";
 
 const AdminDashboardPage = () => {
     const navigate = useNavigate();
@@ -66,6 +67,8 @@ const AdminDashboardPage = () => {
     // Navigation items
     const navItems = [
         { id: 'pets', label: 'Pets', icon: <PawPrint className="h-5 w-5" /> },
+        { id: 'adoptions', label: 'Adoptions', icon: <Heart className="h-5 w-5" /> },
+        { id: 'meetings', label: 'Meetings', icon: <Calendar className="h-5 w-5" /> },
         { id: 'users', label: 'Users', icon: <Users className="h-5 w-5" /> },
         { id: 'messages', label: 'Messages', icon: <MessageSquare className="h-5 w-5" /> },
         { id: 'donations', label: 'Donations', icon: <BarChart3 className="h-5 w-5" /> },
@@ -141,6 +144,8 @@ const AdminDashboardPage = () => {
                     <div className="max-w-full mx-auto">
                         {/* Active Panel Content */}
                         {activePanel === 'pets' && <PetsManagement />}
+                        {activePanel === 'adoptions' && <AdoptionsManagement />}
+                        {activePanel === 'meetings' && <MeetingsManagement />}
                         {activePanel === 'users' && <UsersManagement />}
                         {activePanel === 'messages' && <MessagesInbox />}
                         {activePanel === 'donations' && <DonationsStats />}
