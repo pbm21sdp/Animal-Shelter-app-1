@@ -208,7 +208,7 @@ const TermsOfService = () => {
         </div>
 
         {/* Bottom navigation */}
-        <div className="max-w-4xl mt-8 flex w-full">
+        <div className="max-w-4xl mx-auto mt-8 flex justify-between w-full">
           <Link to="/team" className="text-tealcustom hover:text-teal-900 text-lg font-bold">
             ← Team
           </Link>
