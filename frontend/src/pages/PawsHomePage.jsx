@@ -28,6 +28,7 @@ import RabbitIcon from "../components/icons/RabbitIcon.jsx";
 
 const stepImages = import.meta.glob('../assets/PawHomePage/step*.png', { eager: true });
 const steps = Object.values(stepImages).map((mod) => mod.default);
+const BASE_URL = 'http://localhost:5000';
 
 export default function PawsHomepage() {
     const { user, logout } = useAuthStore();
@@ -64,6 +65,24 @@ export default function PawsHomepage() {
         if (inputRef.current) {
             inputRef.current.focus();
         }
+    };
+
+    const getAvatarUrl = (url) => {
+        if (!url) return '/default-avatar.png';
+
+        // If it's already a full URL, return it
+        if (url.startsWith('http')) {
+            return url;
+        }
+
+        // Ensure the URL starts with a slash
+        const formattedUrl = url.startsWith('/') ? url : `/${url}`;
+
+        // Add timestamp to prevent caching
+        const timestamp = `?t=${Date.now()}`;
+
+        // Return the full URL
+        return `${BASE_URL}${formattedUrl}${timestamp}`;
     };
 
 
@@ -106,7 +125,20 @@ export default function PawsHomepage() {
                             whileTap={{scale: 0.95}}
                             onClick={() => setShowProfileDropdown(!showProfileDropdown)}
                             className="p-2 text-sm bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 flex items-center justify-center z-50">
-                            <User className="h-5 w-5" />
+                            {user && user.avatar ? (
+                                <img
+                                    src={getAvatarUrl(user.avatar)}
+                                    alt="Profile"
+                                    className="h-5 w-5 rounded-full object-cover"
+                                    onError={(e) => {
+                                        console.log("Avatar load error, using fallback");
+                                        e.target.onerror = null;
+                                        e.target.src = '/default-avatar.png';
+                                    }}
+                                />
+                            ) : (
+                                <User className="h-5 w-5" />
+                            )}
                         </motion.button>
                         
                         {/* Dropdown Menu */}
