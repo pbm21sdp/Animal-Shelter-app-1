@@ -172,10 +172,10 @@ export const getAdoptionDetails = async (req, res) => {
         const { adoptionId } = req.params;
         const isAdminRequest = req.query.adminAction === 'true' || req.query.forScheduling === 'true';
 
-        console.log('getAdoptionDetails executing for adoption ID:', adoptionId);
-        console.log('User ID:', req.userId);
-        console.log('Is admin?', !!req.isAdmin); // Note the double negation to ensure boolean value
-        console.log('Is admin request?', isAdminRequest);
+        // console.log('getAdoptionDetails executing for adoption ID:', adoptionId);
+        // console.log('User ID:', req.userId);
+        // console.log('Is admin?', !!req.isAdmin); // Note the double negation to ensure boolean value
+        // console.log('Is admin request?', isAdminRequest);
 
         const adoption = await Adoption.findById(adoptionId).populate('user', 'name email');
 
@@ -191,9 +191,9 @@ export const getAdoptionDetails = async (req, res) => {
             (adoption.user._id ? adoption.user._id.toString() : adoption.user.id ? adoption.user.id.toString() : '') :
             adoption.user ? adoption.user.toString() : '';
 
-        console.log('Adoption user ID:', adoptionUserId);
-        console.log('Request user ID:', req.userId);
-        console.log('Do they match?', adoptionUserId === req.userId);
+        // console.log('Adoption user ID:', adoptionUserId);
+        // console.log('Request user ID:', req.userId);
+        // console.log('Do they match?', adoptionUserId === req.userId);
 
         // Admin access check
         if (req.isAdmin === true) {
@@ -215,7 +215,7 @@ export const getAdoptionDetails = async (req, res) => {
 
         // Check if user is the owner
         if (adoptionUserId !== req.userId) {
-            console.log('User does not own this adoption, denying access');
+            // console.log('User does not own this adoption, denying access');
             return res.status(403).json({
                 success: false,
                 message: 'Not authorized to view this adoption application'
@@ -223,7 +223,7 @@ export const getAdoptionDetails = async (req, res) => {
         }
 
         // User is the owner
-        console.log('User owns this adoption, granting access');
+        // console.log('User owns this adoption, granting access');
         res.status(200).json({
             success: true,
             adoption
@@ -517,7 +517,7 @@ export const getAdoptionDetailsAdmin = async (req, res) => {
     try {
         const { adoptionId } = req.params;
 
-        console.log('getAdoptionDetailsAdmin called for ID:', adoptionId);
+        // console.log('getAdoptionDetailsAdmin called for ID:', adoptionId);
 
         // Since this is being called after isAdmin middleware, we know the user is an admin
         const adoption = await Adoption.findById(adoptionId).populate('user', 'name email');

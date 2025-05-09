@@ -194,17 +194,13 @@ export const replyToMessage = async (req, res) => {
 
 export const getUserMessages = async (req, res) => {
     try {
-        const { userId } = req.params;
-
-        // Validate userId
-        if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
-            return res.status(400).json({ success: false, message: 'Invalid user ID format' });
-        }
-
-        // Find messages by user ID and populate user data
-        const messages = await Message.find({ userId: userId })
-            .sort({ createdAt: -1 })
-            .populate('userId', 'name email');
+        // Find messages for the authenticated user
+        const messages = await Message.find({
+            $or: [
+                { userId: req.userId },
+                { email: req.user?.email }  // Also match by email in case messages were sent before user registration
+            ]
+        }).sort({ createdAt: -1 });
 
         res.status(200).json({
             success: true,
@@ -214,9 +210,11 @@ export const getUserMessages = async (req, res) => {
         console.error('Error fetching user messages:', error);
         res.status(500).json({
             success: false,
-            message: 'Error fetching user messages',
+            message: 'Error fetching messages',
             error: error.message
         });
     }
 };
+
+
 
