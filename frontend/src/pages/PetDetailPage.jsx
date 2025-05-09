@@ -25,6 +25,8 @@ import { usePetStore } from '../store/petStore';
 import Footer from "../components/page/Footer.jsx";
 import DynamicSearch from "../components/DynamicSearch.jsx";
 import UserAdoptionForm from "../components/UserAdoptionForm";
+import PetCard from '../components/PetCard';
+
 import {useAuthStore} from "../store/authStore.js";
 import NotFoundPage from './NotFoundPage'; // Make sure you have this component
 
@@ -418,37 +420,13 @@ export function PetDetailPage() {
                 {similarPets && similarPets.length > 0 && (
                     <div className="mt-16">
                         <h2 className="text-2xl font-bold mb-8">Other pets like {pet.name}</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
                             {similarPets.map((similarPet) => (
-                                <div key={similarPet.id} className="bg-white rounded-xl overflow-hidden shadow-md">
-                                    <div className="h-48 overflow-hidden">
-                                        <img
-                                            src={similarPet.photos?.[0]?.photo_url || '/images/pet-placeholder.png'}
-                                            alt={`${similarPet.name} - ${similarPet.breed}`}
-                                            className="w-full h-full object-cover"
-                                        />
-                                    </div>
-                                    <div className="p-4">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <h3 className="text-xl font-bold">{similarPet.name}</h3>
-                                            <span className={`text-sm ${similarPet.gender === 'male' ? 'text-blue-500' : 'text-pink-500'}`}>
-                                                {similarPet.gender === 'male' ? '♂' : '♀'} {similarPet.gender}
-                                            </span>
-                                        </div>
-                                        <div className="flex justify-between text-sm text-gray-600">
-                                            <span>{similarPet.age_category}</span>
-                                            <span>{similarPet.breed}</span>
-                                        </div>
-                                        <div className="mt-4 flex justify-end">
-                                            <button
-                                                onClick={() => navigate(`/pet/${similarPet.id}`)}
-                                                className="hover:text-teal-700"
-                                            >
-                                                <ArrowRight className="h-5 w-5 text-teal-700"/>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
+                                <PetCard
+                                    key={similarPet.id}
+                                    pet={similarPet}
+                                    showArrow={true}
+                                />
                             ))}
 
                             {similarPets.length === 3 && (
