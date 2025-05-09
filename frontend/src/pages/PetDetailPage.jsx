@@ -45,7 +45,8 @@ export function PetDetailPage() {
         getPetById,
         getSimilarPets,
         clearSelectedPet,
-        resetNotFound
+        resetNotFound,
+        totalPets
     } = usePetStore();
 
     const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
@@ -417,34 +418,38 @@ export function PetDetailPage() {
                 </div>
 
                 {/* Similar Pets Section */}
-                {similarPets && similarPets.length > 0 && (
-                    <div className="mt-16">
-                        <h2 className="text-2xl font-bold mb-8">Other pets like {pet.name}</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                            {similarPets.map((similarPet) => (
-                                <PetCard
-                                    key={similarPet.id}
-                                    pet={similarPet}
-                                    showArrow={true}
-                                />
-                            ))}
+                    {similarPets && similarPets.length > 0 && (
+                        <div className="mt-16">
+                            <h2 className="text-2xl font-bold mb-8">Other pets like {pet.name}</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                                {similarPets.map((similarPet) => (
+                                    <PetCard
+                                        key={similarPet.id}
+                                        pet={similarPet}
+                                        showArrow={true}
+                                    />
+                                ))}
 
-                            {similarPets.length === 3 && (
-                                <div className="bg-tealcustom rounded-xl overflow-hidden shadow-md text-white flex flex-col justify-center items-center p-8">
-                                    <div className="mb-4">
-                                        <PawPrint className="h-16 w-16" />
+                                {similarPets.length === 3 && (
+                                    <div className="bg-tealcustom rounded-xl overflow-hidden shadow-md text-white flex flex-col justify-center items-center p-8">
+                                        <div className="mb-4">
+                                            <PawPrint className="h-16 w-16" />
+                                        </div>
+                                        <p className="text-center text-lg font-medium">
+                                            {totalPets > similarPets.length 
+                                                ? `${totalPets - similarPets.length} more pets are waiting for you`
+                                                : 'More pets are waiting for you'}
+                                        </p>
+                                        <div className="mt-4 flex justify-end">
+                                            <button onClick={() => navigate('/pet-search')}>
+                                                <ArrowRight className="h-5 w-5"/>
+                                            </button>
+                                        </div>
                                     </div>
-                                    <p className="text-center text-lg font-medium">78 more pets are waiting for you</p>
-                                    <div className="mt-4 flex justify-end">
-                                        <button onClick={() => navigate('/pet-search')}>
-                                            <ArrowRight className="h-5 w-5"/>
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
             </div>
 
             {/* Adoption Form Modal */}
