@@ -137,4 +137,4 @@ dist
 
 # Other files
 /backend/scripts/runSchema.js
-/uploads/**
+/backend/src/uploads/**
