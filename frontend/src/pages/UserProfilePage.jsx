@@ -21,6 +21,7 @@ import InboxTab from '../components/InboxTab';
 import { useMeetingStore } from '../store/meetingStore';
 
 const API_URL = 'http://localhost:5000/api';
+const BASE_URL = 'http://localhost:5000';
 
 const UserProfilePage = () => {
   const {
@@ -130,20 +131,39 @@ const UserProfilePage = () => {
     const file = e.target.files[0];
     if (!file) return;
 
+    // File type validation
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file');
+      return;
+    }
+
+    // File size validation (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('File size should be less than 5MB');
+      return;
+    }
+
     try {
       setLoading(true);
       setError('');
+      setSuccess('');
 
       // Use uploadAvatar method from authStore
       const result = await uploadAvatar(file);
 
-      // Generate a new key to force re-rendering of the image
-      setAvatarKey(Date.now());
+      if (result && result.avatarUrl) {
+        console.log("Avatar uploaded successfully:", result.avatarUrl);
 
-      setSuccess('Avatar updated successfully');
+        // Force re-rendering of the image by updating the key
+        setAvatarKey(Date.now());
+
+        setSuccess('Avatar updated successfully');
+      } else {
+        throw new Error("Avatar upload failed");
+      }
     } catch (error) {
       console.error('Error uploading avatar:', error);
-      setError('Failed to upload avatar');
+      setError('Failed to upload avatar: ' + (error.message || ''));
     } finally {
       setLoading(false);
     }
@@ -187,10 +207,19 @@ const UserProfilePage = () => {
   const getAvatarUrl = (url) => {
     if (!url) return '/default-avatar.png';
 
-    // Add a timestamp parameter to prevent caching
-    const hasParams = url.includes('?');
-    const separator = hasParams ? '&' : '?';
-    return `${url}${separator}t=${avatarKey}`;
+    // Check if the URL is already absolute or starts with http
+    if (url.startsWith('http')) {
+      return url;
+    }
+
+    // Ensure the URL starts with a slash
+    const formattedUrl = url.startsWith('/') ? url : `/${url}`;
+
+    // Add timestamp to prevent caching
+    const timestamp = `?t=${avatarKey}`;
+
+    // Return the full URL by prepending the BASE_URL
+    return `${BASE_URL}${formattedUrl}${timestamp}`;
   };
 
   return (
@@ -293,6 +322,11 @@ const UserProfilePage = () => {
                           src={getAvatarUrl(user?.avatar)}
                           alt="Profile"
                           className="w-32 h-32 rounded-full object-cover border-4 border-gray-200"
+                          onError={(e) => {
+                            console.log("Image loading error, falling back to default");
+                            e.target.onerror = null; // Prevent infinite loop
+                            e.target.src = '/default-avatar.png'; // Fallback image
+                          }}
                       />
                       {/* Add a loading indicator */}
                       {loading && (
@@ -311,9 +345,16 @@ const UserProfilePage = () => {
                         />
                       </label>
                     </div>
-                    {/* Debug text for image URL */}
+                    {/* Debug information */}
                     <div className="mt-2 text-xs text-gray-400 max-w-xs overflow-hidden text-ellipsis">
-                      {user?.avatar ? 'Avatar loaded' : 'No avatar set'}
+                      {user?.avatar ? (
+                          <>
+                            <div>Avatar path: {user.avatar}</div>
+                            <div>Full URL: {getAvatarUrl(user.avatar)}</div>
+                          </>
+                      ) : (
+                          'No avatar set'
+                      )}
                     </div>
                   </div>
 
@@ -417,7 +458,7 @@ const UserProfilePage = () => {
                     <div className="space-y-4">
                       {messages.map((message) => (
                           <div
-                              key={message.id}
+                              key={message._id || message.id} // Add key here, using _id or id
                               className="border border-gray-200 rounded-lg p-4 hover:border-teal-300 transition-colors"
                           >
                             <div className="flex justify-between items-start mb-2">
@@ -462,7 +503,7 @@ const UserProfilePage = () => {
                     <div className="space-y-4">
                       {adoptionRequests.map((request) => (
                           <div
-                              key={request.id}
+                              key={request._id || request.id} // Add key here, using _id or id
                               className="border border-gray-200 rounded-lg p-4 hover:border-teal-300 transition-colors"
                           >
                             <div className="flex justify-between items-start mb-2">
