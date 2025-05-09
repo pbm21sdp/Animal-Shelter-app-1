@@ -12,11 +12,12 @@ import { fileURLToPath } from 'url';
 import { authRoutes } from "./routes/auth/auth.routes.js"
 
 // Import routes
-import adoptionRoutes from './routes/adoptions.js';
+import adoptionRoutes from './routes/adoptions.routes.js';
 import petRoutes from './routes/pets.js';
 import donationRoutes from './routes/donations.routes.js';
 import userRoutes from './routes/user.routes.js';
 import messageRoutes from './routes/message.routes.js';
+import scheduledMeetingRoutes from './routes/scheduledMeeting.routes.js';
 
 // Load .env only in non-Docker environment
 if (!process.env.DOCKER_ENV) {
@@ -33,6 +34,14 @@ const __dirname = path.dirname(__filename);
 
 // Middleware
 app.use(cors({origin: "http://localhost:5173", credentials: true}));
+
+// DEBUG
+// app.use(cors({
+//     origin: "http://localhost:5173", // Your frontend URL
+//     credentials: true, // Critical for cookies to work with cross-origin requests
+//     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+//     allowedHeaders: ['Content-Type', 'Authorization']
+// }));
 
 // Special middleware for Stripe webhooks (must come before express.json())
 app.post('/api/donations/webhook',
@@ -60,6 +69,7 @@ app.use('/api/pets', petRoutes);
 app.use('/api/donations', donationRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/meetings', scheduledMeetingRoutes);
 
 // Root route
 app.get("/", (req, res) => {
@@ -88,3 +98,9 @@ app.listen(PORT, () => {
     connectMongoDB();
     console.log(`Server running on port ${PORT}`);
 });
+
+// app.use((req, res, next) => {
+//     console.log(`Request to ${req.method} ${req.path}`);
+//     console.log('Cookies:', req.cookies);
+//     next();
+// });

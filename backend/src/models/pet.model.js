@@ -8,15 +8,22 @@ export const PetModel = {
             let query = `
                 SELECT p.*,
                        json_agg(DISTINCT pp.*) FILTER (WHERE pp.id IS NOT NULL) as photos,
-                    json_agg(DISTINCT pt.trait) FILTER (WHERE pt.id IS NOT NULL) as traits
+                       json_agg(DISTINCT pt.trait) FILTER (WHERE pt.id IS NOT NULL) as traits
                 FROM pets p
                          LEFT JOIN pet_photos pp ON p.id = pp.pet_id
                          LEFT JOIN pet_traits pt ON p.id = pt.pet_id
-                WHERE p.is_available = true
+                WHERE 1=1
             `;
 
             const values = [];
             let paramCount = 1;
+
+            // Only add the is_available filter if specified
+            if (filters.is_available !== undefined) {
+                query += ` AND p.is_available = $${paramCount}`;
+                values.push(filters.is_available);
+                paramCount++;
+            }
 
             if (filters.type && filters.type !== 'any') {
                 query += ` AND p.type = $${paramCount}`;
@@ -449,7 +456,33 @@ export const PetModel = {
                 category: 'Search'
             }];
         }
-    }
+    },
+    updateAdoptionStatus: async (id, adoptionStatus) => {
+        try {
+            // Update both adoption_status and is_available fields
+            let isAvailable = true; // Default to available
+
+            // Set isAvailable based on adoption status
+            if (adoptionStatus === 'adopted' || adoptionStatus === 'pending' || adoptionStatus === 'unavailable') {
+                isAvailable = false;
+            }
+
+            const query = `
+            UPDATE pets
+            SET adoption_status = $1, 
+                is_available = $2, 
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = $3
+            RETURNING *
+        `;
+
+            const result = await pool.query(query, [adoptionStatus, isAvailable, id]);
+            return result.rows[0];
+        } catch (error) {
+            console.error('Error in PetModel.updateAdoptionStatus:', error);
+            throw error;
+        }
+    },
 
 
 };

@@ -14,6 +14,7 @@ const router = express.Router();
 
 // Public route - anyone can send a message
 router.post('/', createMessage);
+router.get('/user', verifyToken, getUserMessages);
 
 // Admin routes - require authentication and admin role
 router.get('/admin', verifyToken, isAdmin, getAllMessages);

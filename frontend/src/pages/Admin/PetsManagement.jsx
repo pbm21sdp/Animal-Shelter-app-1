@@ -38,7 +38,9 @@ const PetsManagement = () => {
         shelter_contact_email: '',
         shelter_contact_phone: '',
         zip_code: '',
-        traits: []
+        traits: [],
+        is_available: true,
+        adoption_status: 'available'
     });
 
     // Photo state
@@ -53,7 +55,7 @@ const PetsManagement = () => {
 
     // Fetch all pets on component mount
     useEffect(() => {
-        getAllPets();
+        getAllPets({ isAdminRequest: true });
     }, [getAllPets]);
 
     // Update filtered pets when search term or pets change
@@ -90,7 +92,9 @@ const PetsManagement = () => {
             shelter_contact_email: '',
             shelter_contact_phone: '',
             zip_code: '',
-            traits: []
+            traits: [],
+            is_available: true,
+            adoption_status: 'available'
         });
         setPhotoFile(null);
         setPhotoPreview(null);
@@ -101,10 +105,25 @@ const PetsManagement = () => {
     // Handle form input changes
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: value
-        }));
+
+        // Special handling for boolean values like is_available
+        if (name === 'is_available') {
+            // Convert string 'true'/'false' to actual boolean
+            const boolValue = value === 'true';
+
+            // Update both is_available and adoption_status fields
+            setFormData(prev => ({
+                ...prev,
+                [name]: boolValue,
+                // Also update adoption_status based on is_available
+                adoption_status: boolValue ? 'available' : 'unavailable'
+            }));
+        } else {
+            setFormData(prev => ({
+                ...prev,
+                [name]: value
+            }));
+        }
     };
 
     // Handle photo selection
@@ -220,7 +239,9 @@ const PetsManagement = () => {
             shelter_contact_email: pet.shelter_contact_email || '',
             shelter_contact_phone: pet.shelter_contact_phone || '',
             zip_code: pet.zip_code || '',
-            traits: pet.traits ? (Array.isArray(pet.traits) ? pet.traits : [pet.traits]) : []
+            traits: pet.traits ? (Array.isArray(pet.traits) ? pet.traits : [pet.traits]) : [],
+            is_available: pet.is_available !== undefined ? pet.is_available : true,
+            adoption_status: pet.is_available !== undefined && !pet.is_available ? 'unavailable' : pet.adoption_status || 'available'
         });
 
         // Fetch photos for this pet
@@ -482,6 +503,22 @@ const PetsManagement = () => {
                             <option value="special_needs">Special Needs</option>
                         </select>
                     </div>
+
+                    <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-bold mb-2">
+                            Available Pet
+                        </label>
+                        <select
+                            name="is_available"
+                            value={String(formData.is_available)} // Convert boolean to string 'true' or 'false'
+                            onChange={handleChange}
+                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        >
+                            <option value="true">Yes</option>
+                            <option value="false">No</option>
+                        </select>
+                    </div>
+
                 </div>
 
                 {/* Additional Info */}
@@ -794,17 +831,18 @@ const PetsManagement = () => {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Age</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gender</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                     {isLoading ? (
                         <tr>
-                            <td colSpan="7" className="px-6 py-4 text-center">Loading...</td>
+                            <td colSpan="8" className="px-6 py-4 text-center">Loading...</td>
                         </tr>
                     ) : filteredPets.length === 0 ? (
                         <tr>
-                            <td colSpan="7" className="px-6 py-4 text-center">No pets found</td>
+                            <td colSpan="8" className="px-6 py-4 text-center">No pets found</td>
                         </tr>
                     ) : (
                         // Use getCurrentPets() instead of filteredPets directly
@@ -835,6 +873,21 @@ const PetsManagement = () => {
                                 <td className="px-6 py-4 whitespace-nowrap">{pet.age_category}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{pet.gender}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{pet.location_city}</td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                        pet.adoption_status === 'available' ? 'bg-green-100 text-green-800' :
+                                            pet.adoption_status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                                pet.adoption_status === 'adopted' ? 'bg-blue-100 text-blue-800' :
+                                                    pet.adoption_status === 'unavailable' ? 'bg-gray-100 text-gray-800' :
+                                                        'bg-gray-100 text-gray-800'
+                                    }`}>
+                                        {pet.adoption_status === 'available' ? 'Available' :
+                                            pet.adoption_status === 'pending' ? 'Pending' :
+                                                pet.adoption_status === 'adopted' ? 'Adopted' :
+                                                    pet.adoption_status === 'unavailable' ? 'Unavailable' :
+                                                        pet.adoption_status || 'Unknown'}
+                                    </span>
+                                </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="flex space-x-2">
                                         <button
