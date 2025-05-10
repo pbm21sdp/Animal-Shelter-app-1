@@ -1,7 +1,7 @@
 // pages/PetDetailPage.jsx
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
     PawPrint,
     Search,
@@ -36,6 +36,7 @@ export function PetDetailPage() {
     const navigate = useNavigate();
     const {user, logout} = useAuthStore();
     const [setNotFound] = useState(false);
+    const [adoptionSuccess, setAdoptionSuccess] = useState(false); // New state for success message
     const {
         selectedPet: pet,
         similarPets,
@@ -45,7 +46,8 @@ export function PetDetailPage() {
         getPetById,
         getSimilarPets,
         clearSelectedPet,
-        resetNotFound
+        resetNotFound,
+        totalPets
     } = usePetStore();
 
     const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
@@ -172,10 +174,10 @@ export function PetDetailPage() {
                 </div>
 
                 <nav className="hidden md:flex space-x-6 items-center">
-                    <a href="/" className="text-gray-500 hover:text-gray-900">Home</a>
-                    <a href="/pet-search" className="text-gray-900 border-b-2 border-gray-900">Pet search</a>
-                    <a href="#" className="text-gray-500 hover:text-gray-900">Adoption process</a>
-                    <a href="#" className="text-gray-500 hover:text-gray-900">FAQ</a>
+                    <Link to="/" className="text-gray-500 hover:text-gray-900">Home</Link>
+                    <Link to="/pet-search" className="text-gray-900 border-b-2 border-gray-900">Pet search</Link>
+                    <Link to="/adoption-process" className="text-gray-500 hover:text-gray-900">Adoption process</Link>
+                    <Link to="/adoption-faq" className="text-gray-500 hover:text-gray-900">FAQ</Link>
                     <DynamicSearch redirectOnSelect={true}/>
                 </nav>
 
@@ -195,9 +197,9 @@ export function PetDetailPage() {
             {/* Breadcrumb */}
             <div className="container mx-auto px-4 py-4">
                 <div className="flex items-center text-gray-600">
-                    <a href="/" className="hover:text-gray-900">Home</a>
+                    <Link to="/" className="hover:text-gray-900">Home</Link>
                     <span className="mx-2">›</span>
-                    <a href="/pet-search" className="hover:text-gray-900">Pet search</a>
+                    <Link to="/pet-search" className="hover:text-gray-900">Pet search</Link>
                     <span className="mx-2">›</span>
                     <span className="text-gray-900">Pet Details</span>
                 </div>
@@ -417,34 +419,38 @@ export function PetDetailPage() {
                 </div>
 
                 {/* Similar Pets Section */}
-                {similarPets && similarPets.length > 0 && (
-                    <div className="mt-16">
-                        <h2 className="text-2xl font-bold mb-8">Other pets like {pet.name}</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                            {similarPets.map((similarPet) => (
-                                <PetCard
-                                    key={similarPet.id}
-                                    pet={similarPet}
-                                    showArrow={true}
-                                />
-                            ))}
+                    {similarPets && similarPets.length > 0 && (
+                        <div className="mt-16">
+                            <h2 className="text-2xl font-bold mb-8">Other pets like {pet.name}</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                                {similarPets.map((similarPet) => (
+                                    <PetCard
+                                        key={similarPet.id}
+                                        pet={similarPet}
+                                        showArrow={true}
+                                    />
+                                ))}
 
-                            {similarPets.length === 3 && (
-                                <div className="bg-tealcustom rounded-xl overflow-hidden shadow-md text-white flex flex-col justify-center items-center p-8">
-                                    <div className="mb-4">
-                                        <PawPrint className="h-16 w-16" />
+                                {similarPets.length === 3 && (
+                                    <div className="bg-tealcustom rounded-xl overflow-hidden shadow-md text-white flex flex-col justify-center items-center p-8">
+                                        <div className="mb-4">
+                                            <PawPrint className="h-16 w-16" />
+                                        </div>
+                                        <p className="text-center text-lg font-medium">
+                                            {totalPets > similarPets.length 
+                                                ? `${totalPets - similarPets.length} more pets are waiting for you`
+                                                : 'More pets are waiting for you'}
+                                        </p>
+                                        <div className="mt-4 flex justify-end">
+                                            <button onClick={() => navigate('/pet-search')}>
+                                                <ArrowRight className="h-5 w-5"/>
+                                            </button>
+                                        </div>
                                     </div>
-                                    <p className="text-center text-lg font-medium">78 more pets are waiting for you</p>
-                                    <div className="mt-4 flex justify-end">
-                                        <button onClick={() => navigate('/pet-search')}>
-                                            <ArrowRight className="h-5 w-5"/>
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
             </div>
 
             {/* Adoption Form Modal */}
@@ -453,14 +459,27 @@ export function PetDetailPage() {
                     pet={pet}
                     onClose={() => setShowAdoptionForm(false)}
                     onSuccess={(adoption) => {
-                        // Handle successful submission
+                        setShowAdoptionForm(false);
+                        setAdoptionSuccess(true);
                         setTimeout(() => {
-                            setShowAdoptionForm(false);
-                            // Reload pet data to show updated adoption status
-                            getPetById(id);
-                        }, 2000);
+                            setAdoptionSuccess(false);
+                            navigate('/pet-search');
+                        }, 1000); 
                     }}
                 />
+            )}
+
+            {/* Success Message Toast */}
+            {adoptionSuccess && (
+                <div className="fixed inset-0 flex items-center justify-center z-50">
+                    <div className="bg-black bg-opacity-40 absolute inset-0 backdrop-blur-sm"></div>
+                    <div className="bg-green-100 border border-green-200 text-green-800 px-8 py-6 rounded-xl shadow-lg z-50 max-w-md mx-auto animate-fade-in-out">
+                        <div className="flex items-center">
+                            <Check className="h-6 w-6 mr-3 text-green-600" />
+                            <p className="text-lg font-medium">Your application has been submitted successfully!</p>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {/* Question Form Modal */}

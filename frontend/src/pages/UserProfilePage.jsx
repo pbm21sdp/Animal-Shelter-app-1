@@ -14,11 +14,14 @@ import {
   Camera,
   AlertCircle,
   Calendar,
-  Inbox
+  Inbox, 
+  LogOut
 } from 'lucide-react';
 import MeetingsTab from '../components/MeetingsTab';
 import InboxTab from '../components/InboxTab';
 import { useMeetingStore } from '../store/meetingStore';
+import { useNavigate, Link } from 'react-router-dom';
+import DynamicSearch from '../components/DynamicSearch';
 
 const API_URL = 'http://localhost:5000/api';
 const BASE_URL = 'http://localhost:5000';
@@ -40,6 +43,8 @@ const UserProfilePage = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [avatarKey, setAvatarKey] = useState(Date.now()); // Key to force re-rendering
+  const navigate = useNavigate();
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
   // State for messages and adoption requests
   const location = useLocation();
@@ -49,6 +54,7 @@ const UserProfilePage = () => {
   const [messages, setMessages] = useState([]);
   const [adoptionRequests, setAdoptionRequests] = useState([]);
   const [activeTab, setActiveTab] = useState(tabParam || 'profile');
+  const { logout } = useAuthStore();
 
   // State for editable fields
   const [formData, setFormData] = useState({
@@ -90,6 +96,20 @@ const UserProfilePage = () => {
       setActiveTab(tab);
     }
   }, [location.search]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      const dropdownElement = document.getElementById('profile-dropdown');
+      if (showProfileDropdown && dropdownElement && !dropdownElement.contains(event.target)) {
+        setShowProfileDropdown(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showProfileDropdown]);
 
   const fetchMessages = async () => {
     try {
@@ -192,6 +212,11 @@ const UserProfilePage = () => {
     }
   };
 
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
   const handleCancelEdit = () => {
     // Reset formData to values from user
     setFormData({
@@ -224,6 +249,117 @@ const UserProfilePage = () => {
 
   return (
       <div className="min-h-screen w-full bg-gray-50">
+        {/* Header/Navigation */}
+        <header className="container mx-auto px-4 py-4 grid grid-cols-3 items-center relative">
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center">
+            <PawPrint className="text-tealcustom h-6 w-6"/>
+            <span className="ml-2 text-xl font-bold">Paws</span>
+          </div>
+        </div>
+        
+        <nav className="hidden md:flex space-x-6 items-center justify-center">
+          <a href="/" className="text-gray-500 hover:text-gray-900">Home</a>
+          <a href="/pet-search" className="text-gray-500 hover:text-gray-900">Pet search</a>
+          <a href="/adoption-process" className="text-gray-500 hover:text-gray-900">Adoption process</a>
+          <a href="/adoption-requirements" className="text-gray-900 border-b-2 border-gray-900">Requirements</a>
+          <a href="/adoption-faq" className="text-gray-500 hover:text-gray-900">FAQ</a>
+        </nav>
+        
+        <div className="flex justify-end items-center space-x-4">
+          {/* Profile button with dropdown */}
+          <div className="relative">
+            <motion.button
+              whileHover={{scale: 1.05}}
+              whileTap={{scale: 0.95}}
+              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+              className="p-2 text-sm bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 flex items-center justify-center z-50"
+            >
+              {user && user.avatar ? (
+                <img
+                  src={getAvatarUrl(user.avatar)}
+                  alt="Profile"
+                  className="h-5 w-5 rounded-full object-cover"
+                  onError={(e) => {
+                    console.log("Avatar load error, using fallback");
+                    e.target.onerror = null;
+                    e.target.src = '/default-avatar.png';
+                  }}
+                />
+              ) : (
+                <User className="h-5 w-5" />
+              )}
+            </motion.button>
+            
+            {/* Dropdown Menu */}
+            {showProfileDropdown && (
+              <div 
+                id="profile-dropdown"
+                className="absolute top-full right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50"
+              >
+                <Link 
+                  to="/profile?tab=profile" 
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowProfileDropdown(false);
+                  }}
+                >
+                  <div className="flex items-center">
+                    <User className="h-4 w-4 mr-2" />
+                    Profile
+                  </div>
+                </Link>
+                <Link 
+                  to="/profile?tab=messages" 
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowProfileDropdown(false);
+                  }}
+                >
+                  <div className="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                    </svg>
+                    Messages
+                  </div>
+                </Link>
+                <Link 
+                  to="/profile?tab=adoptions" 
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowProfileDropdown(false);
+                  }}
+                >
+                  <div className="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                      <line x1="16" y1="2" x2="16" y2="6" />
+                      <line x1="8" y1="2" x2="8" y2="6" />
+                      <line x1="3" y1="10" x2="21" y2="10" />
+                    </svg>
+                    Requests
+                  </div>
+                </Link>
+              </div>
+            )}
+          </div>
+
+          {/* Logout button */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleLogout}
+            className="flex items-center text-gray-500 hover:text-gray-900 transition-colors"
+          >
+            <LogOut className="h-5 w-5 mr-2" />
+            <span>Logout</span>
+          </motion.button>
+        </div>
+      </header>
+      
         <div className="max-w-6xl mx-auto px-4 py-8">
           {/* Header */}
           <div className="flex items-center gap-4 mb-8">
