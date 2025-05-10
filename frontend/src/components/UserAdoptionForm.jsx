@@ -88,9 +88,7 @@ const UserAdoptionForm = ({ pet, onClose, onSuccess }) => {
 
                 // Call onSuccess after 3 seconds if provided
                 if (onSuccess) {
-                    setTimeout(() => {
                         onSuccess(result.adoption);
-                    }, 3000);
                 }
             } else {
                 setSubmitStatus('error');
