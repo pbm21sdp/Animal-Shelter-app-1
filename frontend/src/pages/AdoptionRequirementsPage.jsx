@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
-import { PawPrint, CheckCircle, Shield, HomeIcon, DollarSign, Clock, Heart, X, LogOut } from "lucide-react";
+import { User, PawPrint, CheckCircle, Shield, HomeIcon, DollarSign, Clock, Heart, X, LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuthStore } from "../store/authStore";
 import Footer from "../components/page/Footer.jsx";
@@ -11,12 +11,27 @@ const AdoptionRequirementsPage = () => {
   const [selectedRequirements, setSelectedRequirements] = useState([]);
   const [showError, setShowError] = useState(false);
   const navigate = useNavigate();
-  const { logout } = useAuthStore();
+  const { user, logout } = useAuthStore();
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   
   // Ensure page starts at the top when loaded
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+        const dropdownElement = document.getElementById('profile-dropdown');
+        if (showProfileDropdown && dropdownElement && !dropdownElement.contains(event.target)) {
+            setShowProfileDropdown(false);
+        }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showProfileDropdown]);
 
   const handleLogout = () => {
     logout();
@@ -44,6 +59,25 @@ const AdoptionRequirementsPage = () => {
       setShowError(true);
     }
   };
+
+  const getAvatarUrl = (url) => {
+    if (!url) return '/default-avatar.png';
+
+    // Check if the URL is already absolute or starts with http
+    if (url.startsWith('http')) {
+        return url;
+    }
+
+    // Ensure the URL starts with a slash
+    const formattedUrl = url.startsWith('/') ? url : `/${url}`;
+
+    // Add timestamp to prevent caching
+    const timestamp = `?t=${Date.now()}`;
+
+    // Return the full URL by prepending the BASE_URL
+    return `http://localhost:5000${formattedUrl}${timestamp}`;
+  };
+
 
   const requirements = [
     {
@@ -93,6 +127,7 @@ const AdoptionRequirementsPage = () => {
     hidden: { y: 20, opacity: 0 },
     visible: { y: 0, opacity: 1 }
   };
+
   
   return (
     <div className="min-h-screen w-screen bg-white">
@@ -113,14 +148,97 @@ const AdoptionRequirementsPage = () => {
           <a href="/adoption-faq" className="text-gray-500 hover:text-gray-900">FAQ</a>
         </nav>
         
-        <div className="flex justify-end">
-          <button 
+        <div className="flex justify-end items-center space-x-4">
+          {/* Profile button with dropdown */}
+          <div className="relative">
+            <motion.button
+              whileHover={{scale: 1.05}}
+              whileTap={{scale: 0.95}}
+              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+              className="p-2 text-sm bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 flex items-center justify-center z-50"
+            >
+              {user && user.avatar ? (
+                <img
+                  src={getAvatarUrl(user.avatar)}
+                  alt="Profile"
+                  className="h-5 w-5 rounded-full object-cover"
+                  onError={(e) => {
+                    console.log("Avatar load error, using fallback");
+                    e.target.onerror = null;
+                    e.target.src = '/default-avatar.png';
+                  }}
+                />
+              ) : (
+                <User className="h-5 w-5" />
+              )}
+            </motion.button>
+            
+            {/* Dropdown Menu */}
+            {showProfileDropdown && (
+              <div 
+                id="profile-dropdown"
+                className="absolute top-full right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50"
+              >
+                <Link 
+                  to="/profile?tab=profile" 
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowProfileDropdown(false);
+                  }}
+                >
+                  <div className="flex items-center">
+                    <User className="h-4 w-4 mr-2" />
+                    Profile
+                  </div>
+                </Link>
+                <Link 
+                  to="/profile?tab=messages" 
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowProfileDropdown(false);
+                  }}
+                >
+                  <div className="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                    </svg>
+                    Messages
+                  </div>
+                </Link>
+                <Link 
+                  to="/profile?tab=adoptions" 
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowProfileDropdown(false);
+                  }}
+                >
+                  <div className="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                      <line x1="16" y1="2" x2="16" y2="6" />
+                      <line x1="8" y1="2" x2="8" y2="6" />
+                      <line x1="3" y1="10" x2="21" y2="10" />
+                    </svg>
+                    Requests
+                  </div>
+                </Link>
+              </div>
+            )}
+          </div>
+
+          {/* Logout button */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={handleLogout}
             className="flex items-center text-gray-500 hover:text-gray-900 transition-colors"
           >
             <LogOut className="h-5 w-5 mr-2" />
             <span>Logout</span>
-          </button>
+          </motion.button>
         </div>
       </header>
       
