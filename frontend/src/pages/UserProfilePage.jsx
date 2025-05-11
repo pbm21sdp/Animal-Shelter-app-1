@@ -481,7 +481,7 @@ const UserProfilePage = () => {
                         />
                       </label>
                     </div>
-                    {/* Debug information */}
+                   {/* 
                     <div className="mt-2 text-xs text-gray-400 max-w-xs overflow-hidden text-ellipsis">
                       {user?.avatar ? (
                           <>
@@ -491,8 +491,8 @@ const UserProfilePage = () => {
                       ) : (
                           'No avatar set'
                       )}
-                    </div>
-                  </div>
+                    </div> */ }
+                  </div> 
 
                   {/* Profile Information */}
                   <div className="flex-1">
