@@ -24,6 +24,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import DynamicSearch from '../components/DynamicSearch';
 import MessageDetailsModal from '../components/MessageDetailsModal';
 import MessageCard from '../components/MessageCard';
+import AdoptionDetailsModal from '../components/AdoptionDetailsModal';
 
 const API_URL = 'http://localhost:5000/api';
 const BASE_URL = 'http://localhost:5000';
@@ -48,6 +49,7 @@ const UserProfilePage = () => {
   const navigate = useNavigate();
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState(null);
+  const [selectedAdoptionForView, setSelectedAdoptionForView] = useState(null);
 
   // State for messages and adoption requests
   const location = useLocation();
@@ -623,8 +625,9 @@ const UserProfilePage = () => {
                     <div className="space-y-4">
                       {adoptionRequests.map((request) => (
                           <div
-                              key={request._id || request.id} // Add key here, using _id or id
-                              className="border border-gray-200 rounded-lg p-4 hover:border-teal-300 transition-colors"
+                              key={request._id || request.id}
+                              className="border border-gray-200 rounded-lg p-4 hover:border-teal-300 transition-colors cursor-pointer"
+                              onClick={() => setSelectedAdoptionForView(request)}
                           >
                             <div className="flex justify-between items-start mb-2">
                               <div>
@@ -638,29 +641,45 @@ const UserProfilePage = () => {
                                             request.status === 'in_review' ? 'text-blue-600' :
                                                 'text-yellow-600'
                                 }`}>
-                            {request.status.charAt(0).toUpperCase() + request.status.slice(1).replace('_', ' ')}
-                          </span>
+                                {request.status.charAt(0).toUpperCase() + request.status.slice(1).replace('_', ' ')}
+                            </span>
                                 </p>
                               </div>
                               <span className="text-sm text-gray-500">
                         {new Date(request.createdAt).toLocaleDateString()}
-                      </span>
+                    </span>
                             </div>
                             {request.notes && (
                                 <p className="text-gray-700 mb-2">{request.notes}</p>
                             )}
-                            {request.adminNotes && (
+                            {request.status === 'rejected' && request.adminNotes && (
+                                <div className="mt-4 pl-4 border-l-2 border-red-300 bg-red-50 rounded">
+                                  <p className="text-sm font-medium text-red-700">Rejection Reason:</p>
+                                  <p className="text-red-700 text-sm">{request.adminNotes}</p>
+                                </div>
+                            )}
+                            {request.status !== 'rejected' && request.adminNotes && (
                                 <div className="mt-4 pl-4 border-l-2 border-teal-300">
                                   <p className="text-sm font-medium text-teal-600">Shelter Notes:</p>
                                   <p className="text-gray-700">{request.adminNotes}</p>
                                 </div>
                             )}
+                            <div className="mt-3 text-xs text-gray-400">
+                              Click to view details
+                            </div>
                           </div>
                       ))}
                     </div>
                 )}
               </motion.div>
           )}
+
+          {/* Adoption Details Modal */}
+          <AdoptionDetailsModal
+              adoption={selectedAdoptionForView}
+              onClose={() => setSelectedAdoptionForView(null)}
+          />
+
         </div>
       </div>
   );
