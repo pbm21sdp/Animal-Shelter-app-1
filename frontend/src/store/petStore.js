@@ -141,12 +141,11 @@ export const usePetStore = create((set) => ({
         }
     },
 
-    getPetById: async (id, currentUser = null) => {
+    getPetById: async (id) => {
         set({ isLoading: true, error: null, notFound: false });
 
         try {
-            // Fetch the pet data
-            const response = await axios.get(`http://localhost:5000/api/pets/${id}`, {
+            const response = await axios.get(`${API_URL}/${id}`, {
                 withCredentials: true
             });
 
@@ -156,56 +155,28 @@ export const usePetStore = create((set) => ({
             }
 
             const pet = response.data.pet;
+            set({ selectedPet: pet, isLoading: false });
+            return { success: true, pet };
+        } catch (error) {
+            console.error("Error fetching pet details:", error);
 
-            // Check pet availability
-            if (pet && pet.adoption_status !== 'available') {
-                // Admin users can always access
-                if (currentUser && currentUser.isAdmin) {
-                    set({ selectedPet: pet });
-                    return { success: true, pet };
-                }
-
-                // Check if current user has adopted this pet
-                if (currentUser && currentUser._id) {
-                    try {
-                        const adoptionsResponse = await axios.get(
-                            `http://localhost:5000/api/adoptions/user/pet?petId=${id}`,
-                            { withCredentials: true }
-                        );
-
-                        if (adoptionsResponse.data.success &&
-                            adoptionsResponse.data.adoptions &&
-                            adoptionsResponse.data.adoptions.length > 0) {
-                            set({ selectedPet: pet });
-                            return { success: true, pet };
-                        }
-                    } catch (error) {
-                        console.error("Error checking user adoptions:", error);
-                    }
-                }
-
-                // Not available and user is not admin or adopter
+            // Check specifically for 404 status
+            if (error.response && error.response.status === 404) {
                 set({ notFound: true, isLoading: false });
                 return { success: false };
             }
 
-            // Pet is available
-            set({ selectedPet: pet });
-            return { success: true, pet };
-        } catch (error) {
-            console.error("Error fetching pet details:", error);
+            // For other errors
             const errorMessage = error.response?.data?.message || "Failed to fetch pet details";
-            set({ error: errorMessage, notFound: true });
+            set({ error: errorMessage, notFound: true, isLoading: false });
             return { success: false, error: errorMessage };
-        } finally {
-            set({ isLoading: false });
         }
     },
 
     getSimilarPets: async (petId) => {
         try {
             const response = await axios.get(
-                `http://localhost:5000/api/pets/${petId}/similar`,
+                `${API_URL}/${petId}/similar`,
                 { withCredentials: true }
             );
 

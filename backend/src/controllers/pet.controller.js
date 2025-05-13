@@ -1,5 +1,6 @@
 // controllers/pet.controller.js
 import {PetModel} from '../models/pet.model.js';
+import { Adoption } from '../models/adoption.model.js';
 
 export const getAllPets = async (req, res) => {
     try {
@@ -90,9 +91,49 @@ export const getPetById = async (req, res) => {
         if (!pet) {
             return res.status(404).json({
                 success: false,
-                message: 'PetModel not found'
+                message: 'Pet not found'
             });
         }
+
+        // If pet is not available (adopted or pending), check access
+        if (pet.adoption_status !== 'available') {
+            // Admin users can always access
+            if (req.isAdmin) {
+                return res.status(200).json({
+                    success: true,
+                    pet
+                });
+            }
+
+            // Check if logged-in user has an adoption for this pet
+            if (req.userId) {
+                try {
+                    const adoption = await Adoption.findOne({
+                        user: req.userId,
+                        petId: parseInt(req.params.id),
+                        status: { $in: ['pending', 'in_review', 'approved'] }
+                    });
+
+                    // If user has an adoption for this pet, allow access
+                    if (adoption) {
+                        return res.status(200).json({
+                            success: true,
+                            pet
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error checking user adoptions:', error);
+                }
+            }
+
+            // Not authorized to view this pet
+            return res.status(404).json({
+                success: false,
+                message: 'Pet not found'
+            });
+        }
+
+        // Pet is available - everyone can view
         res.status(200).json({
             success: true,
             pet

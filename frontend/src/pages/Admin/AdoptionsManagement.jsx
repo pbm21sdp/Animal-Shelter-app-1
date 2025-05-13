@@ -188,6 +188,12 @@ const AdoptionsManagement = () => {
     };
     // Update status
     const handleStatusUpdate = async () => {
+        // Validate rejection reason
+        if (statusToUpdate === 'rejected' && !adminNotes.trim()) {
+            alert('Please provide a reason for rejection');
+            return;
+        }
+
         if (selectedAdoption) {
             const result = await updateAdoptionStatus(selectedAdoption._id, {
                 status: statusToUpdate,
@@ -865,6 +871,22 @@ const AdoptionsManagement = () => {
                             >
                                 Close
                             </button>
+                            {selectedAdoption.status === 'pending' && (
+                                <button
+                                    onClick={async () => {
+                                        // Don't close the details modal yet
+                                        // Keep the current selectedAdoption
+                                        setStatusToUpdate('rejected');
+                                        setAdminNotes('');
+                                        setShowDetailsModal(false);  // Close details modal
+                                        setShowStatusModal(true);    // Open status modal immediately
+                                    }}
+                                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md flex items-center"
+                                >
+                                    <XCircle className="h-4 w-4 mr-2" />
+                                    Reject Application
+                                </button>
+                            )}
                             <button
                                 onClick={() => {
                                     closeDetailsModal();
@@ -896,8 +918,8 @@ const AdoptionsManagement = () => {
                     <div className="p-6">
                         <div className="mb-6">
                             <p className="text-gray-700 mb-2">
-                                Update the adoption status for <span className="font-semibold">{selectedAdoption.petName}</span>
-                                applied by <span className="font-semibold">{selectedAdoption.user?.name || selectedAdoption.fullName || 'Unknown'}</span>.
+                                Update the adoption status for <span className="font-semibold">{selectedAdoption.petName} </span>
+                                applied by  <span className="font-semibold">{selectedAdoption.user?.name || selectedAdoption.fullName || 'Unknown'}</span>.
                             </p>
 
                             <div className="mt-4">
@@ -916,17 +938,40 @@ const AdoptionsManagement = () => {
                                 </select>
                             </div>
 
+                            {statusToUpdate === 'rejected' && (
+                                <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
+                                    <div className="flex items-center text-red-800">
+                                        <XCircle className="h-4 w-4 mr-2" />
+                                        <span className="font-medium">Warning: This will reject the application</span>
+                                    </div>
+                                    <p className="text-sm text-red-600 mt-1">
+                                        The pet will be marked as available again, and the applicant will be notified of the rejection.
+                                    </p>
+                                </div>
+                            )}
+
                             <div className="mt-4">
                                 <label className="block text-gray-700 text-sm font-medium mb-2">
-                                    Admin Notes
+                                    {statusToUpdate === 'rejected' ? 'Rejection Reason *' : 'Admin Notes'}
                                 </label>
                                 <textarea
                                     value={adminNotes}
                                     onChange={(e) => setAdminNotes(e.target.value)}
-                                    placeholder="Add notes about this decision (optional)"
+                                    placeholder={statusToUpdate === 'rejected'
+                                        ? "Please provide a reason for rejection (required)"
+                                        : "Add notes about this decision (optional)"
+                                    }
                                     rows="4"
-                                    className="w-full p-2 border border-gray-300 rounded-md"
+                                    className={`w-full p-2 border rounded-md ${
+                                        statusToUpdate === 'rejected' && !adminNotes.trim()
+                                            ? 'border-red-300 bg-red-50'
+                                            : 'border-gray-300'
+                                    }`}
+                                    required={statusToUpdate === 'rejected'}
                                 ></textarea>
+                                {statusToUpdate === 'rejected' && !adminNotes.trim() && (
+                                    <p className="text-red-500 text-sm mt-1">A rejection reason is required</p>
+                                )}
                             </div>
                         </div>
 
@@ -939,10 +984,23 @@ const AdoptionsManagement = () => {
                             </button>
                             <button
                                 onClick={handleStatusUpdate}
-                                className="px-4 py-2 bg-tealcustom hover:bg-teal-700 text-white rounded-md flex items-center"
+                                className={`px-4 py-2 ${
+                                    statusToUpdate === 'rejected'
+                                        ? 'bg-red-600 hover:bg-red-700'
+                                        : 'bg-tealcustom hover:bg-teal-700'
+                                } text-white rounded-md flex items-center`}
                             >
-                                <Check className="h-4 w-4 mr-2" />
-                                Update Status
+                                {statusToUpdate === 'rejected' ? (
+                                    <>
+                                        <XCircle className="h-4 w-4 mr-2" />
+                                        Reject Application
+                                    </>
+                                ) : (
+                                    <>
+                                        <Check className="h-4 w-4 mr-2" />
+                                        Update Status
+                                    </>
+                                )}
                             </button>
                         </div>
                     </div>
