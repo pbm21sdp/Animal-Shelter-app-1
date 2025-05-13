@@ -30,7 +30,7 @@ router.get('/', getAllPets);
 
 // ID-based routes
 router.get('/:id/similar', getSimilarPets);
-router.get('/:id', getPetById);
+router.get('/:id', verifyToken, getPetById);
 
 // Photo routes
 router.get('/photos/:photoId', getPhotoById); // Public route to fetch photos
