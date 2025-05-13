@@ -68,7 +68,7 @@ export function PetDetailPage() {
 
         // Get pet data and pass the current user for access control
         const loadPetDetails = async () => {
-            const result = await getPetById(id, user);
+            const result = await getPetById(id);
 
             // If pet was found and access is allowed, load similar pets
             if (result && result.success) {
