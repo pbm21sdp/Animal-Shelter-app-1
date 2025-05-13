@@ -166,15 +166,18 @@ const AdoptionsManagement = () => {
 
 
     // Handle status update click
-    const handleStatusUpdateClick = (adoption, e) => {
+    const handleStatusUpdateClick = async (adoption, e) => {
         if (e) {
             e.stopPropagation();
         }
-        getAdoptionDetailsAdmin(adoption._id).then(() => {
-            setStatusToUpdate(adoption.status);
-            setAdminNotes(adoption.adminNotes || '');
-            setShowStatusModal(true);
-        });
+
+        // First, get the latest adoption details
+        await getAdoptionDetailsAdmin(adoption._id);
+
+        // Then set the status modal state using the fresh data
+        setStatusToUpdate(adoption.status);
+        setAdminNotes(adoption.adminNotes || '');
+        setShowStatusModal(true);
     };
 
     // Handle delete click
