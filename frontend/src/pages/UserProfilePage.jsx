@@ -25,6 +25,7 @@ import DynamicSearch from '../components/DynamicSearch';
 import MessageDetailsModal from '../components/MessageDetailsModal';
 import MessageCard from '../components/MessageCard';
 import AdoptionDetailsModal from '../components/AdoptionDetailsModal';
+import {useMessageStore} from "../store/messageStore.js";
 
 const API_URL = 'http://localhost:5000/api';
 const BASE_URL = 'http://localhost:5000';
@@ -39,6 +40,7 @@ const UserProfilePage = () => {
   } = useAuthStore();
 
   const { userMeetings, getUserMeetings } = useMeetingStore();
+  const { userMessages, getUserMessages } = useMessageStore();
   const pendingMeetingsCount = userMeetings.filter(m => m.status === 'pending').length;
 
   const [isEditing, setIsEditing] = useState(false);
@@ -56,7 +58,6 @@ const UserProfilePage = () => {
   const queryParams = new URLSearchParams(location.search);
   const tabParam = queryParams.get('tab');
 
-  const [messages, setMessages] = useState([]);
   const [adoptionRequests, setAdoptionRequests] = useState([]);
   const [activeTab, setActiveTab] = useState(tabParam || 'profile');
   const { logout } = useAuthStore();
@@ -77,16 +78,16 @@ const UserProfilePage = () => {
         avatar: user.avatar || ''
       });
 
+      // Always fetch meetings and messages on page load to get counts
+      getUserMeetings();
+      getUserMessages(); // Change this from fetchMessages()
+
       // Load data based on active tab
-      if (activeTab === 'messages') {
-        fetchMessages();
-      } else if (activeTab === 'adoptions') {
+      if (activeTab === 'adoptions') {
         fetchAdoptionRequests();
-      } else if (activeTab === 'inbox' || activeTab === 'meetings') {
-        getUserMeetings();
       }
     }
-  }, [user, activeTab, getUserMeetings]);
+  }, [user, activeTab, getUserMeetings, getUserMessages]);
 
   useEffect(() => {
     if (tabParam) {
@@ -115,24 +116,6 @@ const UserProfilePage = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showProfileDropdown]);
-
-  const fetchMessages = async () => {
-    try {
-      const response = await fetch(`${API_URL}/messages/user`, {
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch messages');
-      }
-
-      const data = await response.json();
-      setMessages(data.messages || []);
-    } catch (error) {
-      console.error('Error fetching messages:', error);
-      setError('Failed to load messages');
-    }
-  };
 
   const fetchAdoptionRequests = async () => {
     try {
@@ -373,7 +356,7 @@ const UserProfilePage = () => {
           </div>
 
           {/* Navigation Tabs */}
-          <div className="flex mb-6 bg-white rounded-t-xl shadow-md relative z-10 border-b border-gray-200 overflow-x-auto">
+          <div className="flex mb-6 bg-white rounded-full shadow-md relative z-10 border-b border-gray-200 overflow-x-auto">
             <button
                 onClick={() => setActiveTab('profile')}
                 className={`px-6 py-3 font-medium rounded-tl-xl transition-colors ${
@@ -411,7 +394,7 @@ const UserProfilePage = () => {
             </button>
             <button
                 onClick={() => setActiveTab('messages')}
-                className={`px-6 py-3 font-medium transition-colors ${
+                className={`px-6 py-3 font-medium transition-colors flex items-center ${
                     activeTab === 'messages'
                         ? 'bg-white text-teal-600 border-t-2 border-teal-600'
                         : 'text-gray-500 hover:text-teal-600 hover:bg-gray-50'
@@ -579,14 +562,14 @@ const UserProfilePage = () => {
               >
                 <h2 className="text-2xl font-semibold mb-6">Your Messages</h2>
 
-                {messages.length === 0 ? (
+                {userMessages.length === 0 ? (  // Changed from messages to userMessages
                     <div className="text-center py-12">
                       <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                       <p className="text-gray-500">No messages yet</p>
                     </div>
                 ) : (
                     <div className="space-y-4">
-                      {messages.map((message) => (
+                      {userMessages.map((message) => (  // Changed from messages to userMessages
                           <MessageCard
                               key={message._id || message.id}
                               message={message}
@@ -603,9 +586,7 @@ const UserProfilePage = () => {
                     userInfo={user}
                     onClose={() => setSelectedMessage(null)}
                 />
-
               </motion.div>
-
           )}
 
           {activeTab === 'adoptions' && (
