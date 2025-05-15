@@ -20,21 +20,22 @@ function PetSearchPage() {
     const [showMoreFilters, setShowMoreFilters] = useState(false);
 
     const typeFromUrl = searchParams.get('type');
-    const termFromUrl = searchParams.get('term');
+    // const termFromUrl = searchParams.get('term');
 
     const [filters, setFilters] = useState({
         type: typeFromUrl || 'any',
         radius: '',
         zipCode: '',
         sortBy: 'nearest',
-        term: termFromUrl || '',
-        // Additional filter fields
+        term: '',
         gender: 'any',
         ageCategory: 'any',
         size: 'any',
         color: '',
         breed: ''
     });
+
+    const [debouncedFilters, setDebouncedFilters] = useState(filters);
 
     useEffect(() => {
         if (typeFromUrl) {
@@ -43,18 +44,19 @@ function PetSearchPage() {
                 type: typeFromUrl
             }));
         }
-
-        if (termFromUrl) {
-            setFilters(prev => ({
-                ...prev,
-                term: termFromUrl
-            }));
-        }
-    }, [typeFromUrl, termFromUrl]);
+    }, [typeFromUrl]);
 
     useEffect(() => {
-        searchPets(filters);
-    }, [filters, searchPets]);
+        const delayDebounceFn = setTimeout(() => {
+            setDebouncedFilters(filters);
+        }, 300); // 300ms debounce
+
+        return () => clearTimeout(delayDebounceFn);
+    }, [filters]);
+
+    useEffect(() => {
+        searchPets(debouncedFilters);
+    }, [debouncedFilters, searchPets]);
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -74,16 +76,8 @@ function PetSearchPage() {
         // Make sure empty strings are treated as empty values
         const sanitizedTerm = term && term.trim() !== "" ? term.trim() : "";
 
+        // Update filters but don't update URL
         setFilters(prev => ({ ...prev, term: sanitizedTerm }));
-
-        // Update URL
-        const newSearchParams = new URLSearchParams(searchParams);
-        if (sanitizedTerm) {
-            newSearchParams.set('term', sanitizedTerm);
-        } else {
-            newSearchParams.delete('term');
-        }
-        setSearchParams(newSearchParams);
     };
 
     const handleFilterChange = (key, value) => {
@@ -91,18 +85,10 @@ function PetSearchPage() {
         if (key === 'term') {
             const sanitizedValue = value && value.trim() !== "" ? value.trim() : "";
             setFilters(prev => ({ ...prev, [key]: sanitizedValue }));
-
-            const newSearchParams = new URLSearchParams(searchParams);
-            if (sanitizedValue) {
-                newSearchParams.set('term', sanitizedValue);
-            } else {
-                newSearchParams.delete('term');
-            }
-            setSearchParams(newSearchParams);
             return;
         }
 
-        // Regular handling for other filters
+        // Regular handling for other filters (keep URL updates for other filters)
         setFilters(prev => ({ ...prev, [key]: value }));
 
         if (key === 'type') {
