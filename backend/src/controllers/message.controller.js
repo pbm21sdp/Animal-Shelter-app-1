@@ -216,5 +216,48 @@ export const getUserMessages = async (req, res) => {
     }
 };
 
+// Get messages for a specific user (admin only)
+export const getMessagesForUser = async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid user ID format'
+            });
+        }
+
+        // Find the user first to validate they exist
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        // Find messages for the specific user
+        const messages = await Message.find({
+            $or: [
+                { userId: userId },
+                { email: user.email }  // Also match by email in case messages were sent before user registration
+            ]
+        }).sort({ createdAt: -1 });
+
+        res.status(200).json({
+            success: true,
+            messages
+        });
+    } catch (error) {
+        console.error('Error fetching user messages:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching messages',
+            error: error.message
+        });
+    }
+};
+
 
 

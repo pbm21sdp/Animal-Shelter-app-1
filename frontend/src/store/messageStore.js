@@ -8,6 +8,8 @@ export const useMessageStore = create((set) => ({
     isLoading: false,
     error: null,
     success: null,
+    userMessages: [],
+    unreadCount: 0,
 
     // Send a message
     sendMessage: async (email, message) => {
@@ -104,6 +106,48 @@ export const useMessageStore = create((set) => ({
                 isLoading: false
             });
             return { success: false, error: error.response?.data?.message || 'Error deleting message' };
+        }
+    },
+
+    getUserMessages: async () => {
+        set({ isLoading: true, error: null });
+        try {
+            const response = await axios.get(`${API_URL}/user`, {
+                withCredentials: true
+            });
+
+            const messages = response.data.messages || [];
+
+            set({
+                userMessages: messages,
+                isLoading: false
+            });
+
+            return { success: true };
+        } catch (error) {
+            console.error('Error fetching user messages:', error);
+            set({
+                error: error.response?.data?.message || 'Failed to load messages',
+                isLoading: false
+            });
+            return { success: false };
+        }
+    },
+
+    getMessagesForUser: async (userId) => {
+        set({ isLoading: true, error: null });
+        try {
+            const response = await axios.get(`${API_URL}/admin/user/${userId}`, {
+                withCredentials: true
+            });
+            return { success: true, messages: response.data.messages };
+        } catch (error) {
+            console.error('Error fetching user messages:', error);
+            set({
+                error: error.response?.data?.message || 'Error fetching user messages',
+                isLoading: false
+            });
+            return { success: false, error: error.response?.data?.message };
         }
     },
 
