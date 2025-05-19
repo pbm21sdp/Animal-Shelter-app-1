@@ -1,7 +1,7 @@
 import express from 'express';
 import swaggerUi from 'swagger-ui-express';
 import cors from 'cors';
-import specs from './config/swagger.js';
+import swaggerSpec from './docs/swagger.js';
 import cookieParser from 'cookie-parser';
 import path from 'path';
 
@@ -56,7 +56,13 @@ app.use(cookieParser()); // allow us to parse incoming cookies
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Swagger documentation
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    explorer: true,
+    swaggerOptions: {
+        filter: true,
+        showRequestHeaders: true
+    }
+}));
 
 app.post('/api/donations/webhook', 
     express.raw({ type: 'application/json' }), 
