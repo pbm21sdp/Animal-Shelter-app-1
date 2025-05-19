@@ -7,11 +7,11 @@ import { schemas } from './components/schemas.js';
 import { responses } from './components/responses.js';
 import { authDocs } from './routes/auth.docs.js';
 import { adoptionsDocs } from './routes/adoptions.docs.js';
-// import { petsDocs } from './routes/pets.docs.js';
-// import { usersDocs } from './routes/users.docs.js';
-// import { messagesDocs } from './routes/messages.docs.js';
-// import { donationsDocs } from './routes/donations.docs.js';
-// import { meetingsDocs } from './routes/meetings.docs.js';
+import { petsDocs } from './routes/pets.docs.js';
+import { meetingsDocs } from './routes/meetings.docs.js';
+import { messagesDocs } from './routes/messages.docs.js';
+import { donationsDocs } from './routes/donations.docs.js';
+import { usersDocs } from './routes/user.docs.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -61,11 +61,11 @@ const swaggerDefinition = {
     paths: {
         ...authDocs,
         ...adoptionsDocs,
-        // ...petsDocs,
-        // ...usersDocs,
-        // ...messagesDocs,
-        // ...donationsDocs,
-        // ...meetingsDocs
+        ...petsDocs,
+        ...usersDocs,
+        ...messagesDocs,
+        ...donationsDocs,
+        ...meetingsDocs
     },
     tags: [
         { name: 'Authentication', description: 'User authentication and authorization endpoints' },
@@ -74,7 +74,7 @@ const swaggerDefinition = {
         { name: 'Users', description: 'User profile and management' },
         { name: 'Messages', description: 'Contact and messaging system' },
         { name: 'Donations', description: 'Donation and payment processing' },
-        { name: 'Meeting', description: 'Scheduled meetings for adoptions' }
+        { name: 'Meetings', description: 'Scheduled meetings for adoptions' }
     ]
 };
 
