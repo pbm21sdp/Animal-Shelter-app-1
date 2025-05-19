@@ -1,6 +1,9 @@
 import swaggerJsdoc from 'swagger-jsdoc';
 import path from 'path';
 import { fileURLToPath } from 'url';
+// Import your organized documentation
+import { adoptionsDocs } from '../src/docs/routes/adoptions.docs.js';
+import { schemas } from '../src/docs/components/schemas.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,7 +27,9 @@ const options = {
             }
         ],
         components: {
+            // Merge your existing schemas with the new ones
             schemas: {
+                ...schemas.schemas,  // Import organized schemas
                 User: {
                     type: "object",
                     properties: {
@@ -119,11 +124,17 @@ const options = {
                 }
             }
         },
+        paths: {
+            // Add your programmatically defined paths
+            ...adoptionsDocs,
+            // You can add more here as you create them
+        },
         security: [{
             cookieAuth: []
         }]
     },
     apis: [
+        // Keep scanning for JSDoc comments in route files
         path.join(__dirname, '../routes/*.js'),
         path.join(__dirname, '../routes/**/*.js')
     ],
