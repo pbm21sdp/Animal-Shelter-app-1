@@ -18,6 +18,7 @@ import donationRoutes from './routes/donations.routes.js';
 import userRoutes from './routes/user.routes.js';
 import messageRoutes from './routes/message.routes.js';
 import scheduledMeetingRoutes from './routes/scheduledMeeting.routes.js';
+import predictionRoutes from './routes/predictions.routes.js';
 
 // Load .env only in non-Docker environment
 if (!process.env.DOCKER_ENV) {
@@ -26,36 +27,41 @@ if (!process.env.DOCKER_ENV) {
     console.log('Running in Docker environment');
 }
 
-
 const app = express();
 const PORT = process.env.PORT || 5000;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Middleware
-app.use(cors({origin: "http://localhost:5173", credentials: true}));
+// ============================================
+// MIDDLEWARE
+// ============================================
 
-// DEBUG
-// app.use(cors({
-//     origin: "http://localhost:5173", // Your frontend URL
-//     credentials: true, // Critical for cookies to work with cross-origin requests
-//     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-//     allowedHeaders: ['Content-Type', 'Authorization']
-// }));
+// 1. CORS - Must come first
+app.use(cors({
+    origin: "http://localhost:5173",
+    credentials: true
+}));
 
-// Special middleware for Stripe webhooks (must come before express.json())
-app.post('/api/donations/webhook',
+// 2. Special middleware for Stripe webhooks (BEFORE express.json())
+app.use('/api/donations/webhook',
     express.raw({ type: 'application/json' }),
     donationRoutes
 );
 
-// Regular middleware for all other routes
-app.use(express.json()); // allow us to parse incoming requests:req.body
-app.use(cookieParser()); // allow us to parse incoming cookies
+// 3. Body parsers with increased limit (BEFORE routes)
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// 4. Cookie parser
+app.use(cookieParser());
+
+// 5. Static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Swagger documentation
+// ============================================
+// SWAGGER DOCUMENTATION
+// ============================================
+
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
     explorer: true,
     swaggerOptions: {
@@ -64,40 +70,39 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
     }
 }));
 
-app.post('/api/donations/webhook', 
-    express.raw({ type: 'application/json' }), 
-    donationRoutes
-);
-
+// ============================================
 // API ROUTES
+// ============================================
+
 app.use('/api/adoptions', adoptionRoutes);
 app.use('/api/pets', petRoutes);
 app.use('/api/donations', donationRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/meetings', scheduledMeetingRoutes);
+app.use('/api/predictions', predictionRoutes);
+app.use("/api/auth", authRoutes);
 
 // Root route
 app.get("/", (req, res) => {
     res.send("Hello app!");
 });
 
-app.use("/api/auth", authRoutes);
-
-// Error handler (MUST come after all routes)
+// ============================================
+// ERROR HANDLER (MUST BE LAST)
+// ============================================
 app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(500).send('Server error!');
 });
 
-/// Remove for prod...
-console.log('Environment:', { // Only for local dev, remove for prod
+// Remove for prod...
+console.log('Environment:', {
     DB_HOST: process.env.DB_HOST,
     DB_PORT: process.env.DB_PORT,
     DB_USER: process.env.DB_USER,
     DB_NAME: process.env.DB_NAME
 });
-
 
 app.listen(PORT, () => {
     connectPostgresDB();

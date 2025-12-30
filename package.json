@@ -11,7 +11,8 @@
     "frontend:dev": "cd frontend && docker-compose up --build",
     "backend:nodemon": "export $(grep -v '^#' .env | xargs) && nodemon ./src/app.js",
     "backend:nodemon1": "dotenv -e backend/.env -- nodemon backend/src/app.js",
-    "app:dev": "concurrently \"npm run backend:nodemon1\" \"cd frontend && npm run dev\""
+    "app:dev": "concurrently \"npm run backend:nodemon1\" \"cd frontend && npm run dev\"",
+    "seed:adoptions": "node backend/scripts/seedAdoptions.js"
   },
   "keywords": [],
   "author": "",
