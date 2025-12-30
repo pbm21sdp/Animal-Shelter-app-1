@@ -12,7 +12,10 @@
     "backend:nodemon": "export $(grep -v '^#' .env | xargs) && nodemon ./src/app.js",
     "backend:nodemon1": "dotenv -e backend/.env -- nodemon backend/src/app.js",
     "app:dev": "concurrently \"npm run backend:nodemon1\" \"cd frontend && npm run dev\"",
-    "seed:adoptions": "node backend/scripts/seedAdoptions.js"
+    "seed:adoptions": "node backend/scripts/seedAdoptions.js",
+    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
+    "test:watch": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --watch",
+    "test:coverage": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --coverage"
   },
   "keywords": [],
   "author": "",
@@ -37,8 +40,12 @@
     "swagger-ui-express": "^5.0.0"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
     "dotenv-cli": "^8.0.0",
-    "nodemon": "^3.1.9"
+    "jest": "^30.2.0",
+    "nodemon": "^3.1.9",
+    "supertest": "^7.1.4"
   }
 }
