@@ -179,15 +179,43 @@ export const handleStripeWebhook = async (req, res) => {
 
 export const getAllDonations = async (req, res) => {
     try {
-        const donations = await Donation.find()
-            .sort({ createdAt: -1 })
-            .populate('user', 'name email');
+        const {
+            page = 1,
+            limit = 10,
+            status,
+            sortBy = 'createdAt',
+            sortOrder = 'desc',
+            userId
+        } = req.query;
 
-        // Transform the data to include userName and userEmail fields
+        // Build filter
+        const filter = {};
+        if (status && status !== 'all') {
+            filter.status = status;
+        }
+
+        // ADD USER FILTER
+        if (userId && userId !== 'all') {
+            filter.user = userId;
+        }
+
+        // Build sort
+        const sort = {};
+        sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
+
+        // Execute query with pagination
+        const donations = await Donation.find(filter)
+            .populate('user', 'name email')
+            .sort(sort)
+            .limit(limit * 1)
+            .skip((page - 1) * limit);
+
+        // Get total count for pagination
+        const count = await Donation.countDocuments(filter);
+
+        // Transform data
         const transformedDonations = donations.map(donation => {
-            // Convert to plain object if it's a Mongoose document
             const donationObj = donation.toObject ? donation.toObject() : {...donation};
-
             return {
                 ...donationObj,
                 userName: donationObj.user?.name || 'Anonymous',
@@ -198,7 +226,13 @@ export const getAllDonations = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            donations: transformedDonations
+            donations: transformedDonations,
+            pagination: {
+                currentPage: parseInt(page),
+                totalPages: Math.ceil(count / limit),
+                totalItems: count,
+                itemsPerPage: parseInt(limit)
+            }
         });
     } catch (error) {
         console.error('Error fetching all donations:', error);
