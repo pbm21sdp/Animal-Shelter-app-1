@@ -1,5 +1,3 @@
-# CLAUDE.MD - AI Development Guide
-> Quick reference for Claude Code sessions working on the Paws Animal Shelter Platform
 
 **Last Updated:** December 30, 2025
 **Project:** Paws - Animal Shelter Management Platform
