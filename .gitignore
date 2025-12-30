@@ -74,6 +74,7 @@ web_modules/
 
 # dotenv environment variable files
 backend/.env
+backend/.env.test
 .env.development.local
 .env.test.local
 .env.production.local
@@ -140,3 +141,9 @@ dist
 /backend/src/uploads/**
 
 /backend/ml-service/venv/Lib/*
+
+# CLAUDE AI FILES
+CLAUDE.md
+PLANNING.md
+PRD.md
+TASKS.md

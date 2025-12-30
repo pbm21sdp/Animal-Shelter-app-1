@@ -33,6 +33,8 @@ paws-shelter/
 │   ├── src/
 │   │   ├── app.js                          # Express app entry point
 │   │   ├── controllers/                     # Business logic
+│   │   │   ├── __tests__/                   # Controller unit tests ✨ NEW
+│   │   │   │   └── adoption.controller.test.js
 │   │   │   ├── auth.controller.js
 │   │   │   ├── pet.controller.js
 │   │   │   ├── adoption.controller.js
@@ -53,11 +55,21 @@ paws-shelter/
 │   │   ├── middleware/
 │   │   │   └── auth.middleware.js           # verifyToken, isAdmin, checkIfAdmin
 │   │   ├── models/                          # MongoDB models (Mongoose)
+│   │   │   ├── __mocks__/                   # Model mocks for testing ✨ NEW
+│   │   │   │   ├── adoption.model.js
+│   │   │   │   ├── pet.model.js
+│   │   │   │   └── user.model.js
 │   │   │   ├── user.model.js
 │   │   │   ├── adoption.model.js
 │   │   │   ├── donation.model.js
 │   │   │   ├── message.model.js
 │   │   │   └── scheduledMeeting.model.js
+│   │   ├── __tests__/                       # Test utilities ✨ NEW
+│   │   │   ├── setup.js                     # Test environment config
+│   │   │   └── helpers/
+│   │   │       ├── dbSetup.js               # PostgreSQL test helpers
+│   │   │       ├── mongoSetup.js            # MongoDB test helpers
+│   │   │       └── seedData.js              # Test data fixtures
 │   │   ├── db/
 │   │   │   ├── connectDB.js                 # MongoDB connection
 │   │   │   ├── postgres.js                  # PostgreSQL connection
@@ -112,6 +124,9 @@ paws-shelter/
 │   └── package.json
 ├── PRD.md                                   # Product Requirements Document
 ├── CLAUDE.MD                                # This file
+├── PLANNING.MD                              # Strategic planning document
+├── TASKS.MD                                 # Development milestones & tasks
+├── jest.config.js                           # Jest testing configuration ✨ NEW
 └── package.json                             # Root scripts
 ```
 
@@ -490,6 +505,77 @@ adoptionId: ObjectId (ref Adoption)
 
 ## 🧪 Testing Guidelines
 
+### Automated Testing (NEW - Dec 30, 2025)
+**Framework:** Jest 30.2.0 + Supertest 7.1.4
+
+**Run Tests:**
+```bash
+npm test                    # Run all tests
+npm test:watch              # Watch mode
+npm test:coverage           # Coverage report
+```
+
+**Test Structure:**
+```
+backend/src/
+├── __tests__/
+│   ├── setup.js                           # Test environment config
+│   └── helpers/
+│       ├── dbSetup.js                     # PostgreSQL test utilities
+│       ├── mongoSetup.js                  # MongoDB test utilities
+│       └── seedData.js                    # Test data fixtures
+├── controllers/__tests__/
+│   ├── adoption.controller.test.js        # ✅ 21 passing tests
+│   ├── donation.controller.test.js        # TODO
+│   └── pet.controller.test.js             # TODO
+└── models/__mocks__/
+    ├── adoption.model.js                  # Mongoose mocks
+    ├── pet.model.js                       # PostgreSQL mocks
+    └── user.model.js                      # Mongoose mocks
+```
+
+**Writing Tests:**
+```javascript
+import { jest, describe, test, expect, beforeEach } from '@jest/globals';
+import { myController } from '../myController.js';
+
+// Mock models
+jest.mock('../../models/myModel.js');
+
+describe('My Controller', () => {
+  let req, res;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    req = { body: {}, params: {}, userId: '507f1f77bcf86cd799439011' };
+    res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn().mockReturnThis(),
+    };
+  });
+
+  test('should handle success case', async () => {
+    // Arrange
+    req.body = { data: 'test' };
+
+    // Act
+    await myController(req, res);
+
+    // Assert
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ success: true })
+    );
+  });
+});
+```
+
+**Coverage Targets:**
+- Statements: > 70%
+- Branches: > 60%
+- Functions: > 70%
+- Lines: > 70%
+
 ### Manual Testing Checklist
 1. **Auth Flow:** Signup → Email verify → Login → Logout
 2. **Pet Search:** Filter, search, view details, similar pets
@@ -521,6 +607,12 @@ Create via signup or seed script:
 - `multer` - File uploads
 - `mailtrap` - Email service
 - `swagger-jsdoc` & `swagger-ui-express` - API docs
+
+### Testing Dependencies
+- `jest` - Testing framework
+- `supertest` - HTTP assertion library
+- `@types/jest` - TypeScript definitions for Jest
+- `cross-env` - Cross-platform environment variables
 
 ### Critical Frontend Dependencies
 - `react` & `react-dom` - UI framework
@@ -594,7 +686,101 @@ if (!process.env.DOCKER_ENV) {
 
 ## 🔄 Recent Changes & Context
 
-**Latest Work (Dec 30, 2025):**
+**Session: Testing Infrastructure Setup (Dec 30, 2025)**
+
+Implemented comprehensive automated testing framework for backend API (Milestone 11: Testing & Quality Assurance - Phase 1).
+
+**What Was Built:**
+1. **Jest Testing Framework**
+   - Installed Jest 30.2.0, supertest 7.1.4, @types/jest
+   - Configured for ES modules (`"type": "module"` in package.json)
+   - Added cross-env for Windows compatibility
+   - Created test scripts: `npm test`, `npm test:watch`, `npm test:coverage`
+
+2. **Jest Configuration** (`jest.config.js`)
+   - Node environment for backend testing
+   - ES module support with experimental VM modules
+   - Test file pattern: `**/backend/src/**/__tests__/**/*.test.js`
+   - Coverage thresholds: 70% statements, 60% branches, 70% functions, 70% lines
+   - Auto-mock clearing between tests
+
+3. **Test Environment Setup**
+   - `backend/.env.test` - Test database configuration
+   - `backend/src/__tests__/setup.js` - Test initialization
+   - Separate test databases (PostgreSQL + MongoDB)
+   - Disabled external services (Stripe, Mailtrap, ML service)
+
+4. **Database Test Utilities**
+   - `backend/src/__tests__/helpers/dbSetup.js` - PostgreSQL test helpers
+   - `backend/src/__tests__/helpers/mongoSetup.js` - MongoDB test helpers
+   - `backend/src/__tests__/helpers/seedData.js` - Test data fixtures
+   - Functions: setupTestDB, teardownTestDB, clearTestDB, seedPets, createTestUser
+
+5. **Model Mocks**
+   - `backend/src/models/__mocks__/adoption.model.js`
+   - `backend/src/models/__mocks__/pet.model.js`
+   - `backend/src/models/__mocks__/user.model.js`
+
+6. **Adoption Controller Tests** (`backend/src/controllers/__tests__/adoption.controller.test.js`)
+   - 22 test cases, 21 passing, 1 skipped (requires integration testing)
+   - Coverage: submitAdoptionApplication, getUserAdoptions, updateAdoptionStatus, getAllAdoptions, deleteAdoption
+   - Tests validation, authorization, error handling, business logic
+
+**Test Results:**
+```
+✅ PASS backend/src/controllers/__tests__/adoption.controller.test.js
+Test Suites: 1 passed, 1 total
+Tests:       1 skipped, 21 passed, 22 total
+```
+
+**How to Run Tests:**
+```bash
+# Run all tests
+npm test
+
+# Run specific test file
+npm test -- adoption.controller.test.js
+
+# Watch mode
+npm test:watch
+
+# Coverage report
+npm test:coverage
+```
+
+**Important Notes:**
+- Jest uses `NODE_OPTIONS=--experimental-vm-modules` for ES module support
+- Mock files must import `jest` from `@jest/globals`
+- Mongoose model constructor tests require integration testing (complex to mock)
+- One test skipped: "should successfully submit adoption application" - marked for integration tests
+
+**Files Created:**
+- `jest.config.js`
+- `backend/.env.test`
+- `backend/src/__tests__/setup.js`
+- `backend/src/__tests__/helpers/dbSetup.js`
+- `backend/src/__tests__/helpers/mongoSetup.js`
+- `backend/src/__tests__/helpers/seedData.js`
+- `backend/src/models/__mocks__/adoption.model.js`
+- `backend/src/models/__mocks__/pet.model.js`
+- `backend/src/models/__mocks__/user.model.js`
+- `backend/src/controllers/__tests__/adoption.controller.test.js`
+
+**Files Modified:**
+- `package.json` - Added test scripts and devDependencies
+
+**Next Steps for Testing:**
+- Write unit tests for donation controller (with Stripe mocking)
+- Write unit tests for pet controller (with PostgreSQL mocking)
+- Write unit tests for user controller
+- Write integration tests using real test databases
+- Add React Testing Library for frontend tests
+- Set up GitHub Actions CI pipeline
+- Configure coverage reporting and badges
+
+---
+
+**Previous Work (Dec 30, 2025):**
 - Added ML prediction service with SARIMA/ETS models
 - Enhanced donation system with pagination and filtering
 - Created StatisticsManagement page with ML predictions visualization
@@ -607,6 +793,9 @@ if (!process.env.DOCKER_ENV) {
 - None currently tracked
 
 **Next Priorities:**
+- Complete testing infrastructure (donation, pet, user controllers)
+- Security hardening (Milestone 13)
+- Performance optimization (Milestone 12)
 - See PRD.md Section 13 (Future Roadmap)
 
 ---
@@ -619,6 +808,12 @@ npm run app:dev                    # Start both backend and frontend
 npm run backend:nodemon            # Backend only
 npm run frontend:dev               # Frontend only (from root)
 cd backend/ml-service && python app.py  # ML service
+
+# Testing
+npm test                           # Run all tests
+npm test -- adoption.controller.test.js  # Run specific test file
+npm test:watch                     # Run tests in watch mode
+npm test:coverage                  # Generate coverage report
 
 # Database
 psql -U postgres -d paws_db        # PostgreSQL shell
