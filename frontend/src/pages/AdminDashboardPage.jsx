@@ -12,6 +12,7 @@ import DonationsStats from './Admin/DonationsStats';
 import AdoptionsManagement from './Admin/AdoptionsManagement';
 import AdminSettings from './Admin/AdminSettings';
 import MeetingsManagement from "./Admin/MeetingsManagement.jsx";
+import StatisticsManagement from './Admin/StatisticsManagement';
 
 const AdminDashboardPage = () => {
     const navigate = useNavigate();
@@ -71,7 +72,7 @@ const AdminDashboardPage = () => {
         { id: 'meetings', label: 'Meetings', icon: <Calendar className="h-5 w-5" /> },
         { id: 'users', label: 'Users', icon: <Users className="h-5 w-5" /> },
         { id: 'messages', label: 'Messages', icon: <MessageSquare className="h-5 w-5" /> },
-        { id: 'donations', label: 'Donations', icon: <BarChart3 className="h-5 w-5" /> },
+        { id: 'statistics', label: 'Statistics', icon: <BarChart3 className="h-5 w-5" /> },
         { id: 'settings', label: 'Settings', icon: <Settings className="h-5 w-5" /> }
     ];
 
@@ -143,12 +144,12 @@ const AdminDashboardPage = () => {
                 <main className="flex-1 overflow-y-auto p-4 sm:p-6">
                     <div className="max-w-full mx-auto">
                         {/* Active Panel Content */}
+                        {activePanel === 'statistics' && <StatisticsManagement />}
                         {activePanel === 'pets' && <PetsManagement />}
                         {activePanel === 'adoptions' && <AdoptionsManagement />}
                         {activePanel === 'meetings' && <MeetingsManagement />}
                         {activePanel === 'users' && <UsersManagement />}
                         {activePanel === 'messages' && <MessagesInbox />}
-                        {activePanel === 'donations' && <DonationsStats />}
                         {activePanel === 'settings' && <AdminSettings />}
                     </div>
                 </main>
