@@ -1,0 +1,43 @@
+{
+  "name": "paws-backend",
+  "version": "1.0.0",
+  "description": "Paws Animal Shelter Platform - Backend API",
+  "main": "src/app.js",
+  "type": "module",
+  "scripts": {
+    "dev": "dotenv -e .env -- nodemon src/app.js",
+    "docker": "docker-compose up --build",
+    "seed:adoptions": "node scripts/seedAdoptions.js"
+  },
+  "keywords": [
+    "animal-shelter",
+    "adoption",
+    "backend",
+    "express",
+    "postgresql",
+    "mongodb"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "crypto": "^1.0.1",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "mailtrap": "^4.0.0",
+    "mongodb": "^6.14.2",
+    "mongoose": "^8.12.1",
+    "multer": "^2.0.2",
+    "pg": "^8.11.3",
+    "stripe": "^18.1.0",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.0"
+  },
+  "devDependencies": {
+    "dotenv-cli": "^8.0.0",
+    "nodemon": "^3.1.9"
+  }
+}

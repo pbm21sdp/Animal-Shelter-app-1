@@ -1,51 +1,33 @@
 {
-  "name": "animal-shelter-backend",
+  "name": "paws-animal-shelter",
   "version": "1.0.0",
-  "main": "backend/src/app.js",
+  "description": "Paws Animal Shelter Management Platform",
+  "type": "module",
   "workspaces": [
     "backend",
     "frontend"
   ],
   "scripts": {
-    "backend:dev": "cd backend && docker-compose up --build",
-    "frontend:dev": "cd frontend && docker-compose up --build",
-    "backend:nodemon": "export $(grep -v '^#' .env | xargs) && nodemon ./src/app.js",
-    "backend:nodemon1": "dotenv -e backend/.env -- nodemon backend/src/app.js",
-    "app:dev": "concurrently \"npm run backend:nodemon1\" \"cd frontend && npm run dev\"",
-    "seed:adoptions": "node backend/scripts/seedAdoptions.js",
-    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
-    "test:watch": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --watch",
-    "test:coverage": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --coverage"
+    "app:dev": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "frontend:dev": "npm run dev --prefix frontend",
+    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules NODE_ENV=test jest",
+    "test:watch": "cross-env NODE_OPTIONS=--experimental-vm-modules NODE_ENV=test jest --watch",
+    "test:coverage": "cross-env NODE_OPTIONS=--experimental-vm-modules NODE_ENV=test jest --coverage"
   },
-  "keywords": [],
+  "keywords": [
+    "animal-shelter",
+    "adoption",
+    "donation",
+    "management-platform"
+  ],
   "author": "",
-  "type": "module",
   "license": "ISC",
-  "description": "",
-  "dependencies": {
-    "bcryptjs": "^3.0.2",
-    "cookie-parser": "^1.4.7",
-    "cors": "^2.8.5",
-    "crypto": "^1.0.1",
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "jsonwebtoken": "^9.0.2",
-    "mailtrap": "^4.0.0",
-    "mongodb": "^6.14.2",
-    "mongoose": "^8.12.1",
-    "multer": "^2.0.2",
-    "pg": "^8.11.3",
-    "stripe": "^18.1.0",
-    "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.0"
-  },
   "devDependencies": {
+    "@jest/globals": "^30.2.0",
     "@types/jest": "^30.0.0",
     "concurrently": "^9.1.2",
     "cross-env": "^7.0.3",
-    "dotenv-cli": "^8.0.0",
     "jest": "^30.2.0",
-    "nodemon": "^3.1.9",
     "supertest": "^7.1.4"
   }
 }

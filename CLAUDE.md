@@ -273,7 +273,7 @@ stripe listen --forward-to localhost:5000/api/donations/webhook
 ### Seed Test Data
 ```bash
 # Generate 6 months of adoption data for ML predictions
-npm run seed:adoptions
+cd backend && npm run seed:adoptions
 ```
 
 ### Access Swagger Docs
@@ -780,6 +780,110 @@ npm test:coverage
 
 ---
 
+**Session: Project Structure Refactoring (Dec 30, 2025)**
+
+Restructured project to move backend dependencies from root to backend folder, creating a consistent structure where both frontend and backend are self-contained.
+
+**What Was Done:**
+1. **Backend Package.json**
+   - Created `backend/package.json` with backend-specific dependencies
+   - Moved 15 production dependencies (express, pg, mongoose, stripe, etc.)
+   - Moved 2 dev dependencies (nodemon, dotenv-cli)
+   - Created backend scripts: `dev`, `docker`, `seed:adoptions`
+   - Generated `backend/package-lock.json`
+
+2. **Root Package.json Cleanup**
+   - Removed all backend dependencies
+   - Kept only coordination scripts: `app:dev`, `frontend:dev`
+   - Kept testing infrastructure: `test`, `test:watch`, `test:coverage`
+   - Kept testing devDependencies (jest, supertest, cross-env, concurrently)
+   - Added `"type": "module"` for jest.config.js ES module support
+
+3. **Docker Configuration Updates**
+   - Updated `backend/docker-compose.yaml` to reference local package files
+   - Changed build context from `../` to `.` (backend folder)
+   - Updated volume mounts to use `./package.json` instead of `../package.json`
+   - Simplified `backend/Dockerfile` to work with backend-local package files
+
+4. **Bug Fixes**
+   - Fixed `backend/scripts/seedAdoptions.js` - removed embedded markdown documentation
+   - Script now works correctly from backend folder
+
+5. **Documentation Updates**
+   - Updated `CLAUDE.md` Quick Command Reference section
+   - Updated seed command examples to show `cd backend` pattern
+   - Updated `TASKS.md` to add "Refactoring: Project Structure Reorganization" section
+   - `PLANNING.md` already had correct structure, no changes needed
+
+**New Project Structure:**
+```
+root/
+├── package.json          # Coordination scripts + testing only
+├── jest.config.js        # Testing configuration (at root)
+├── backend/
+│   ├── package.json      # Backend dependencies + scripts ✨ NEW
+│   ├── package-lock.json # Backend lock file ✨ NEW
+│   ├── src/
+│   └── ...
+└── frontend/
+    ├── package.json      # Frontend setup (unchanged)
+    └── ...
+```
+
+**How to Use New Structure:**
+```bash
+# Backend (NEW workflow)
+cd backend
+npm run dev              # Start backend
+npm run seed:adoptions   # Seed data
+npm run docker           # Docker compose
+
+# Frontend (unchanged)
+cd frontend
+npm run dev
+
+# Root convenience scripts (unchanged)
+npm run app:dev          # Start both services
+npm test                 # Run tests
+```
+
+**Verification Results:**
+```
+✅ Backend starts from backend folder (npm run dev)
+✅ Frontend starts from frontend folder (unchanged)
+✅ Concurrent start works (npm run app:dev)
+✅ All 21 tests passing (npm test)
+✅ Seed script works (cd backend && npm run seed:adoptions)
+✅ Docker configuration updated successfully
+```
+
+**Benefits Achieved:**
+- ✅ Consistent structure - frontend and backend both self-contained
+- ✅ Backend can be started independently from backend folder
+- ✅ Root maintains convenience scripts for common workflows
+- ✅ Testing stays centralized at root for cross-cutting concerns
+- ✅ Cleaner separation of concerns
+- ✅ Easier onboarding for new developers
+
+**Files Created:**
+- `backend/package.json`
+- `backend/package-lock.json`
+
+**Files Modified:**
+- `package.json` (root) - Removed backend deps, kept coordination scripts
+- `backend/docker-compose.yaml` - Updated volume mounts
+- `backend/Dockerfile` - Updated for backend-local context
+- `backend/scripts/seedAdoptions.js` - Fixed embedded markdown bug
+- `CLAUDE.md` - Updated command examples
+- `TASKS.md` - Added refactoring completion section
+
+**Next Steps:**
+- Continue with testing infrastructure (donation, pet, user controllers)
+- Performance optimization tasks (Milestone 12)
+- Security hardening (Milestone 13)
+
+---
+
 **Previous Work (Dec 30, 2025):**
 - Added ML prediction service with SARIMA/ETS models
 - Enhanced donation system with pagination and filtering
@@ -804,20 +908,20 @@ npm test:coverage
 
 ```bash
 # Development
-npm run app:dev                    # Start both backend and frontend
-npm run backend:nodemon            # Backend only
-npm run frontend:dev               # Frontend only (from root)
+npm run app:dev                    # Start both backend and frontend (from root)
+cd backend && npm run dev          # Backend only
+cd frontend && npm run dev         # Frontend only
 cd backend/ml-service && python app.py  # ML service
 
 # Testing
-npm test                           # Run all tests
+npm test                           # Run all tests (from root)
 npm test -- adoption.controller.test.js  # Run specific test file
 npm test:watch                     # Run tests in watch mode
 npm test:coverage                  # Generate coverage report
 
 # Database
 psql -U postgres -d paws_db        # PostgreSQL shell
-npm run seed:adoptions             # Seed adoption data
+cd backend && npm run seed:adoptions  # Seed adoption data
 
 # Stripe
 stripe listen --forward-to localhost:5000/api/donations/webhook
