@@ -147,3 +147,6 @@ CLAUDE.md
 PLANNING.md
 PRD.md
 TASKS.md
+
+# Test generated filed
+/backend/coverage/*
