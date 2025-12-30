@@ -138,3 +138,5 @@ dist
 # Other files
 /backend/scripts/runSchema.js
 /backend/src/uploads/**
+
+/backend/ml-service/venv/Lib/*

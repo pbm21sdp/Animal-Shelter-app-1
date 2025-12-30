@@ -40,7 +40,7 @@ services:
       - --api-key=${STRIPE_API_KEY}
       - --forward-to=http://host.docker.internal:5000/api/donations/webhook
     env_file:
-      - ./.env.docker
+      - ./.env
     environment:
       - STRIPE_API_KEY=${STRIPE_API_KEY}
 
