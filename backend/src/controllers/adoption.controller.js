@@ -490,7 +490,7 @@ export const getUserAdoptionsByPetId = async (req, res) => {
 export const checkForPet = async (req, res) => {
     try {
         const {petId} = req.params;
-        const userId = req.user._id; // Assuming your auth middleware sets req.user
+        const userId = req.userId; // Auth middleware sets req.userId
 
         // Check if user has a pending/in-review application for this pet
         const adoption = await Adoption.findOne({

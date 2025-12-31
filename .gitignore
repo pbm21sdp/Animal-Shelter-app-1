@@ -133,6 +133,7 @@ dist
 .pnp.*
 
 .idea/*
+.claude/*
 /backend/NOTES
 
 
