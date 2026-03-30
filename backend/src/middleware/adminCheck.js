@@ -2,7 +2,12 @@ import { User } from '../models/user.model.js';
 
 export const isAdmin = async (req, res, next) => {
     try {
-        // Find the user by ID
+        // Fast path: Check JWT token first (avoids DB query)
+        if (req.isAdmin === true) {
+            return next();
+        }
+
+        // Fallback: Verify with database (for backward compatibility with old tokens)
         const user = await User.findById(req.userId);
 
         if (!user || !user.isAdmin) {
@@ -12,7 +17,7 @@ export const isAdmin = async (req, res, next) => {
             });
         }
 
-        // Set isAdmin flag
+        // Update flag for this request
         req.isAdmin = true;
         next();
     } catch (error) {
