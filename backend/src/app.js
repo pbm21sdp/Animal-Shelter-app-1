@@ -1,9 +1,11 @@
 import express from 'express';
 import swaggerUi from 'swagger-ui-express';
 import cors from 'cors';
+import helmet from 'helmet';
 import swaggerSpec from './docs/swagger.js';
 import cookieParser from 'cookie-parser';
 import path from 'path';
+import { generalLimiter } from './middleware/rateLimiter.js';
 
 import { connectPostgresDB } from './config/database/connectPostgresDB.js';
 import { config } from 'dotenv';
@@ -36,26 +38,29 @@ const __dirname = path.dirname(__filename);
 // MIDDLEWARE
 // ============================================
 
-// 1. CORS - Must come first
+// 1. Security headers
+app.use(helmet());
+
+// 2. CORS
 app.use(cors({
-    origin: "http://localhost:5173",
+    origin: process.env.CLIENT_URL || "http://localhost:5173",
     credentials: true
 }));
 
-// 2. Special middleware for Stripe webhooks (BEFORE express.json())
+// 3. Special middleware for Stripe webhooks (BEFORE express.json())
 app.use('/api/donations/webhook',
     express.raw({ type: 'application/json' }),
     donationRoutes
 );
 
-// 3. Body parsers with increased limit (BEFORE routes)
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+// 4. Body parsers (BEFORE routes)
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-// 4. Cookie parser
+// 5. Cookie parser
 app.use(cookieParser());
 
-// 5. Static files
+// 6. Static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ============================================
@@ -73,6 +78,9 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
 // ============================================
 // API ROUTES
 // ============================================
+
+// Apply rate limiting to all API routes
+app.use('/api', generalLimiter);
 
 app.use('/api/adoptions', adoptionRoutes);
 app.use('/api/pets', petRoutes);
@@ -96,22 +104,8 @@ app.use((err, req, res, next) => {
     res.status(500).send('Server error!');
 });
 
-// Remove for prod...
-console.log('Environment:', {
-    DB_HOST: process.env.DB_HOST,
-    DB_PORT: process.env.DB_PORT,
-    DB_USER: process.env.DB_USER,
-    DB_NAME: process.env.DB_NAME
-});
-
 app.listen(PORT, () => {
     connectPostgresDB();
     connectMongoDB();
     console.log(`Server running on port ${PORT}`);
 });
-
-// app.use((req, res, next) => {
-//     console.log(`Request to ${req.method} ${req.path}`);
-//     console.log('Cookies:', req.cookies);
-//     next();
-// });
