@@ -151,3 +151,5 @@ TASKS.md
 
 # Test generated filed
 /backend/coverage/*
+
+.env
