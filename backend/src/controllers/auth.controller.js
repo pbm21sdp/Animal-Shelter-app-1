@@ -21,6 +21,15 @@ export const signup = async (req, res) => {
             throw new Error("All fields are required");
         }
 
+        // Password strength validation
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{12,}$/;
+        if (!passwordRegex.test(password)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Password must be at least 12 characters with uppercase, lowercase, and a number.'
+            });
+        }
+
         const userAlreadyExists = await User.findOne({email});
         console.log("userAlreadyExists", userAlreadyExists);
 
@@ -41,7 +50,7 @@ export const signup = async (req, res) => {
         await user.save();
 
         // jwt
-        generateTokenAndSetCookie(res, user._id);
+        generateTokenAndSetCookie(res, user._id, user.isAdmin);
 
         await sendVerficationEmail(user.email, verificationToken); // comment for testing
 
@@ -113,7 +122,7 @@ export const login = async (req, res) => {
             return res.status(400).json({success: false, message: "Invalid credentials"});
         }
 
-        generateTokenAndSetCookie(res, user._id);
+        generateTokenAndSetCookie(res, user._id, user.isAdmin);
         user.lastLogin = new Date();
         await user.save();
 
@@ -173,6 +182,15 @@ export const resetPassword = async (req, res) => {
     try{
         const {token} = req.params;
         const {password} = req.body;
+
+        // Password strength validation
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{12,}$/;
+        if (!passwordRegex.test(password)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Password must be at least 12 characters with uppercase, lowercase, and a number.'
+            });
+        }
 
         const user = await User.findOne({
            resetPasswordToken: token,

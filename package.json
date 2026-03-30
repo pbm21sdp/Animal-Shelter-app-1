@@ -8,6 +8,7 @@
     "frontend"
   ],
   "scripts": {
+    "dev": "npm run dev --prefix backend",
     "app:dev": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
     "frontend:dev": "npm run dev --prefix frontend",
     "test": "cross-env NODE_OPTIONS=--experimental-vm-modules NODE_ENV=test jest",
