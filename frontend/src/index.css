@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+/* CSS Variables - Warm Pastel Theme */
+:root {
+    --color-bg: #FFFAF7;          /* Soft cream background */
+    --color-dark: #4A4A4A;        /* Neutral charcoal for text */
+    --color-muted: #9B9B9B;       /* Muted gray for secondary text */
+    --color-accent: #F4A460;      /* Warm peach for buttons and highlights */
+    --color-accent-light: #FFEEE5; /* Very light peach for hover states */
+    --color-border: #F0E8E0;      /* Subtle beige for borders */
+    --color-success: #A8D5BA;     /* Soft mint green for success states */
+    --color-error: #E8A9A9;       /* Muted red for errors */
+}
+
 /* Blob shape animations */
 @layer components {
     .blob-shape {
