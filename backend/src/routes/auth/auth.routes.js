@@ -9,6 +9,7 @@ import {
     checkAuth
 } from "../../controllers/auth.controller.js";
 import {verifyToken} from "../../middleware/verifyToken.js";
+import {authLimiter} from "../../middleware/rateLimiter.js";
 
 const router = express.Router();
 
@@ -75,8 +76,9 @@ router.get("/check-auth", verifyToken, checkAuth);
  *               password:
  *                 type: string
  *                 format: password
- *                 minLength: 6
- *                 example: password123
+ *                 minLength: 12
+ *                 description: Must contain uppercase, lowercase, and a number
+ *                 example: Password123456
  *     responses:
  *       201:
  *         description: User created successfully
@@ -92,7 +94,7 @@ router.get("/check-auth", verifyToken, checkAuth);
  *       400:
  *         $ref: '#/components/responses/ValidationError'
  */
-router.post("/signup", signup);
+router.post("/signup", authLimiter, signup);
 
 /**
  * @swagger
@@ -138,7 +140,7 @@ router.post("/signup", signup);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post("/login", login);
+router.post("/login", authLimiter, login);
 
 /**
  * @swagger
@@ -246,7 +248,7 @@ router.post("/verify-email", verifyEmail);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post("/forgot-password", forgotPassword);
+router.post("/forgot-password", authLimiter, forgotPassword);
 
 /**
  * @swagger
@@ -274,8 +276,9 @@ router.post("/forgot-password", forgotPassword);
  *               password:
  *                 type: string
  *                 format: password
- *                 minLength: 6
- *                 example: newpassword123
+ *                 minLength: 12
+ *                 description: Must contain uppercase, lowercase, and a number
+ *                 example: NewPassword123
  *     responses:
  *       200:
  *         description: Password reset successful
