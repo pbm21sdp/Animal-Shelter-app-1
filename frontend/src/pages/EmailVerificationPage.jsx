@@ -2,8 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
-import {useAuthStore} from "../store/authStore";
-
+import { useAuthStore } from "../store/authStore";
 
 const EmailVerificationPage = () => {
     const [code, setCode] = useState(["", "", "", "", "", ""]);
@@ -15,23 +14,18 @@ const EmailVerificationPage = () => {
     const handleChange = (index, value) => {
         const newCode = [...code];
 
-        // Handle pasted content
         if (value.length > 1) {
             const pastedCode = value.slice(0, 6).split("");
             for (let i = 0; i < 6; i++) {
                 newCode[i] = pastedCode[i] || "";
             }
             setCode(newCode);
-
-            // Focus on the last non-empty input or the first empty one
             const lastFilledIndex = newCode.findLastIndex((digit) => digit !== "");
             const focusIndex = lastFilledIndex < 5 ? lastFilledIndex + 1 : 5;
             inputRefs.current[focusIndex].focus();
         } else {
             newCode[index] = value;
             setCode(newCode);
-
-            // Move focus to the next input field if value is entered
             if (value && index < 5) {
                 inputRefs.current[index + 1].focus();
             }
@@ -56,7 +50,6 @@ const EmailVerificationPage = () => {
         }
     };
 
-    // Auto submit when all fields are filled
     useEffect(() => {
         if (code.every((digit) => digit !== "")) {
             handleSubmit(new Event("submit"));
@@ -64,46 +57,93 @@ const EmailVerificationPage = () => {
     }, [code]);
 
     return (
-        <div className='max-w-md w-full bg-white bg-opacity-50 backdrop-filter backdrop-blur-xl rounded-2xl shadow-xl overflow-hidden'>
+        <div
+            className="min-h-screen w-full flex items-center justify-center px-4"
+            style={{ backgroundColor: 'var(--color-bg)' }}
+        >
             <motion.div
-                initial={{ opacity: 0, y: -50 }}
+                initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className='bg-white bg-opacity-50 backdrop-filter backdrop-blur-xl rounded-2xl shadow-2xl p-8 w-full max-w-md'
+                transition={{ duration: 0.4 }}
+                className="w-full"
+                style={{ maxWidth: '400px' }}
             >
-                <h2 className='text-3xl font-bold mb-6 text-center bg-gradient-to-r from-violet-400 to-purple-600 text-transparent bg-clip-text'>
-                    Verify Your Email
-                </h2>
-                <p className='text-center text-gray-400 mb-6'>Enter the 6-digit code sent to your email address.</p>
+                {/* Tag pill */}
+                <div className="flex justify-center mb-6">
+                    <span style={{ backgroundColor: '#FDEADE', color: 'var(--color-accent)', fontSize: '11px', borderRadius: '20px', padding: '4px 14px', fontWeight: 500 }}>
+                        One more step
+                    </span>
+                </div>
 
-                <form onSubmit={handleSubmit} className='space-y-6'>
-                    <div className='flex justify-between'>
+                <div className="text-center mb-7">
+                    <h1 style={{ fontSize: '26px', fontWeight: 500, color: 'var(--color-dark)', marginBottom: '6px' }}>
+                        Verify your email
+                    </h1>
+                    <p style={{ fontSize: '13px', color: 'var(--color-muted)' }}>
+                        Enter the 6-digit code sent to your email address
+                    </p>
+                </div>
+
+                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
                         {code.map((digit, index) => (
                             <input
                                 key={index}
                                 ref={(el) => (inputRefs.current[index] = el)}
-                                type='text'
-                                maxLength='6'
+                                type="text"
+                                maxLength="6"
                                 value={digit}
                                 onChange={(e) => handleChange(index, e.target.value)}
                                 onKeyDown={(e) => handleKeyDown(index, e)}
-                                className='w-12 h-12 text-center text-2xl font-bold bg-gray-100 text-purple-700 border-2 border-gray-300 rounded-lg focus:border-violet-500 focus:outline-none'
+                                style={{
+                                    width: '48px',
+                                    height: '52px',
+                                    textAlign: 'center',
+                                    fontSize: '20px',
+                                    fontWeight: 600,
+                                    borderRadius: '10px',
+                                    border: '0.5px solid var(--color-blush)',
+                                    backgroundColor: 'var(--color-surface)',
+                                    color: 'var(--color-dark)',
+                                    outline: 'none',
+                                    transition: 'border-color 0.15s'
+                                }}
+                                onFocus={(e) => e.target.style.borderColor = 'var(--color-accent)'}
+                                onBlur={(e) => e.target.style.borderColor = 'var(--color-blush)'}
                             />
                         ))}
                     </div>
-                    {error && <p className='text-red-500 font-semibold mt-2'>{error}</p>}
+
+                    {error && (
+                        <div style={{ padding: '10px 14px', borderRadius: '10px', backgroundColor: '#FCE8E8', color: 'var(--color-error)', fontSize: '13px', textAlign: 'center' }}>
+                            {error}
+                        </div>
+                    )}
+
                     <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        type='submit'
-                        disabled={isLoading || code.some((digit) => !digit)}
-                        className='w-full bg-gradient-to-r from-violet-500 to-purple-600 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:from-violet-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 disabled:opacity-50'
+                        whileHover={{ scale: 1.01 }}
+                        whileTap={{ scale: 0.99 }}
+                        type="submit"
+                        disabled={isLoading || code.some((d) => !d)}
+                        style={{
+                            width: '100%',
+                            padding: '12px',
+                            borderRadius: '12px',
+                            backgroundColor: (isLoading || code.some((d) => !d)) ? 'var(--color-blush)' : 'var(--color-dark)',
+                            color: '#FDF8F5',
+                            fontSize: '13px',
+                            fontWeight: 500,
+                            border: 'none',
+                            cursor: (isLoading || code.some((d) => !d)) ? 'not-allowed' : 'pointer',
+                            transition: 'background-color 0.15s'
+                        }}
                     >
-                        {isLoading ? "Verifying..." : "Verify Email"}
+                        {isLoading ? "Verifying..." : "Verify email"}
                     </motion.button>
                 </form>
             </motion.div>
         </div>
     );
 };
+
 export default EmailVerificationPage;
