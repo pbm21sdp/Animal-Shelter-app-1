@@ -63,13 +63,16 @@ function App() {
 
     // Check if current route is an admin route
     const isAdminRoute = location.pathname.startsWith('/admin');
+    // Auth pages manage their own background — no paws, no gradient
+    const isAuthRoute = ['/login', '/signup', '/verify-email', '/forgot-password'].includes(location.pathname)
+        || location.pathname.startsWith('/reset-password');
 
     return (
         <div className={`min-h-screen w-full flex items-center justify-center relative overflow-hidden ${
-            isAdminRoute ? 'bg-white' : 'bg-gradient-to-br from-amber-50 via-stone-50 to-sky-50'
+            isAdminRoute ? 'bg-white' : isAuthRoute ? '' : 'bg-gradient-to-br from-amber-50 via-stone-50 to-sky-50'
         }`}>
-            {/* Only show floating paws on non-admin routes */}
-            {!isAdminRoute && (
+            {/* Only show floating paws on non-admin, non-auth routes */}
+            {!isAdminRoute && !isAuthRoute && (
                 <>
                     <FloatingPaw size="w-64 h-64" top="-15%" left="25%" delay={0}/>
                     <FloatingPaw size="w-48 h-48" top="75%" left="85%" delay={1.5}/>

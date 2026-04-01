@@ -4,14 +4,18 @@
 
 /* CSS Variables - Warm Pastel Theme */
 :root {
-    --color-bg: #FFFAF7;          /* Soft cream background */
-    --color-dark: #4A4A4A;        /* Neutral charcoal for text */
-    --color-muted: #9B9B9B;       /* Muted gray for secondary text */
-    --color-accent: #F4A460;      /* Warm peach for buttons and highlights */
-    --color-accent-light: #FFEEE5; /* Very light peach for hover states */
-    --color-border: #F0E8E0;      /* Subtle beige for borders */
-    --color-success: #A8D5BA;     /* Soft mint green for success states */
-    --color-error: #E8A9A9;       /* Muted red for errors */
+    --color-bg: #FDF8F5;          /* Cream background */
+    --color-bg-peach: #FEF3EE;    /* Soft peach — Sign Up page background */
+    --color-accent: #D4967A;      /* Terracotta — buttons, links, tags */
+    --color-accent-light: #FDEADE; /* Light terracotta — hover states, admin pill */
+    --color-dark: #5C3D2E;        /* Dark brown — headings, primary text */
+    --color-muted: #9C7B6A;       /* Muted brown — labels, secondary text */
+    --color-blush: #E8C4B0;       /* Blush — input borders, dividers */
+    --color-border: #F0E8E0;      /* Subtle border — navbar, card edges */
+    --color-sage: #A8C5A0;        /* Sage green — success, password strength */
+    --color-surface: #FFFAF7;     /* Input backgrounds, cards */
+    --color-success: #A8C5A0;     /* Soft green for success states */
+    --color-error: #C0392B;       /* Error red */
 }
 
 /* Blob shape animations */
@@ -55,6 +59,20 @@
     .animal-other {
         animation-delay: -6s;
     }
+}
+
+/* Auth input focus — kill browser blue outline globally */
+input,
+input:focus,
+input:active,
+input:-webkit-autofill {
+    outline: none !important;
+    box-shadow: none !important;
+    -webkit-box-shadow: none !important;
+}
+
+input:focus {
+    border-color: #D4967A !important;
 }
 
 @keyframes fadeInOut {
