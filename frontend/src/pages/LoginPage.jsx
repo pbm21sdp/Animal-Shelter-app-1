@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Loader, Lock, Mail } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
+import PeekingCats from "../components/PeekingCats";
 
 const oauthButtonStyle = {
     width: '100%',
@@ -51,14 +52,15 @@ const LoginPage = () => {
     return (
         <div
             className="min-h-screen w-full flex items-center justify-center px-4 py-16"
-            style={{ backgroundColor: '#FDF8F5' }}
+            style={{ backgroundColor: '#FDF8F5', position: 'relative' }}
         >
+            <PeekingCats />
             <motion.div
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4 }}
                 className="w-full"
-                style={{ maxWidth: '400px' }}
+                style={{ maxWidth: '400px', position: 'relative', zIndex: 1 }}
             >
                 {/* Tag pill */}
                 <div className="flex justify-center mb-6">
