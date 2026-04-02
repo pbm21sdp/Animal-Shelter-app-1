@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import PasswordStrengthMeter from "../components/PasswordStrengthMeter.jsx";
 import { useAuthStore } from "../store/authStore.js";
+import toast from "react-hot-toast";
 
 const oauthButtonStyle = {
     width: '100%',
@@ -27,7 +28,7 @@ const SignUpPage = () => {
     const [confirmPassword, setConfirmPassword] = useState("");
 
     const navigate = useNavigate();
-    const { signup, error, isLoading } = useAuthStore();
+    const { signup, error, isLoading, checkAuth } = useAuthStore();
 
     const handleSignUp = async (e) => {
         e.preventDefault();
@@ -45,8 +46,26 @@ const SignUpPage = () => {
         }
     };
 
-    const handleGoogleLogin = () => {};
-    const handleFacebookLogin = () => {};
+    const handleGoogleLogin = () => {
+        window.open(
+            "http://localhost:5000/api/auth/google",
+            "google-oauth",
+            `width=${screen.width},height=${screen.height},left=0,top=0`
+        );
+
+        const channel = new BroadcastChannel('paws_oauth');
+        channel.onmessage = async (event) => {
+            if (event.data?.type === 'GOOGLE_AUTH_SUCCESS') {
+                channel.close();
+                await checkAuth();
+                navigate('/');
+            }
+        };
+    };
+
+    const handleFacebookLogin = () => {
+        toast("Facebook login coming soon!", { icon: "🚧" });
+    };
 
     const inputStyle = {
         width: '100%',

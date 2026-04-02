@@ -4,6 +4,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import swaggerSpec from './docs/swagger.js';
 import cookieParser from 'cookie-parser';
+import session from 'express-session';
+import passport from './config/passport.js';
 import path from 'path';
 import { generalLimiter } from './middleware/rateLimiter.js';
 
@@ -60,7 +62,23 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 // 5. Cookie parser
 app.use(cookieParser());
 
-// 6. Static files
+// 6. Session (needed only for the Google OAuth dance — JWT is used after that)
+app.use(session({
+    secret: process.env.SESSION_SECRET || process.env.JWT_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 10 * 60 * 1000, // 10 minutes — just for the OAuth flow
+    },
+}));
+
+// 7. Passport
+app.use(passport.initialize());
+app.use(passport.session());
+
+// 8. Static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ============================================
