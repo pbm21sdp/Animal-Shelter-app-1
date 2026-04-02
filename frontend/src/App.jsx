@@ -21,6 +21,7 @@ import UserProfilePage from './pages/UserProfilePage';
 import Team from './pages/Team';
 import Partnerships from './pages/Partnerships';
 import TermsOfService from './pages/TermsOfService';
+import OAuthCallbackPage from './pages/OAuthCallbackPage';
 
 // Protect routes that require authentication
 const ProtectedRoute = ({children}) => {
@@ -177,6 +178,7 @@ function App() {
                 } 
                 />
 
+                <Route path="/oauth-callback" element={<OAuthCallbackPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
             <Toaster/>

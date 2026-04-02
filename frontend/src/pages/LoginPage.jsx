@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Loader, Lock, Mail } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 import PeekingCats from "../components/PeekingCats";
+import toast from "react-hot-toast";
 
 const oauthButtonStyle = {
     width: '100%',
@@ -24,15 +25,34 @@ const LoginPage = () => {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
 
-    const { login, isLoading, error } = useAuthStore();
+    const navigate = useNavigate();
+    const { login, isLoading, error, checkAuth } = useAuthStore();
 
     const handleLogin = async (e) => {
         e.preventDefault();
         await login(email, password);
     };
 
-    const handleGoogleLogin = () => {};
-    const handleFacebookLogin = () => {};
+    const handleGoogleLogin = () => {
+        window.open(
+            "http://localhost:5000/api/auth/google",
+            "google-oauth",
+            `width=${screen.width},height=${screen.height},left=0,top=0`
+        );
+
+        const channel = new BroadcastChannel('paws_oauth');
+        channel.onmessage = async (event) => {
+            if (event.data?.type === 'GOOGLE_AUTH_SUCCESS') {
+                channel.close();
+                await checkAuth();
+                navigate('/');
+            }
+        };
+    };
+
+    const handleFacebookLogin = () => {
+        toast("Facebook login coming soon!", { icon: "🚧" });
+    };
 
     const inputStyle = {
         width: '100%',

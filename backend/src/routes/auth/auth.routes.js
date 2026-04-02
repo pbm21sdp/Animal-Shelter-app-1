@@ -10,6 +10,8 @@ import {
 } from "../../controllers/auth.controller.js";
 import {verifyToken} from "../../middleware/verifyToken.js";
 import {authLimiter} from "../../middleware/rateLimiter.js";
+import passport from "../../config/passport.js";
+import {generateTokenAndSetCookie} from "../../utils/generateTokenAndSetCookie.js";
 
 const router = express.Router();
 
@@ -301,5 +303,40 @@ router.post("/forgot-password", authLimiter, forgotPassword);
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post("/reset-password/:token", resetPassword);
+
+// ============================================
+// GOOGLE OAUTH ROUTES
+// ============================================
+
+router.get(
+    '/google',
+    passport.authenticate('google', { scope: ['profile', 'email'], prompt: 'select_account' })
+);
+
+router.get(
+    '/google/callback',
+    passport.authenticate('google', {
+        failureRedirect: `${process.env.CLIENT_URL}/login`,
+        session: true,
+    }),
+    async (req, res) => {
+        try {
+            const user = req.user;
+
+            generateTokenAndSetCookie(res, user._id, user.isAdmin);
+
+            user.lastLogin = new Date();
+            await user.save();
+
+            req.logout(() => {});
+
+            const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+            res.redirect(`${clientUrl}/oauth-callback`);
+        } catch (error) {
+            console.error('Google OAuth callback error:', error);
+            res.redirect(`${process.env.CLIENT_URL}/login`);
+        }
+    }
+);
 
 export const authRoutes = router;
