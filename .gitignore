@@ -141,7 +141,11 @@ dist
 /backend/scripts/runSchema.js
 /backend/src/uploads/**
 
-/backend/ml-service/venv/Lib/*
+backend/ml-service/venv/
+backend/ml-service/__pycache__/
+backend/uploads/
+*.pyc
+__pycache__/
 
 # CLAUDE AI FILES
 CLAUDE.md
