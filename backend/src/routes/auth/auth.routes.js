@@ -339,4 +339,39 @@ router.get(
     }
 );
 
+// ============================================
+// FACEBOOK OAUTH ROUTES
+// ============================================
+
+router.get(
+    '/facebook',
+    passport.authenticate('facebook', { scope: ['email', 'public_profile'] })
+);
+
+router.get(
+    '/facebook/callback',
+    passport.authenticate('facebook', {
+        failureRedirect: `${process.env.CLIENT_URL}/login`,
+        session: true,
+    }),
+    async (req, res) => {
+        try {
+            const user = req.user;
+
+            generateTokenAndSetCookie(res, user._id, user.isAdmin);
+
+            user.lastLogin = new Date();
+            await user.save();
+
+            req.logout(() => {});
+
+            const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+            res.redirect(`${clientUrl}/auth/callback`);
+        } catch (error) {
+            console.error('Facebook OAuth callback error:', error);
+            res.redirect(`${process.env.CLIENT_URL}/login`);
+        }
+    }
+);
+
 export const authRoutes = router;

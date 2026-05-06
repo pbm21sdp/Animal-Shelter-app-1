@@ -8,7 +8,9 @@ import {
     createPet,
     updatePet,
     deletePet,
-    getSearchSuggestions
+    getSearchSuggestions,
+    adoptPet,
+    unadoptPet,
 } from '../controllers/pet.controller.js';
 import {
     uploadPhoto,
@@ -36,14 +38,18 @@ router.get('/:id', verifyToken, getPetById);
 router.get('/photos/:photoId', getPhotoById); // Public route to fetch photos
 router.get('/:petId/photos', getPetPhotos); // Get all photos for a pet
 
-// Admin-only routes - only admin users (from MongoDB) can access these
-// Authentication uses MongoDB, but data operations use PostgreSQL
-router.post('/', verifyToken, isAdmin, createPet);
+// Community adopt/unadopt — authenticated users (ownership enforced in controller)
+router.patch('/:id/adopt',   verifyToken, adoptPet);
+router.patch('/:id/unadopt', verifyToken, unadoptPet);
+
+// Authenticated users can create; patch for owners, admin-only for full update/delete
+router.post('/', verifyToken, createPet);
+router.patch('/:id', verifyToken, updatePet);
 router.put('/:id', verifyToken, isAdmin, updatePet);
 router.delete('/:id', verifyToken, isAdmin, deletePet);
 
-// Admin photo management routes
-router.post('/:id/photos', verifyToken, isAdmin, upload.single('photo'), uploadPhoto);
+// Photo upload — authenticated users (uploader or admin); ownership enforced in controller
+router.post('/:id/photos', verifyToken, upload.single('photo'), uploadPhoto);
 router.delete('/:petId/photos/:photoId', verifyToken, isAdmin, deletePhoto);
 router.put('/:petId/photos/:photoId/primary', verifyToken, isAdmin, setPrimaryPhoto);
 

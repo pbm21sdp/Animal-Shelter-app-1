@@ -1,42 +1,81 @@
 // pages/PetDetailPage.jsx
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import {
-    PawPrint,
-    Search,
-    ArrowRight,
-    Check,
-    MapPin,
-    Mail,
-    Phone,
-    Twitter,
-    Instagram,
-    Facebook,
-    ArrowLeft,
-    X,
-    LogOut,
-    Home,
-    MessageSquare,
-    MessageCircle
-} from 'lucide-react';
+import axios from 'axios';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
+import Navbar from '../components/Navbar';
 import { usePetStore } from '../store/petStore';
-import Footer from "../components/page/Footer.jsx";
-import DynamicSearch from "../components/DynamicSearch.jsx";
-import UserAdoptionForm from "../components/UserAdoptionForm";
-import PetCard from '../components/PetCard';
+import { useAuthStore } from '../store/authStore';
+import UserAdoptionForm from '../components/UserAdoptionForm';
+import NotFoundPage from './NotFoundPage';
 
-import {useAuthStore} from "../store/authStore.js";
-import NotFoundPage from './NotFoundPage'; // Make sure you have this component
+const API   = 'http://localhost:5000/api';
+const BASE  = 'http://localhost:5000';
+const serif = "'Cormorant Garamond', serif";
+const sans  = "'DM Sans', sans-serif";
 
-export function PetDetailPage() {
+// ── Helpers ────────────────────────────────────────────────────────────────────
+function photoUrl(photo) {
+    if (!photo) return null;
+    if (photo.id)        return `${API}/pets/photos/${photo.id}`;
+    if (photo.photo_url) return photo.photo_url;
+    return null;
+}
 
-    const { id } = useParams();
-    const navigate = useNavigate();
-    const {user, logout} = useAuthStore();
-    const [setNotFound] = useState(false);
-    const [adoptionSuccess, setAdoptionSuccess] = useState(false); // New state for success message
+function resolveAvatar(avatar) {
+    if (!avatar) return null;
+    if (avatar.startsWith('http')) return avatar;
+    return `${BASE}${avatar.startsWith('/') ? avatar : `/${avatar}`}`;
+}
+
+function timeAgo(dateStr) {
+    if (!dateStr) return '';
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60)  return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24)   return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days}d ago`;
+}
+
+function fmtMemberSince(d) {
+    if (!d) return '';
+    return new Date(d).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}
+
+function cap(str) {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+// ── Status badge (matches AnimalsPage Badge style) ─────────────────────────────
+function StatusBadge({ status }) {
+    const styles = {
+        Found:      { background: '#2D1F14',                        color: '#FAF7F4', border: 'none' },
+        Urgent:     { background: '#993C1D',                        color: '#FAF7F4', border: 'none' },
+        Vaccinated: { background: 'rgba(29,158,117,0.12)',          color: '#0F6E56', border: '1px solid rgba(29,158,117,0.2)' },
+    };
+    if (!status) return null;
+    const s = styles[status] || { background: 'rgba(45,31,20,0.08)', color: '#7A5C44', border: '1px solid rgba(45,31,20,0.12)' };
+    return (
+        <span style={{ fontFamily: sans, fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '3px 9px', borderRadius: '2px', fontWeight: 600, ...s }}>
+            {status}
+        </span>
+    );
+}
+
+// ── Dot separator ─────────────────────────────────────────────────────────────
+function Dot() {
+    return <span style={{ width: '3px', height: '3px', borderRadius: '50%', backgroundColor: '#C07A4A', display: 'inline-block', flexShrink: 0 }} />;
+}
+
+// ── Main component ─────────────────────────────────────────────────────────────
+export default function PetDetailPage() {
+    const { id }      = useParams();
+    const navigate    = useNavigate();
+    const { user: currentUser } = useAuthStore();
     const {
         selectedPet: pet,
         similarPets,
@@ -47,573 +86,471 @@ export function PetDetailPage() {
         getSimilarPets,
         clearSelectedPet,
         resetNotFound,
-        totalPets
     } = usePetStore();
 
-    const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
-    const [showAdoptionForm, setShowAdoptionForm] = useState(false);
-    const [showQuestionForm, setShowQuestionForm] = useState(false);
-    const [questionFormData, setQuestionFormData] = useState({
-        name: '',
-        email: '',
-        questionType: '',
-        question: ''
-    });
-    const [questionFormErrors, setQuestionFormErrors] = useState({});
-    const [questionSubmitStatus, setQuestionSubmitStatus] = useState('');
+    // ── Local state ────────────────────────────────────────────────────────────
+    const [activePhoto,    setActivePhoto]    = useState(0);
+    const [uploader,       setUploader]       = useState(null);
+    const [askOpen,        setAskOpen]        = useState(false);
+    const [askMsg,         setAskMsg]         = useState('');
+    const [askSent,        setAskSent]        = useState(false);
+    const [askSending,     setAskSending]     = useState(false);
+    const [showAdoptForm,  setShowAdoptForm]  = useState(false);
+    const [adoptSuccess,   setAdoptSuccess]   = useState(false);
+    const askRef = useRef(null);
 
+    // ── Load pet ───────────────────────────────────────────────────────────────
     useEffect(() => {
-        // Reset notFound state when component mounts
         resetNotFound();
-
-        // Get pet data and pass the current user for access control
-        const loadPetDetails = async () => {
+        const load = async () => {
             const result = await getPetById(id);
-
-            // If pet was found and access is allowed, load similar pets
-            if (result && result.success) {
-                getSimilarPets(id);
-            }
+            if (result?.success) getSimilarPets(id);
         };
+        load();
+        return () => clearSelectedPet();
+    }, [id]);
 
-        loadPetDetails();
+    // Reset photo index on pet change
+    useEffect(() => { setActivePhoto(0); }, [pet?.id]);
 
-        // Cleanup when component unmounts
-        return () => {
-            clearSelectedPet();
-        };
-    }, [id, user, getPetById, getSimilarPets, clearSelectedPet, resetNotFound]);
+    // ── Fetch uploader public profile ──────────────────────────────────────────
+    useEffect(() => {
+        if (!pet?.uploader_id) return;
+        axios.get(`${API}/users/${pet.uploader_id}/profile`)
+            .then(r => setUploader(r.data.profile || null))
+            .catch(() => setUploader(null));
+    }, [pet?.uploader_id]);
 
-
-    const handleLogout = () => {
-        logout();
-    };
-
-    const handleQuestionInputChange = (e) => {
-        const { name, value } = e.target;
-        setQuestionFormData(prev => ({
-            ...prev,
-            [name]: value
-        }));
-        // Clear error when user starts typing
-        if (questionFormErrors[name]) {
-            setQuestionFormErrors(prev => ({
-                ...prev,
-                [name]: ''
-            }));
-        }
-    };
-
-    const validateQuestionForm = () => {
-        const errors = {};
-
-        if (!questionFormData.name.trim()) errors.name = 'Name is required';
-        if (!questionFormData.email.trim()) {
-            errors.email = 'Email is required';
-        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(questionFormData.email)) {
-            errors.email = 'Invalid email format';
-        }
-        if (!questionFormData.question.trim()) errors.question = 'Please enter your question';
-
-        setQuestionFormErrors(errors);
-        return Object.keys(errors).length === 0;
-    };
-
-    const handleQuestionSubmit = async (e) => {
-        e.preventDefault();
-
-        if (!validateQuestionForm()) {
-            return;
-        }
-
-        setQuestionSubmitStatus('submitting');
-
+    // ── Ask/message send ───────────────────────────────────────────────────────
+    const handleAskSend = async () => {
+        if (!askMsg.trim()) return;
+        setAskSending(true);
         try {
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 1500));
-
-            // Simulate successful submission
-            setQuestionSubmitStatus('success');
-
-            // Reset form after 3 seconds
-            setTimeout(() => {
-                setShowQuestionForm(false);
-                setQuestionFormData({
-                    name: '',
-                    email: '',
-                    questionType: '',
-                    question: ''
-                });
-                setQuestionSubmitStatus('');
-            }, 3000);
-
-        } catch (error) {
-            setQuestionSubmitStatus('error');
+            await axios.post(`${API}/messages`, {
+                name:    currentUser?.name  || 'Anonymous',
+                email:   currentUser?.email || '',
+                message: askMsg.trim(),
+            }, { withCredentials: true });
+            setAskSent(true);
+            setAskMsg('');
+        } catch {
+            // fail silently — user sees no change, can retry
+        } finally {
+            setAskSending(false);
         }
     };
 
-    if (notFound) {
-        return <NotFoundPage />;
-    }
+    // ── Guards ─────────────────────────────────────────────────────────────────
+    if (notFound) return <NotFoundPage />;
 
     if (isLoading) {
-        return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+        return (
+            <div style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', backgroundColor: '#FAF7F4' }}>
+                <Navbar />
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: serif, fontSize: '20px', fontStyle: 'italic', color: '#B09880' }}>
+                    Loading…
+                </div>
+            </div>
+        );
     }
 
     if (error || !pet) {
-        return <div className="min-h-screen flex items-center justify-center text-red-500">{error || 'Pet not found'}</div>;
-    }
-
-    return (
-        <div className="min-h-screen w-full bg-white font-sans">
-            {/* Header */}
-            <header className="container mx-auto px-4 py-4 flex items-center justify-between">
-                <div className="flex items-center">
-                    <PawPrint className="text-tealcustom h-6 w-6"/>
-                    <span className="ml-2 text-xl font-bold">Paws</span>
-                </div>
-
-                <nav className="hidden md:flex space-x-6 items-center">
-                    <Link to="/" className="text-gray-500 hover:text-gray-900">Home</Link>
-                    <Link to="/pet-search" className="text-gray-900 border-b-2 border-gray-900">Pet search</Link>
-                    <Link to="/adoption-process" className="text-gray-500 hover:text-gray-900">Adoption process</Link>
-                    <Link to="/adoption-faq" className="text-gray-500 hover:text-gray-900">FAQ</Link>
-                    <DynamicSearch redirectOnSelect={true}/>
-                </nav>
-
-                <div className="flex justify-end">
-                    <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={handleLogout}
-                        className="flex items-center text-gray-500 hover:text-gray-900 transition-colors"
-                    >
-                        <LogOut className="h-5 w-5 mr-2" />
-                        <span>Logout</span>
-                    </motion.button>
-                </div>
-            </header>
-
-            {/* Breadcrumb */}
-            <div className="container mx-auto px-4 py-4">
-                <div className="flex items-center text-gray-600">
-                    <Link to="/" className="hover:text-gray-900">Home</Link>
-                    <span className="mx-2">›</span>
-                    <Link to="/pet-search" className="hover:text-gray-900">Pet search</Link>
-                    <span className="mx-2">›</span>
-                    <span className="text-gray-900">Pet Details</span>
+        return (
+            <div style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', backgroundColor: '#FAF7F4' }}>
+                <Navbar />
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: sans, fontSize: '14px', color: '#993C1D' }}>
+                    {error || 'Pet not found'}
                 </div>
             </div>
+        );
+    }
 
-            {/* Main Content */}
-            <div className="container mx-auto px-4 py-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* Left Column - PetModel Info */}
+    const photos     = (pet.photos || []).sort((a, b) => (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0));
+    const curSrc     = photoUrl(photos[activePhoto]);
+    const isAdopted  = pet.is_adopted || pet.adoption_status === 'adopted';
+
+    // Fact pills — only non-empty values
+    const factPills = [
+        { label: 'Type',   value: cap(pet.type) },
+        { label: 'Breed',  value: pet.breed },
+        { label: 'Size',   value: cap(pet.size) },
+        { label: 'Age',    value: pet.age_category },
+        { label: 'Color',  value: pet.color },
+        { label: 'Weight', value: pet.weight ? `${pet.weight} kg` : null },
+    ].filter(p => p.value);
+
+    const traitList = (pet.traits || []).filter(Boolean);
+
+    // Mini-table rows for right card — only show if value exists
+    const cardRows = [
+        { label: 'Type',     value: cap(pet.type) },
+        { label: 'Status',   value: pet.health_status },
+        { label: 'Location', value: pet.location_city },
+        { label: 'Posted',   value: timeAgo(pet.created_at) },
+        { label: 'Uploader', value: uploader?.name },
+    ].filter(r => r.value);
+
+    // ── Render ─────────────────────────────────────────────────────────────────
+    return (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 10, display: 'flex', flexDirection: 'column', backgroundColor: '#FAF7F4', overflowY: 'auto' }}>
+            <Navbar />
+
+            <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '32px 48px 64px', width: '100%', boxSizing: 'border-box' }}>
+
+                {/* ── BACK LINK ─────────────────────────────────────── */}
+                <button
+                    onClick={() => navigate(-1)}
+                    style={{ fontFamily: sans, fontSize: '11px', color: '#9A7A60', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: '24px', display: 'inline-flex', alignItems: 'center', gap: '4px', transition: 'color 0.15s' }}
+                    onMouseEnter={e => { e.currentTarget.style.color = '#C07A4A'; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = '#9A7A60'; }}
+                >
+                    ← Back to Animals
+                </button>
+
+                {/* ── MASTHEAD ──────────────────────────────────────── */}
+                <div style={{ textAlign: 'center', paddingBottom: '24px', borderBottom: '3px double rgba(45,31,20,0.15)', marginBottom: '40px' }}>
+
+                    {/* Eyebrow */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '16px' }}>
+                        <span style={{ fontFamily: sans, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.14em', color: '#C07A4A' }}>
+                            The Paws Daily · Pet profile
+                        </span>
+                        <StatusBadge status={pet.health_status} />
+                    </div>
+
+                    {/* H1 */}
+                    <h1 style={{ fontFamily: serif, fontSize: '52px', fontWeight: 700, color: '#2D1F14', lineHeight: 1.05, letterSpacing: '-1px', margin: '0 0 14px' }}>
+                        Hi, I'm {pet.name}
+                    </h1>
+
+                    {/* Byline */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', flexWrap: 'wrap', fontFamily: sans, fontSize: '12px', color: '#9A7A60' }}>
+                        {pet.breed        && <><span style={{ fontStyle: 'italic' }}>{pet.breed}</span><Dot /></>}
+                        {pet.type         && <><span>{cap(pet.type)}</span><Dot /></>}
+                        {pet.location_city && <><span>◎ {pet.location_city}</span><Dot /></>}
+                        {pet.age_category && <><span>{pet.age_category}</span><Dot /></>}
+                        {pet.created_at   && <span>{timeAgo(pet.created_at)}</span>}
+                    </div>
+                </div>
+
+                {/* ── MAIN GRID ─────────────────────────────────────── */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: '48px', alignItems: 'start' }}>
+
+                    {/* ════════════════════════════════════════════════
+                        LEFT COLUMN
+                    ════════════════════════════════════════════════ */}
                     <div>
-                        <h1 className="text-4xl font-bold mb-8">Hi! I'm {pet.name}</h1>
 
-                        <div className="grid grid-cols-2 gap-4 mb-8">
-                            <div>
-                                <span className="font-bold">Breed:</span>
-                                <span className="ml-2">{pet.breed}</span>
-                            </div>
-                            <div>
-                                <span className="font-bold">Color:</span>
-                                <span className="ml-2">{pet.color}</span>
-                            </div>
-                            <div>
-                                <span className="font-bold">Age:</span>
-                                <span className="ml-2">{pet.age_category}</span>
-                            </div>
-                            <div>
-                                <span className="font-bold">Coat:</span>
-                                <span className="ml-2">{pet.coat}</span>
-                            </div>
-                            <div>
-                                <span className="font-bold">Sex:</span>
-                                <span className="ml-2">{pet.gender}</span>
-                            </div>
-                            <div>
-                                <span className="font-bold">Pet ID:</span>
-                                <span className="ml-2">{pet.id}</span>
-                            </div>
-                            <div>
-                                <span className="font-bold">Size:</span>
-                                <span className="ml-2">{pet.size}</span>
-                            </div>
-                            <div>
-                                <span className="font-bold">Fee:</span>
-                                <span className="ml-2">€{pet.fee}</span>
-                            </div>
+                        {/* ── PHOTO GALLERY ─────────────────────── */}
+                        <div style={{ marginBottom: '20px' }}>
+                            {photos.length > 0 ? (
+                                <>
+                                    {/* Main image */}
+                                    <div style={{ position: 'relative', borderRadius: '3px', overflow: 'hidden', backgroundColor: '#F0E8E0' }}>
+                                        {curSrc ? (
+                                            <img
+                                                src={curSrc}
+                                                alt={pet.name}
+                                                style={{ width: '100%', height: '420px', objectFit: 'cover', display: 'block' }}
+                                                onError={e => {
+                                                    e.target.style.display = 'none';
+                                                    if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+                                                }}
+                                            />
+                                        ) : null}
+                                        {/* Fallback shown when no src or img errors */}
+                                        <div style={{ width: '100%', height: '420px', display: curSrc ? 'none' : 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                                            <span style={{ fontSize: '48px', color: '#C07A4A', opacity: 0.2 }}>🐾</span>
+                                            <span style={{ fontFamily: serif, fontSize: '16px', fontStyle: 'italic', color: '#B09880' }}>No photos yet</span>
+                                        </div>
+
+                                        {/* Navigation arrows */}
+                                        {photos.length > 1 && (
+                                            <>
+                                                <button
+                                                    onClick={() => setActivePhoto((activePhoto - 1 + photos.length) % photos.length)}
+                                                    style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(250,247,244,0.9)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(45,31,20,0.12)' }}
+                                                >
+                                                    <ChevronLeft style={{ width: '18px', height: '18px', color: '#2D1F14' }} />
+                                                </button>
+                                                <button
+                                                    onClick={() => setActivePhoto((activePhoto + 1) % photos.length)}
+                                                    style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(250,247,244,0.9)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(45,31,20,0.12)' }}
+                                                >
+                                                    <ChevronRight style={{ width: '18px', height: '18px', color: '#2D1F14' }} />
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
+
+                                    {/* Thumbnails */}
+                                    {photos.length > 1 && (
+                                        <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                                            {photos.map((ph, i) => {
+                                                const src = photoUrl(ph);
+                                                const active = i === activePhoto;
+                                                return (
+                                                    <div
+                                                        key={ph.id || i}
+                                                        onClick={() => setActivePhoto(i)}
+                                                        style={{ width: '72px', height: '72px', flexShrink: 0, borderRadius: '2px', overflow: 'hidden', cursor: 'pointer', border: `2px solid ${active ? '#C07A4A' : 'transparent'}`, opacity: active ? 1 : 0.55, transition: 'opacity 0.15s, border-color 0.15s', backgroundColor: '#F0E8E0' }}
+                                                    >
+                                                        {src && <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onError={e => { e.target.style.display = 'none'; }} />}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                /* No photos at all */
+                                <div style={{ height: '420px', backgroundColor: '#F0E8E0', borderRadius: '3px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                                    <span style={{ fontSize: '48px', color: '#C07A4A', opacity: 0.2 }}>🐾</span>
+                                    <span style={{ fontFamily: serif, fontSize: '16px', fontStyle: 'italic', color: '#B09880' }}>No photos yet</span>
+                                </div>
+                            )}
                         </div>
 
-                        {pet.traits && pet.traits.length > 0 && (
-                            <div className="mb-8">
-                                <h2 className="text-xl font-bold mb-4">I am ...</h2>
-                                <div className="grid grid-cols-2 gap-4">
-                                    {pet.traits.map((trait, index) => (
-                                        <div key={index} className="flex items-center">
-                                            <Check className="text-green-500 h-5 w-5 mr-2" />
-                                            <span>{trait}</span>
-                                        </div>
-                                    ))}
+                        {/* ── UPLOADER ROW ──────────────────────── */}
+                        {pet.uploader_id && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 0', borderTop: '1px solid rgba(45,31,20,0.08)', borderBottom: '1px solid rgba(45,31,20,0.08)', marginBottom: '24px' }}>
+                                {/* Avatar */}
+                                <div style={{ width: '38px', height: '38px', borderRadius: '50%', flexShrink: 0, overflow: 'hidden', backgroundColor: '#E8C5A0', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundImage: 'linear-gradient(135deg, #E8C5A0, #C07A4A)' }}>
+                                    {resolveAvatar(uploader?.avatar) ? (
+                                        <img src={resolveAvatar(uploader.avatar)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none'; }} />
+                                    ) : (
+                                        <span style={{ fontFamily: serif, fontSize: '16px', fontWeight: 700, color: '#fff', lineHeight: 1 }}>
+                                            {(uploader?.name || '?').charAt(0).toUpperCase()}
+                                        </span>
+                                    )}
                                 </div>
+
+                                {/* Info */}
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontFamily: sans, fontSize: '13px', fontWeight: 500, color: '#2D1F14', marginBottom: '2px' }}>
+                                        {uploader?.name || 'Community member'}
+                                    </div>
+                                    <div style={{ fontFamily: sans, fontSize: '11px', color: '#9A7A60' }}>
+                                        Found this animal{uploader?.createdAt ? ` · Member since ${fmtMemberSince(uploader.createdAt)}` : ''}
+                                    </div>
+                                </div>
+
+                                {/* Profile link */}
+                                <Link
+                                    to={`/profile/${pet.uploader_id}`}
+                                    style={{ fontFamily: sans, fontSize: '10px', color: '#C07A4A', textDecoration: 'none', flexShrink: 0, transition: 'opacity 0.15s' }}
+                                    onMouseEnter={e => { e.currentTarget.style.opacity = '0.7'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+                                >
+                                    View profile →
+                                </Link>
                             </div>
                         )}
 
-                        <div className="flex gap-4 mb-8">
-                            <button
-                                onClick={() => setShowAdoptionForm(true)}
-                                className="bg-tealcustom hover:bg-teal-600 text-white px-6 py-3 rounded-md flex items-center"
-                                disabled={pet.adoption_status !== 'available'}
-                            >
-                                {pet.adoption_status === 'available'
-                                    ? 'Adopt me'
-                                    : pet.adoption_status === 'adopted'
-                                        ? 'Pet adopted'
-                                        : 'Currently in adoption process'}
-                                <PawPrint className="ml-2 h-5 w-5" />
-                            </button>
-                            <button
-                                onClick={() => setShowQuestionForm(true)}
-                                className="bg-yellow-200 hover:bg-yellow-100 text-tealcustom px-6 py-3 rounded-md flex items-center"
-                            >
-                                Ask about me ?
-                                <MessageCircle className="ml-2 h-5 w-5" />
-                            </button>
+                        {/* ── DESCRIPTION ───────────────────────── */}
+                        <div style={{ marginBottom: '24px' }}>
+                            <div style={{ fontFamily: sans, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.14em', color: '#C07A4A', fontWeight: 500, marginBottom: '10px' }}>
+                                About {pet.name}
+                            </div>
+                            <p style={{ fontFamily: serif, fontSize: '18px', lineHeight: 1.75, color: '#3D2A1C', margin: 0 }}>
+                                {pet.description || 'No description provided.'}
+                            </p>
                         </div>
+
+                        {/* ── FACT PILLS ────────────────────────── */}
+                        {(factPills.length > 0 || traitList.length > 0) && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '24px' }}>
+                                {factPills.map(({ label, value }) => (
+                                    <span key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'rgba(192,122,74,0.07)', border: '1px solid rgba(192,122,74,0.18)', borderRadius: '100px', padding: '5px 12px' }}>
+                                        <span style={{ fontFamily: sans, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#B09880' }}>{label}</span>
+                                        <span style={{ fontFamily: sans, fontSize: '12px', color: '#2D1F14', fontWeight: 500 }}>{value}</span>
+                                    </span>
+                                ))}
+                                {traitList.map((t, i) => (
+                                    <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'rgba(45,31,20,0.05)', border: '1px solid rgba(45,31,20,0.1)', borderRadius: '100px', padding: '5px 12px', fontFamily: sans, fontSize: '12px', color: '#5C4030' }}>
+                                        {t}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* ── ASK FORM ──────────────────────────── */}
+                        <div ref={askRef} style={{ marginBottom: '32px' }}>
+                            {!askSent ? (
+                                <>
+                                    <button
+                                        onClick={() => setAskOpen(o => !o)}
+                                        style={{ fontFamily: sans, fontSize: '13px', color: '#2D1F14', background: 'transparent', border: '1.5px solid rgba(45,31,20,0.2)', borderRadius: '100px', padding: '10px 20px', cursor: 'pointer', transition: 'border-color 0.15s' }}
+                                        onMouseEnter={e => { e.currentTarget.style.borderColor = '#C07A4A'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(45,31,20,0.2)'; }}
+                                    >
+                                        💬 Ask about {pet.name}
+                                    </button>
+
+                                    {askOpen && (
+                                        <div style={{ marginTop: '10px', background: '#fff', border: '1px solid rgba(45,31,20,0.12)', borderRadius: '4px', padding: '14px' }}>
+                                            <textarea
+                                                rows={3}
+                                                placeholder="What would you like to know about this animal?"
+                                                value={askMsg}
+                                                onChange={e => setAskMsg(e.target.value)}
+                                                style={{ fontFamily: serif, fontSize: '15px', color: '#2D1F14', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.15)', width: '100%', boxSizing: 'border-box', resize: 'none', outline: 'none', padding: '4px 0', background: 'none', lineHeight: 1.5 }}
+                                            />
+                                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                                                <button
+                                                    onClick={handleAskSend}
+                                                    disabled={askSending || !askMsg.trim()}
+                                                    style={{ fontFamily: sans, fontSize: '12px', background: '#C07A4A', color: '#fff', border: 'none', borderRadius: '100px', padding: '8px 20px', cursor: askSending ? 'default' : 'pointer', opacity: (askSending || !askMsg.trim()) ? 0.6 : 1 }}
+                                                >
+                                                    {askSending ? 'Sending…' : 'Send'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <div style={{ fontFamily: sans, fontSize: '13px', color: '#0F6E56' }}>
+                                    ✓ Message sent! The uploader will be in touch.
+                                </div>
+                            )}
+                        </div>
+
+                        {/* ── SIMILAR ANIMALS ───────────────────── */}
+                        {similarPets && similarPets.length > 0 && (
+                            <div style={{ marginTop: '32px', paddingTop: '24px', borderTop: '1px solid rgba(45,31,20,0.1)' }}>
+                                <div style={{ fontFamily: sans, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.14em', color: '#C07A4A', fontWeight: 500, marginBottom: '14px' }}>
+                                    Similar animals nearby
+                                </div>
+                                <div style={{ display: 'flex', gap: '14px', overflowX: 'auto', paddingBottom: '8px' }}>
+                                    {similarPets.slice(0, 4).map(sp => {
+                                        const spSrc = photoUrl((sp.photos || []).find(p => p.is_primary) || sp.photos?.[0]);
+                                        return (
+                                            <div
+                                                key={sp.id}
+                                                onClick={() => navigate(`/pet/${sp.id}`)}
+                                                style={{ flexShrink: 0, width: '160px', cursor: 'pointer' }}
+                                            >
+                                                <div style={{ width: '160px', height: '120px', borderRadius: '3px', overflow: 'hidden', backgroundColor: '#F0E8E0', marginBottom: '7px' }}>
+                                                    {spSrc && <img src={spSrc} alt={sp.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onError={e => { e.target.style.display = 'none'; }} />}
+                                                </div>
+                                                <div style={{ fontFamily: serif, fontSize: '13px', fontWeight: 700, color: '#2D1F14', lineHeight: 1.2, marginBottom: '3px' }}>{sp.name}</div>
+                                                <div style={{ fontFamily: sans, fontSize: '10px', color: '#9A7A60' }}>{sp.location_city}{sp.created_at ? ` · ${timeAgo(sp.created_at)}` : ''}</div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
-                    {/* Right Column - Photos */}
-                    <div className="relative">
-                        <div className="bg-purple-100 rounded-3xl overflow-hidden p-8">
-                            {/* Image container with centered crop */}
-                            <div className="relative aspect-square rounded-2xl overflow-hidden">
-                                <img
-                                    src={
-                                        pet.photos?.[currentPhotoIndex]?.id
-                                            ? `http://localhost:5000/api/pets/photos/${pet.photos[currentPhotoIndex].id}`
-                                            : '/images/pet-placeholder.png'
-                                    }
-                                    alt={pet.name}
-                                    className="w-full h-full object-cover object-center" // Key changes here
-                                    onError={(e) => {
-                                        e.target.src = '/images/pet-placeholder.png';
-                                    }}
-                                />
+                    {/* ════════════════════════════════════════════════
+                        RIGHT COLUMN — sticky contact card
+                    ════════════════════════════════════════════════ */}
+                    <div style={{ position: 'sticky', top: '24px' }}>
+                        <div style={{ background: '#2D1F14', borderRadius: '4px', padding: '28px 24px' }}>
+
+                            {/* Eyebrow */}
+                            <div style={{ fontFamily: sans, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'rgba(250,247,244,0.4)', marginBottom: '20px' }}>
+                                Interested in {pet.name}?
                             </div>
 
-                            {/* Next photo button (only shown if multiple photos exist) */}
-                            {pet.photos?.length > 1 && (
-                                <button
-                                    onClick={() => setCurrentPhotoIndex((currentPhotoIndex - 1 + pet.photos.length) % pet.photos.length)}
-                                    className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-tealcustom text-white rounded-full p-3 shadow-lg hover:bg-teal-700 transition-colors"
-                                >
-                                    <ArrowLeft className="h-6 w-6" />
-                                </button>
+                            {isAdopted ? (
+                                <div style={{ fontFamily: serif, fontSize: '16px', fontStyle: 'italic', color: 'rgba(250,247,244,0.7)', textAlign: 'center', padding: '16px 0' }}>
+                                    This animal has found a home 🎉
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Primary CTA */}
+                                    <button
+                                        onClick={() => {
+                                            setAskOpen(true);
+                                            askRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                        }}
+                                        style={{ width: '100%', fontFamily: serif, fontSize: '15px', fontStyle: 'italic', background: '#C07A4A', color: '#fff', border: 'none', borderRadius: '100px', padding: '14px', cursor: 'pointer', marginBottom: '10px', transition: 'background 0.15s' }}
+                                        onMouseEnter={e => { e.currentTarget.style.background = '#A86840'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.background = '#C07A4A'; }}
+                                    >
+                                        Contact uploader →
+                                    </button>
+
+                                    {/* Secondary: open adoption form */}
+                                    <button
+                                        onClick={() => setShowAdoptForm(true)}
+                                        style={{ width: '100%', fontFamily: sans, fontSize: '13px', background: 'rgba(250,247,244,0.08)', border: '1px solid rgba(250,247,244,0.15)', color: 'rgba(250,247,244,0.8)', borderRadius: '100px', padding: '11px', cursor: 'pointer', transition: 'background 0.15s' }}
+                                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(250,247,244,0.14)'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(250,247,244,0.08)'; }}
+                                    >
+                                        Send a message
+                                    </button>
+                                </>
                             )}
 
-                            {/* Next photo button */}
-                            {pet.photos?.length > 1 && (
-                                <button
-                                    onClick={() => setCurrentPhotoIndex((currentPhotoIndex + 1) % pet.photos.length)}
-                                    className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-tealcustom text-white rounded-full p-3 shadow-lg hover:bg-teal-700 transition-colors"
-                                >
-                                    <ArrowRight className="h-6 w-6" />
-                                </button>
-                            )}
+                            {/* Divider */}
+                            <div style={{ height: '1px', background: 'rgba(250,247,244,0.08)', margin: '16px 0' }} />
 
-                            {pet.photos?.length > 1 && (
-                                <div className="flex justify-center mt-4 space-x-2">
-                                    {pet.photos.map((_, index) => (
-                                        <button
-                                            key={index}
-                                            onClick={() => setCurrentPhotoIndex(index)}
-                                            className={`w-3 h-3 rounded-full transition-colors ${
-                                                index === currentPhotoIndex ? 'bg-tealcustom' : 'bg-gray-300'
-                                            }`}
-                                            aria-label={`Go to image ${index + 1}`}
-                                        />
+                            {/* Location / contact details */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                                {pet.location_city && (
+                                    <div style={{ fontFamily: sans, fontSize: '12px', color: '#FAF7F4', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                        <span style={{ opacity: 0.5 }}>◎</span>
+                                        <span>{pet.location_city}</span>
+                                    </div>
+                                )}
+                                {uploader && (
+                                    <div style={{ fontFamily: sans, fontSize: '12px', color: 'rgba(250,247,244,0.7)', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                        <span style={{ opacity: 0.5 }}>📅</span>
+                                        <span>Available for meetings</span>
+                                    </div>
+                                )}
+                                <div style={{ fontFamily: sans, fontSize: '12px', color: 'rgba(250,247,244,0.5)', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    <span>✉</span>
+                                    <span>Via Paws messaging</span>
+                                </div>
+                            </div>
+
+                            {/* Divider */}
+                            <div style={{ height: '1px', background: 'rgba(250,247,244,0.08)', margin: '0 0 16px' }} />
+
+                            {/* Facts mini-table */}
+                            {cardRows.length > 0 && (
+                                <div style={{ border: '1px solid rgba(250,247,244,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                                    {cardRows.map(({ label, value }, i) => (
+                                        <div key={label} style={{ display: 'grid', gridTemplateColumns: '90px 1fr', borderBottom: i < cardRows.length - 1 ? '1px solid rgba(250,247,244,0.08)' : 'none' }}>
+                                            <div style={{ fontFamily: sans, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(250,247,244,0.4)', borderRight: '1px solid rgba(250,247,244,0.08)', padding: '10px 14px' }}>
+                                                {label}
+                                            </div>
+                                            <div style={{ fontFamily: sans, fontSize: '12px', color: '#FAF7F4', fontWeight: 500, padding: '10px 14px' }}>
+                                                {value}
+                                            </div>
+                                        </div>
                                     ))}
                                 </div>
                             )}
-
-                        </div>
-                    </div>
-                </div>
-
-                {/* Bottom Section */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-16">
-                    {/* Health and Story */}
-                    <div>
-                        <h2 className="text-xl font-bold mb-4">About my health</h2>
-                        <p className="text-gray-600 mb-8">
-                            {pet.health_status || "I am a healthy, happy pet. All my vaccinations are up to date. I need only standard routine checks with veterinarian once a year."}
-                        </p>
-
-                        <h2 className="text-xl font-bold mb-4">This is my story ...</h2>
-                        <p className="text-gray-600 mb-6">
-                            {pet.story || pet.description || `${pet.name} is a ${pet.age_category}, happy ${pet.type}. Looking for a loving forever home with someone who will give lots of love and care.`}
-                        </p>
-
-                        <div className="flex items-center gap-4">
-                            <span className="font-bold">Help me find home!</span>
-                            <span>Share my story:</span>
-                            <div className="flex gap-2">
-                                <button className="p-2 border rounded-full">
-                                    <Instagram className="h-5 w-5" />
-                                </button>
-                                <button className="p-2 border rounded-full">
-                                    <Twitter className="h-5 w-5" />
-                                </button>
-                                <button className="p-2 border rounded-full">
-                                    <Facebook className="h-5 w-5" />
-                                </button>
-                            </div>
                         </div>
                     </div>
 
-                    {/* Contact Information */}
-                    <div className="bg-gray-50 rounded-xl p-6 z-10">
-                        <div className="mb-6">
-                            <h3 className="text-lg font-bold mb-2">I am staying at:</h3>
-                            <p>{pet.location_address || `${pet.location_city}, ${pet.location_country}`}</p>
-                        </div>
+                </div>{/* end main grid */}
+            </div>{/* end inner */}
 
-                        <div className="mb-6">
-                            <h3 className="text-lg font-bold mb-2">Contact:</h3>
-                            <div className="flex items-center mb-2">
-                                <Mail className="h-5 w-5 mr-2 text-gray-500" />
-                                <span>{pet.shelter_contact_email || 'petshelter@example.com'}</span>
-                            </div>
-                            <div className="flex items-center">
-                                <Phone className="h-5 w-5 mr-2 text-gray-500" />
-                                <span>{pet.shelter_contact_phone || '041 891 7329'}</span>
-                            </div>
-                        </div>
-
-                        <div className="flex gap-4">
-                            <button
-                                onClick={() => setShowAdoptionForm(true)}
-                                className={`bg-tealcustom text-white px-6 py-3 rounded-md flex items-center ${
-                                    pet.adoption_status !== 'available' ? 'opacity-50 cursor-not-allowed' : 'hover:bg-teal-700'
-                                }`}
-                                disabled={pet.adoption_status !== 'available'}
-                            >
-                                {pet.adoption_status === 'available'
-                                ? 'Adopt me'
-                                : pet.adoption_status === 'adopted'
-                                ? 'Pet adopted'
-                                : 'Currently in adoption process'}
-                                <PawPrint className="ml-2 h-5 w-5" />
-                            </button>
-                            <button
-                                onClick={() => setShowQuestionForm(true)}
-                                className="bg-red-100 text-gray-800 px-6 py-3 rounded-md flex items-center"
-                            >
-                                Ask about me ?
-                                <MessageCircle className="ml-2 h-5 w-5" />
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Similar Pets Section */}
-                    {similarPets && similarPets.length > 0 && (
-                        <div className="mt-16">
-                            <h2 className="text-2xl font-bold mb-8">Other pets like {pet.name}</h2>
-                            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                                {similarPets.map((similarPet) => (
-                                    <PetCard
-                                        key={similarPet.id}
-                                        pet={similarPet}
-                                        showArrow={true}
-                                    />
-                                ))}
-
-                                {similarPets.length === 3 && (
-                                    <div className="bg-tealcustom rounded-xl overflow-hidden shadow-md text-white flex flex-col justify-center items-center p-8">
-                                        <div className="mb-4">
-                                            <PawPrint className="h-16 w-16" />
-                                        </div>
-                                        <p className="text-center text-lg font-medium">
-                                            {totalPets > similarPets.length 
-                                                ? `${totalPets - similarPets.length} more pets are waiting for you`
-                                                : 'More pets are waiting for you'}
-                                        </p>
-                                        <div className="mt-4 flex justify-end">
-                                            <button onClick={() => navigate('/pet-search')}>
-                                                <ArrowRight className="h-5 w-5"/>
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
-            </div>
-
-            {/* Adoption Form Modal */}
-            {showAdoptionForm && (
+            {/* ── ADOPTION FORM MODAL ───────────────────────── */}
+            {showAdoptForm && (
                 <UserAdoptionForm
                     pet={pet}
-                    onClose={() => setShowAdoptionForm(false)}
-                    onSuccess={(adoption) => {
-                        setShowAdoptionForm(false);
-                        setAdoptionSuccess(true);
-                        setTimeout(() => {
-                            setAdoptionSuccess(false);
-                            navigate('/pet-search');
-                        }, 1000); 
+                    onClose={() => setShowAdoptForm(false)}
+                    onSuccess={() => {
+                        setShowAdoptForm(false);
+                        setAdoptSuccess(true);
+                        setTimeout(() => setAdoptSuccess(false), 3500);
                     }}
                 />
             )}
 
-            {/* Success Message Toast */}
-            {adoptionSuccess && (
-                <div className="fixed inset-0 flex items-center justify-center z-50">
-                    <div className="bg-black bg-opacity-40 absolute inset-0 backdrop-blur-sm"></div>
-                    <div className="bg-green-100 border border-green-200 text-green-800 px-8 py-6 rounded-xl shadow-lg z-50 max-w-md mx-auto animate-fade-in-out">
-                        <div className="flex items-center">
-                            <Check className="h-6 w-6 mr-3 text-green-600" />
-                            <p className="text-lg font-medium">Your application has been submitted successfully!</p>
-                        </div>
-                    </div>
+            {/* ── SUCCESS TOAST ─────────────────────────────── */}
+            {adoptSuccess && (
+                <div style={{ position: 'fixed', bottom: '32px', left: '50%', transform: 'translateX(-50%)', zIndex: 200, background: '#2D1F14', color: '#FAF7F4', fontFamily: sans, fontSize: '13px', padding: '12px 24px', borderRadius: '100px', boxShadow: '0 4px 20px rgba(45,31,20,0.2)', whiteSpace: 'nowrap' }}>
+                    ✓ Application submitted successfully!
                 </div>
             )}
-
-            {/* Question Form Modal */}
-            {showQuestionForm && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-lg max-w-md w-full">
-                        <div className="border-b px-6 py-4 flex justify-between items-center">
-                            <h2 className="text-2xl font-bold">Ask about {pet.name}</h2>
-                            <button
-                                onClick={() => setShowQuestionForm(false)}
-                                className="text-gray-500 hover:text-gray-700"
-                            >
-                                <X className="h-6 w-6" />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleQuestionSubmit} className="p-6">
-                            {/* Success/Error Messages */}
-                            {questionSubmitStatus === 'success' && (
-                                <div className="mb-6 p-4 bg-green-100 text-green-700 rounded-lg">
-                                    Thank you for your question! We'll get back to you soon.
-                                </div>
-                            )}
-
-                            {questionSubmitStatus === 'error' && (
-                                <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-lg">
-                                    There was an error submitting your question. Please try again.
-                                </div>
-                            )}
-
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Your Name *</label>
-                                    <input
-                                        type="text"
-                                        name="name"
-                                        value={questionFormData.name}
-                                        onChange={handleQuestionInputChange}
-                                        className={`w-full px-4 py-2 border rounded-md ${
-                                            questionFormErrors.name ? 'border-red-500' : 'border-gray-300'
-                                        }`}
-                                        placeholder="Enter your name"
-                                    />
-                                    {questionFormErrors.name && (
-                                        <p className="text-red-500 text-sm mt-1">{questionFormErrors.name}</p>
-                                    )}
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Email *</label>
-                                    <input
-                                        type="email"
-                                        name="email"
-                                        value={questionFormData.email}
-                                        onChange={handleQuestionInputChange}
-                                        className={`w-full px-4 py-2 border rounded-md ${
-                                            questionFormErrors.email ? 'border-red-500' : 'border-gray-300'
-                                        }`}
-                                        placeholder="Enter your email"
-                                    />
-                                    {questionFormErrors.email && (
-                                        <p className="text-red-500 text-sm mt-1">{questionFormErrors.email}</p>
-                                    )}
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Question Type</label>
-                                    <select
-                                        name="questionType"
-                                        value={questionFormData.questionType}
-                                        onChange={handleQuestionInputChange}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-md"
-                                    >
-                                        <option value="">Select a topic</option>
-                                        <option value="health">Health & Medical</option>
-                                        <option value="behavior">Behavior & Personality</option>
-                                        <option value="history">Background & History</option>
-                                        <option value="care">Care Requirements</option>
-                                        <option value="other">Other</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Your Question *</label>
-                                    <textarea
-                                        name="question"
-                                        value={questionFormData.question}
-                                        onChange={handleQuestionInputChange}
-                                        rows="4"
-                                        className={`w-full px-4 py-2 border rounded-md ${
-                                            questionFormErrors.question ? 'border-red-500' : 'border-gray-300'
-                                        }`}
-                                        placeholder="What would you like to know about this pet?"
-                                    />
-                                    {questionFormErrors.question && (
-                                        <p className="text-red-500 text-sm mt-1">{questionFormErrors.question}</p>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="flex justify-end space-x-4 mt-6">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowQuestionForm(false)}
-                                    className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={questionSubmitStatus === 'submitting'}
-                                    className={`px-6 py-2 bg-tealcustom text-white rounded-md flex items-center ${
-                                        questionSubmitStatus === 'submitting' ? 'opacity-50 cursor-not-allowed' : 'hover:bg-teal-700'
-                                    }`}
-                                >
-                                    {questionSubmitStatus === 'submitting' ? (
-                                        <>Sending...</>
-                                    ) : (
-                                        <>
-                                            Send Question
-                                            <MessageCircle className="ml-2 h-4 w-4" />
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {/* Footer */}
-            <Footer />
         </div>
     );
 }
-
-export default PetDetailPage;

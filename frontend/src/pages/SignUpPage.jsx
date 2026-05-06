@@ -64,7 +64,7 @@ const SignUpPage = () => {
     };
 
     const handleFacebookLogin = () => {
-        toast("Facebook login coming soon!", { icon: "🚧" });
+        window.location.href = 'http://localhost:5000/api/auth/facebook';
     };
 
     const inputStyle = {

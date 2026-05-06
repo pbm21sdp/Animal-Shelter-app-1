@@ -5,7 +5,31 @@ import numpy as np
 from datetime import datetime, timedelta
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 import warnings
+import time
 warnings.filterwarnings('ignore')
+
+# CLIP availability check
+try:
+    import torch
+    from transformers import CLIPProcessor, CLIPModel
+    CLIP_AVAILABLE = True
+except ImportError:
+    CLIP_AVAILABLE = False
+    print("WARNING: CLIP not available. Install with: pip install torch transformers Pillow")
+
+# CLIP model — loaded lazily on first request
+clip_model = None
+clip_processor = None
+
+def load_clip():
+    global clip_model, clip_processor
+    if clip_model is None:
+        print("Loading CLIP model (first time — may take 1-2 minutes)...")
+        from transformers import CLIPProcessor, CLIPModel
+        clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+        clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+        print("CLIP model loaded successfully!")
+    return clip_model, clip_processor
 
 app = Flask(__name__)
 CORS(app)
@@ -363,6 +387,300 @@ def health():
         'service': 'ML Prediction Service',
         'version': '1.0.0'
     })
+
+# ── Animal Description Generator ──────────────────────────────────────────────
+
+class AnimalDescriptionGenerator:
+    def __init__(self):
+        self.templates = {
+            'opening': {
+                'found_street': [
+                    "Found wandering on the streets of {city}, this {size} {type} is now looking for a loving home.",
+                    "Spotted alone near {city}, this gentle {type} needs someone to give them a fresh start.",
+                    "Rescued from the streets of {city}, this {type} has shown incredible resilience and warmth.",
+                ],
+                'owner_surrender': [
+                    "Through no fault of their own, this {size} {type} needs a new family to call their own.",
+                    "This {type} is looking for a new home after their previous family could no longer care for them.",
+                ],
+                'rescued': [
+                    "After being rescued from a difficult situation, this brave {type} is ready for a safe home.",
+                    "This resilient {type} was rescued and is now ready to experience what a loving home feels like.",
+                ],
+                'default': [
+                    "This wonderful {size} {type} is currently looking for a forever home.",
+                    "Meet this lovely {type} who is ready to bring joy to a new family.",
+                ]
+            },
+            'health': {
+                'vaccinated': "They are fully vaccinated and in good health, ready for adoption.",
+                'partially_vaccinated': "Partially vaccinated and in good overall condition.",
+                'not_vaccinated': "They will need vaccinations upon adoption — a small investment for a lifetime of companionship.",
+                'unknown_health': "Their health status is being assessed by local volunteers.",
+                'urgent': "This animal needs urgent care and a loving home as soon as possible.",
+            },
+            'microchip': {
+                'yes': "Already microchipped for your peace of mind.",
+                'no': "Not yet microchipped, but this can be arranged.",
+                'unknown': "",
+            },
+            'neutered': {
+                'yes': "Neutered/spayed.",
+                'no': "Not yet neutered — this is recommended after adoption.",
+                'unknown': "",
+            },
+            'age': {
+                'Under 3 months': "At just a few months old, they have their whole life ahead of them and will adapt quickly to a new home.",
+                '3-12 months': "Still young and full of energy, they are at the perfect age to bond with a new family.",
+                '1-3 years': "At a lovely young adult age, they have the perfect balance of playfulness and calm.",
+                '3-7 years': "A mature and settled companion, they are calm, gentle and fully developed in personality.",
+                'Over 7 years': "A wise and gentle soul, older animals make incredibly loyal and calm companions.",
+                'Unknown': "",
+            },
+            'closing': [
+                "If you can offer this animal a loving home, please reach out through Paws.",
+                "Interested in giving them a forever home? Contact the uploader through Paws today.",
+                "Could you be the family they have been waiting for? Reach out through Paws.",
+                "Every animal deserves a front page — and a loving home. Contact us today.",
+            ]
+        }
+
+    def calculate_urgency_score(self, data):
+        score = 0
+        if data.get('status') == 'Needs urgent care':
+            score += 3
+        if data.get('vaccinated') in ['No', 'Unknown']:
+            score += 1
+        if data.get('age') == 'Under 3 months':
+            score += 2
+        if data.get('microchip') == 'No':
+            score += 1
+        return score
+
+    def select_template(self, templates_list, seed=None):
+        import random
+        if seed:
+            random.seed(hash(seed) % 1000)
+        return random.choice(templates_list)
+
+    def generate(self, data):
+        import random
+        animal_type = (data.get('type') or 'animal').lower()
+        size = (data.get('size') or '').lower()
+        found_how = data.get('foundHow') or 'default'
+        vaccinated = data.get('vaccinated') or 'unknown'
+        microchip = data.get('microchip') or 'unknown'
+        neutered = data.get('neutered') or 'unknown'
+        age = data.get('age') or 'Unknown'
+        status = data.get('status') or ''
+
+        # Time-based seed for variation on every call
+        random.seed(int(time.time() * 1000) % 10000)
+
+        found_key = 'default'
+        if 'street' in found_how.lower() or 'stray' in found_how.lower():
+            found_key = 'found_street'
+        elif 'surrender' in found_how.lower() or 'owner' in found_how.lower():
+            found_key = 'owner_surrender'
+        elif 'rescue' in found_how.lower():
+            found_key = 'rescued'
+
+        size_map = {
+            'very small (under 5kg)': 'very small', 'small (5-10kg)': 'small',
+            'medium (10-25kg)': 'medium-sized', 'large (over 25kg)': 'large', 'unknown': ''
+        }
+        size_str = size_map.get(size, size)
+
+        opening_tpl = random.choice(self.templates['opening'].get(found_key, self.templates['opening']['default']))
+        opening = opening_tpl.format(type=animal_type, size=size_str, city='Timișoara').strip()
+        opening = ' '.join(opening.split())
+
+        parts = [opening]
+
+        # Age sentence
+        age_map = {
+            'Under 3 months': 'Just a few months old, this little one will adapt quickly to a loving home.',
+            '3-12 months':    'Still young at under a year old, full of energy and ready to bond.',
+            '1-3 years':      f'At {age.lower()}, they have the perfect balance of playfulness and calm.',
+            '3-7 years':      f'A settled adult at {age.lower()}, calm and fully developed in character.',
+            'Over 7 years':   'A wise and gentle soul — older animals make incredibly loyal companions.',
+        }
+        if age in age_map:
+            parts.append(age_map[age])
+
+        # Health sentence — combine vaccinated + neutered + microchip
+        health_parts = []
+        if vaccinated == 'Yes, fully':
+            health_parts.append('fully vaccinated')
+        elif vaccinated == 'Partially':
+            health_parts.append('partially vaccinated')
+        elif vaccinated == 'No':
+            health_parts.append('not yet vaccinated (will need vaccines upon adoption)')
+
+        if neutered == 'Yes':
+            health_parts.append('neutered/spayed')
+        elif neutered == 'No':
+            health_parts.append('not yet neutered')
+
+        if microchip == 'Yes':
+            health_parts.append('microchipped')
+        elif microchip == 'No':
+            health_parts.append('not yet microchipped')
+
+        if health_parts:
+            parts.append(f'Health status: {", ".join(health_parts)}.')
+        else:
+            parts.append('Health status is currently being assessed by volunteers.')
+
+        if status == 'Needs urgent care':
+            parts.append('This animal needs urgent care and a loving home as soon as possible — please reach out today.')
+
+        parts.append(random.choice(self.templates['closing']))
+
+        description = ' '.join(parts)
+        urgency = self.calculate_urgency_score(data)
+        return description, urgency
+
+description_generator = AnimalDescriptionGenerator()
+
+@app.route('/api/ml/generate-description', methods=['POST'])
+def generate_description():
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+
+        description, urgency_score = description_generator.generate(data)
+
+        return jsonify({
+            'description': description,
+            'urgency_score': urgency_score,
+            'model': 'template-nlp-v1'
+        })
+    except Exception as e:
+        print(f"Description generation error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/ml/generate-description/health', methods=['GET'])
+def description_health():
+    return jsonify({'status': 'ok', 'endpoint': 'generate-description'})
+
+@app.route('/api/ml/analyse-image', methods=['POST'])
+def analyse_image():
+    if not CLIP_AVAILABLE:
+        return jsonify({'error': 'CLIP not installed. Run: pip install torch transformers Pillow'}), 503
+    try:
+        import torch
+        from PIL import Image
+        import base64
+        import io
+
+        data = request.get_json()
+        if not data or 'image' not in data:
+            return jsonify({'error': 'No image provided'}), 400
+
+        image_data = data['image']
+        if ',' in image_data:
+            image_data = image_data.split(',')[1]
+
+        image_bytes = base64.b64decode(image_data)
+        image = Image.open(io.BytesIO(image_bytes)).convert('RGB')
+
+        model, processor = load_clip()
+        results = {}
+
+        # 1. Species
+        species_options = ["a photo of a dog", "a photo of a cat", "a photo of a puppy", "a photo of a kitten", "a photo of a rabbit", "a photo of another animal"]
+        inputs = processor(text=species_options, images=image, return_tensors="pt", padding=True)
+        with torch.no_grad():
+            outputs = model(**inputs)
+        probs = outputs.logits_per_image.softmax(dim=1)[0]
+        top_idx = probs.argmax().item()
+        species = species_options[top_idx]
+        results['species'] = {'value': species, 'confidence': round(probs[top_idx].item() * 100, 1)}
+
+        is_dog = 'dog' in species or 'puppy' in species
+        is_cat = 'cat' in species or 'kitten' in species
+
+        # 2. Breed
+        if is_dog:
+            breed_options = ["a golden retriever", "a german shepherd", "a labrador retriever", "a french bulldog", "a poodle", "a siberian husky", "a beagle", "a chihuahua", "a dachshund", "a pug", "a rottweiler", "a border collie", "a corgi", "a pitbull", "a mixed breed dog", "a mutt"]
+        elif is_cat:
+            breed_options = ["a persian cat", "a siamese cat", "a maine coon cat", "a british shorthair cat", "a bengal cat", "a ragdoll cat", "a tabby cat", "a domestic shorthair cat", "a mixed breed cat"]
+        else:
+            breed_options = []
+
+        if breed_options:
+            inputs = processor(text=breed_options, images=image, return_tensors="pt", padding=True)
+            with torch.no_grad():
+                outputs = model(**inputs)
+            probs = outputs.logits_per_image.softmax(dim=1)[0]
+            top_idx = probs.argmax().item()
+            breed_conf = probs[top_idx].item() * 100
+            if breed_conf > 30:
+                results['breed'] = {'value': breed_options[top_idx], 'confidence': round(breed_conf, 1)}
+
+        # 3. Color
+        color_options = ["a brown animal", "a white animal", "a black animal", "a gray animal", "an orange animal", "a golden animal", "a cream colored animal", "a black and white animal", "a multicolored animal"]
+        inputs = processor(text=color_options, images=image, return_tensors="pt", padding=True)
+        with torch.no_grad():
+            outputs = model(**inputs)
+        probs = outputs.logits_per_image.softmax(dim=1)[0]
+        top_idx = probs.argmax().item()
+        results['color'] = {'value': color_options[top_idx], 'confidence': round(probs[top_idx].item() * 100, 1)}
+
+        # 4. Size
+        size_options = ["a very small animal under 5kg", "a small animal 5 to 10kg", "a medium sized animal 10 to 25kg", "a large animal over 25kg"]
+        inputs = processor(text=size_options, images=image, return_tensors="pt", padding=True)
+        with torch.no_grad():
+            outputs = model(**inputs)
+        probs = outputs.logits_per_image.softmax(dim=1)[0]
+        top_idx = probs.argmax().item()
+        size_map_result = {0: 'Very small (under 5kg)', 1: 'Small (5-10kg)', 2: 'Medium (10-25kg)', 3: 'Large (over 25kg)'}
+        results['size'] = {'value': size_map_result[top_idx], 'confidence': round(probs[top_idx].item() * 100, 1)}
+
+        # 5. Age
+        age_options = ["a very young puppy or kitten under 3 months", "a young animal 3 to 12 months old", "a young adult animal 1 to 3 years old", "a mature adult animal 3 to 7 years old", "an older senior animal over 7 years old"]
+        inputs = processor(text=age_options, images=image, return_tensors="pt", padding=True)
+        with torch.no_grad():
+            outputs = model(**inputs)
+        probs = outputs.logits_per_image.softmax(dim=1)[0]
+        top_idx = probs.argmax().item()
+        age_map_result = {0: 'Under 3 months', 1: '3-12 months', 2: '1-3 years', 3: '3-7 years', 4: 'Over 7 years'}
+        results['age'] = {'value': age_map_result[top_idx], 'confidence': round(probs[top_idx].item() * 100, 1)}
+
+        # 6. Fur
+        fur_options = ["a short haired animal", "a medium haired animal", "a long haired fluffy animal", "a hairless animal"]
+        inputs = processor(text=fur_options, images=image, return_tensors="pt", padding=True)
+        with torch.no_grad():
+            outputs = model(**inputs)
+        probs = outputs.logits_per_image.softmax(dim=1)[0]
+        top_idx = probs.argmax().item()
+        fur_labels = ['Short hair', 'Medium hair', 'Long hair', 'Hairless']
+        results['fur'] = {'value': fur_labels[top_idx], 'confidence': round(probs[top_idx].item() * 100, 1)}
+
+        type_str = 'dog' if is_dog else ('cat' if is_cat else 'other')
+
+        return jsonify({
+            'success': True,
+            'results': results,
+            'summary': {
+                'type':               type_str,
+                'breed':              results.get('breed', {}).get('value', '').replace('a ', '').replace('an ', ''),
+                'color':              results.get('color', {}).get('value', '').replace('a ', '').replace('an ', ''),
+                'size':               results.get('size', {}).get('value', ''),
+                'age':                results.get('age', {}).get('value', ''),
+                'fur':                results.get('fur', {}).get('value', ''),
+                'species_confidence': results.get('species', {}).get('confidence', 0),
+            }
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     print("\n" + "="*60)

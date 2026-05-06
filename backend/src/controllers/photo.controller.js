@@ -1,5 +1,6 @@
 // controllers/photo.controller.js
 import { pool } from '../config/database/connectPostgresDB.js';
+import sharp from 'sharp';
 
 // Upload a photo for a pet
 export const uploadPhoto = async (req, res) => {
@@ -7,11 +8,21 @@ export const uploadPhoto = async (req, res) => {
         const petId = req.params.id;
 
         // Check if pet exists
-        const petResult = await pool.query('SELECT * FROM pets WHERE id = $1', [petId]);
+        const petResult = await pool.query('SELECT id, uploader_id FROM pets WHERE id = $1', [petId]);
         if (petResult.rows.length === 0) {
             return res.status(404).json({
                 success: false,
                 message: 'Pet not found'
+            });
+        }
+
+        // Only the uploader or an admin can upload photos for this pet
+        const pet = petResult.rows[0];
+        const isOwner = pet.uploader_id && pet.uploader_id === req.userId;
+        if (!isOwner && !req.isAdmin) {
+            return res.status(403).json({
+                success: false,
+                message: 'Forbidden — only the uploader or an admin can add photos to this listing'
             });
         }
 
@@ -22,8 +33,14 @@ export const uploadPhoto = async (req, res) => {
             });
         }
 
+        // Resize and normalize to JPEG before storing
+        const resizedBuffer = await sharp(req.file.buffer)
+            .resize(1200, 900, { fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 82 })
+            .toBuffer();
+
         // Check if this is the first photo (make it primary if so)
-        const existingPhotos = await pool.query('SELECT * FROM pet_photos WHERE pet_id = $1', [petId]);
+        const existingPhotos = await pool.query('SELECT id FROM pet_photos WHERE pet_id = $1', [petId]);
         const isPrimary = existingPhotos.rows.length === 0;
 
         // Insert binary data directly to PostgreSQL
@@ -35,9 +52,9 @@ export const uploadPhoto = async (req, res) => {
 
         const result = await pool.query(query, [
             petId,
-            req.file.buffer,  // Binary data
+            resizedBuffer,
             req.file.originalname,
-            req.file.mimetype,
+            'image/jpeg',   // always JPEG after sharp conversion
             isPrimary
         ]);
 
@@ -241,7 +258,8 @@ export const getPhotoById = async (req, res) => {
         // Set appropriate headers
         res.set({
             'Content-Type': contentType,
-            'Content-Length': photo.photo_data.length || 0
+            'Content-Length': photo.photo_data.length || 0,
+            'Cache-Control': 'public, max-age=31536000, immutable', // photos never change in-place
         });
 
         // Send the binary data directly

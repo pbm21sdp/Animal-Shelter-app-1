@@ -23,6 +23,8 @@ import userRoutes from './routes/user.routes.js';
 import messageRoutes from './routes/message.routes.js';
 import scheduledMeetingRoutes from './routes/scheduledMeeting.routes.js';
 import predictionRoutes from './routes/predictions.routes.js';
+import animalsRoutes from './routes/animals.routes.js';
+import aiRoutes from './routes/ai.routes.js';
 
 // Load .env only in non-Docker environment
 if (!process.env.DOCKER_ENV) {
@@ -41,7 +43,9 @@ const __dirname = path.dirname(__filename);
 // ============================================
 
 // 1. Security headers
-app.use(helmet());
+app.use(helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' }
+}));
 
 // 2. CORS
 app.use(cors({
@@ -79,7 +83,11 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // 8. Static files
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+console.log('Serving uploads from:', path.join(__dirname, '..', 'uploads'));
+app.use('/uploads', (req, res, next) => {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+}, express.static(path.join(__dirname, '..', 'uploads')));
 
 // ============================================
 // SWAGGER DOCUMENTATION
@@ -107,6 +115,8 @@ app.use('/api/users', userRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/meetings', scheduledMeetingRoutes);
 app.use('/api/predictions', predictionRoutes);
+app.use('/api/animals', animalsRoutes);
+app.use('/api/ai', aiRoutes);
 app.use("/api/auth", authRoutes);
 
 // Root route
@@ -122,8 +132,12 @@ app.use((err, req, res, next) => {
     res.status(500).send('Server error!');
 });
 
-app.listen(PORT, () => {
-    connectPostgresDB();
-    connectMongoDB();
-    console.log(`Server running on port ${PORT}`);
-});
+async function start() {
+    await connectPostgresDB();
+    await connectMongoDB();
+    app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+    });
+}
+
+start();

@@ -11,23 +11,52 @@ import {
     uploadAvatar,
     upload,
     getUserMessages,
-    getUserAdoptionRequests
+    getUserAdoptionRequests,
+    // Profile page
+    getPublicUserProfile,
+    updateMe,
+    getUserPets,
+    getUserAdoptedPets,
+    getUserSavedPets,
+    savePet,
+    unsavePet,
 } from '../controllers/user.controller.js';
 
 const router = express.Router();
 
-// User routes (authenticated)
+// ── Authenticated user's own profile ─────────────────────────────────────────
 router.get('/profile', verifyToken, getUserProfile);
 router.put('/profile', verifyToken, updateUserProfile);
-router.post('/avatar', verifyToken, upload.single('avatar'), uploadAvatar);
+router.post('/avatar', verifyToken, (req, res, next) => {
+    console.log('Avatar upload request received');
+    console.log('Content-Type:', req.headers['content-type']);
+    console.log('User ID:', req.userId);
+    next();
+}, upload.single('avatar'), (req, res, next) => {
+    console.log('After multer - req.file:', req.file);
+    next();
+}, uploadAvatar);
 
-// User messages and adoption requests
-router.get('/messages', verifyToken, getUserMessages);
+// ── PATCH /me — update bio / city / name (must be before /:id routes) ────────
+router.patch('/me', verifyToken, updateMe);
+
+// ── Saved animals — /me routes before /:id ───────────────────────────────────
+router.post('/me/saved/:petId',   verifyToken, savePet);
+router.delete('/me/saved/:petId', verifyToken, unsavePet);
+
+// ── Legacy message / adoption request helpers ────────────────────────────────
+router.get('/messages',  verifyToken, getUserMessages);
 router.get('/adoptions', verifyToken, getUserAdoptionRequests);
 
-// Admin routes
-router.get('/admin', verifyToken, isAdmin, getAllUsers);
-router.get('/admin/:userId', verifyToken, isAdmin, getUserById);
+// ── Public profile + sub-resources ───────────────────────────────────────────
+router.get('/:id/profile',   getPublicUserProfile);          // no auth — public
+router.get('/:id/pets',      verifyToken, getUserPets);
+router.get('/:id/adoptions', verifyToken, getUserAdoptedPets);
+router.get('/:id/saved',     verifyToken, getUserSavedPets);
+
+// ── Admin routes ──────────────────────────────────────────────────────────────
+router.get('/admin',                      verifyToken, isAdmin, getAllUsers);
+router.get('/admin/:userId',              verifyToken, isAdmin, getUserById);
 router.put('/admin/:userId/toggle-admin', verifyToken, isAdmin, updateUserAdminStatus);
 
 export default router;

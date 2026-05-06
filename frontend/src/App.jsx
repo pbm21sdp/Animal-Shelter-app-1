@@ -16,12 +16,22 @@ import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
 import AdoptionProcessPage from "./pages/AdoptionProcessPage";
 import AdoptionRequirementsPage from "./pages/AdoptionRequirementsPage";
 import AdoptionFAQPage from './pages/AdoptionFAQPage';
-import DonationSuccessPage from './pages/DonationSuccessPage'; 
+import DonationSuccessPage from './pages/DonationSuccessPage';
 import UserProfilePage from './pages/UserProfilePage';
+import ProfilePage from './pages/ProfilePage';
 import Team from './pages/Team';
 import Partnerships from './pages/Partnerships';
 import TermsOfService from './pages/TermsOfService';
 import OAuthCallbackPage from './pages/OAuthCallbackPage';
+import AuthCallbackPage from './pages/AuthCallbackPage';
+import AnimalsPage from './pages/AnimalsPage';
+import MapPage from './pages/MapPage';
+import MyAnimalsPage from './pages/MyAnimalsPage';
+import AboutPage from './pages/AboutPage';
+import HowToAdoptPage from './pages/HowToAdoptPage';
+import GuidePage from './pages/GuidePage';
+import AddAnimalPage from './pages/AddAnimalPage';
+import EditAnimalPage from './pages/EditAnimalPage';
 
 // Protect routes that require authentication
 const ProtectedRoute = ({children}) => {
@@ -155,6 +165,17 @@ function App() {
                 />
                 <Route path="/profile" element={
                     <ProtectedRoute>
+                        <ProfilePage />
+                    </ProtectedRoute>
+                }/>
+                <Route path="/profile/:userId" element={
+                    <ProtectedRoute>
+                        <ProfilePage />
+                    </ProtectedRoute>
+                }/>
+                {/* Legacy profile page (messages, meetings, adoptions tabs) */}
+                <Route path="/my-profile" element={
+                    <ProtectedRoute>
                         <UserProfilePage />
                     </ProtectedRoute>
                 }
@@ -163,22 +184,63 @@ function App() {
                     <ProtectedRoute>
                         <Team />
                     </ProtectedRoute>
-                } 
+                }
                 />
                 <Route path="/partnerships" element={
                     <ProtectedRoute>
                         <Partnerships />
                     </ProtectedRoute>
-                } 
+                }
                 />
                 <Route path="/terms" element={
                     <ProtectedRoute>
                         <TermsOfService />
                     </ProtectedRoute>
-                } 
+                }
                 />
 
+                <Route path="/animals" element={
+                    <ProtectedRoute>
+                        <AnimalsPage />
+                    </ProtectedRoute>
+                }/>
+                <Route path="/map" element={
+                    <ProtectedRoute>
+                        <MapPage />
+                    </ProtectedRoute>
+                }/>
+                <Route path="/my-animals" element={
+                    <ProtectedRoute>
+                        <MyAnimalsPage />
+                    </ProtectedRoute>
+                }/>
+                <Route path="/about" element={
+                    <ProtectedRoute>
+                        <AboutPage />
+                    </ProtectedRoute>
+                }/>
+                <Route path="/how-to-adopt" element={
+                    <ProtectedRoute>
+                        <HowToAdoptPage />
+                    </ProtectedRoute>
+                }/>
+                <Route path="/guide" element={
+                    <ProtectedRoute>
+                        <GuidePage />
+                    </ProtectedRoute>
+                }/>
+                <Route path="/add-animal" element={
+                    <ProtectedRoute>
+                        <AddAnimalPage />
+                    </ProtectedRoute>
+                }/>
+                <Route path="/pet/:id/edit" element={
+                    <ProtectedRoute>
+                        <EditAnimalPage />
+                    </ProtectedRoute>
+                }/>
                 <Route path="/oauth-callback" element={<OAuthCallbackPage />} />
+                <Route path="/auth/callback" element={<AuthCallbackPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
             <Toaster/>

@@ -11,7 +11,8 @@ import {
     verifyDonation,
     updateDonation,
     deleteDonation,
-    cleanupAbandonedDonationsTest
+    cleanupAbandonedDonationsTest,
+    createDonationSession,
 } from '../controllers/donation.controller.js';
 
 const router = express.Router();
@@ -20,6 +21,7 @@ const router = express.Router();
 router.post('/webhook', handleStripeWebhook);
 
 // User donation routes
+router.post('/create-session', verifyToken, createDonationSession);
 router.post('/create-checkout', verifyToken, createCheckoutSession);
 router.get('/user', verifyToken, getUserDonations);
 router.get('/verify/:sessionId', verifyToken, verifyDonation);

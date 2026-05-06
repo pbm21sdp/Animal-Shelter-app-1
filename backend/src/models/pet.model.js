@@ -7,7 +7,12 @@ export const PetModel = {
         try {
             let query = `
                 SELECT p.*,
-                       json_agg(DISTINCT pp.*) FILTER (WHERE pp.id IS NOT NULL) as photos,
+                       json_agg(json_build_object(
+                           'id', pp.id, 'pet_id', pp.pet_id,
+                           'photo_name', pp.photo_name, 'content_type', pp.content_type,
+                           'photo_url', pp.photo_url, 'is_primary', pp.is_primary,
+                           'created_at', pp.created_at
+                       )) FILTER (WHERE pp.id IS NOT NULL) as photos,
                        json_agg(DISTINCT pt.trait) FILTER (WHERE pt.id IS NOT NULL) as traits
                 FROM pets p
                          LEFT JOIN pet_photos pp ON p.id = pp.pet_id
@@ -22,6 +27,13 @@ export const PetModel = {
             if (filters.is_available !== undefined) {
                 query += ` AND p.is_available = $${paramCount}`;
                 values.push(filters.is_available);
+                paramCount++;
+            }
+
+            // Optional filter: ?adopted=true|false
+            if (filters.is_adopted !== undefined) {
+                query += ` AND p.is_adopted = $${paramCount}`;
+                values.push(filters.is_adopted);
                 paramCount++;
             }
 
@@ -40,6 +52,12 @@ export const PetModel = {
             if (filters.zipCode) {
                 query += ` AND p.zip_code = $${paramCount}`;
                 values.push(filters.zipCode);
+                paramCount++;
+            }
+
+            if (filters.uploader_id) {
+                query += ` AND p.uploader_id = $${paramCount}`;
+                values.push(filters.uploader_id);
                 paramCount++;
             }
 
@@ -62,7 +80,12 @@ export const PetModel = {
 
             let query = `
                 SELECT p.*,
-                       json_agg(DISTINCT pp.*) FILTER (WHERE pp.id IS NOT NULL) as photos,
+                       json_agg(json_build_object(
+                           'id', pp.id, 'pet_id', pp.pet_id,
+                           'photo_name', pp.photo_name, 'content_type', pp.content_type,
+                           'photo_url', pp.photo_url, 'is_primary', pp.is_primary,
+                           'created_at', pp.created_at
+                       )) FILTER (WHERE pp.id IS NOT NULL) as photos,
                        json_agg(DISTINCT pt.trait) FILTER (WHERE pt.id IS NOT NULL) as traits
                 FROM pets p
                          LEFT JOIN pet_photos pp ON p.id = pp.pet_id
@@ -165,8 +188,13 @@ export const PetModel = {
         try {
             const query = `
                 SELECT p.*,
-                       json_agg(DISTINCT pp.*) FILTER (WHERE pp.id IS NOT NULL) as photos,
-                    json_agg(DISTINCT pt.trait) FILTER (WHERE pt.id IS NOT NULL) as traits
+                       json_agg(json_build_object(
+                           'id', pp.id, 'pet_id', pp.pet_id,
+                           'photo_name', pp.photo_name, 'content_type', pp.content_type,
+                           'photo_url', pp.photo_url, 'is_primary', pp.is_primary,
+                           'created_at', pp.created_at
+                       )) FILTER (WHERE pp.id IS NOT NULL) as photos,
+                       json_agg(DISTINCT pt.trait) FILTER (WHERE pt.id IS NOT NULL) as traits
                 FROM pets p
                          LEFT JOIN pet_photos pp ON p.id = pp.pet_id
                          LEFT JOIN pet_traits pt ON p.id = pt.pet_id
@@ -192,7 +220,12 @@ export const PetModel = {
                     WHERE id = $1
                 )
                 SELECT p.*,
-                       json_agg(DISTINCT pp.*) FILTER (WHERE pp.id IS NOT NULL) as photos
+                       json_agg(json_build_object(
+                           'id', pp.id, 'pet_id', pp.pet_id,
+                           'photo_name', pp.photo_name, 'content_type', pp.content_type,
+                           'photo_url', pp.photo_url, 'is_primary', pp.is_primary,
+                           'created_at', pp.created_at
+                       )) FILTER (WHERE pp.id IS NOT NULL) as photos
                 FROM pets p
                          LEFT JOIN pet_photos pp ON p.id = pp.pet_id
                 WHERE p.is_available = true
@@ -221,7 +254,8 @@ export const PetModel = {
                 name, type, breed, age_category, gender, size, color, coat,
                 fee, description, health_status, story, location_address,
                 location_city, location_country, shelter_contact_email,
-                shelter_contact_phone, traits, photos, zip_code // Added zip_code
+                shelter_contact_phone, traits, photos, zip_code,
+                uploader_id // MongoDB user _id of the person creating this listing
             } = petData;
 
             // Insert pet
@@ -230,8 +264,8 @@ export const PetModel = {
                     name, type, breed, age_category, gender, size, color, coat,
                     fee, description, health_status, story, location_address,
                     location_city, location_country, shelter_contact_email,
-                    shelter_contact_phone, zip_code
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+                    shelter_contact_phone, zip_code, uploader_id
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
                     RETURNING *
             `;
 
@@ -239,7 +273,7 @@ export const PetModel = {
                 name, type, breed, age_category, gender, size, color, coat,
                 fee, description, health_status, story, location_address,
                 location_city, location_country, shelter_contact_email,
-                shelter_contact_phone, zip_code
+                shelter_contact_phone, zip_code, uploader_id || null
             ];
 
             const petResult = await client.query(petQuery, petValues);
@@ -457,6 +491,44 @@ export const PetModel = {
             }];
         }
     },
+    // Mark a pet as community-adopted (uploader confirms it found a home).
+    // adoptedBy: MongoDB user _id string of the user triggering the action.
+    adoptPet: async (id, adoptedBy = null) => {
+        try {
+            const query = `
+                UPDATE pets
+                SET is_adopted = TRUE,
+                    adopted_at = NOW(),
+                    adopted_by = $2,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = $1
+                RETURNING *
+            `;
+            const result = await pool.query(query, [id, adoptedBy]);
+            return result.rows[0];
+        } catch (error) {
+            console.error('Error in PetModel.adoptPet:', error);
+            throw error;
+        }
+    },
+
+    // Reverse a community-adopted mark (uploader correction)
+    unadoptPet: async (id) => {
+        try {
+            const query = `
+                UPDATE pets
+                SET is_adopted = FALSE, adopted_at = NULL, updated_at = CURRENT_TIMESTAMP
+                WHERE id = $1
+                RETURNING *
+            `;
+            const result = await pool.query(query, [id]);
+            return result.rows[0];
+        } catch (error) {
+            console.error('Error in PetModel.unadoptPet:', error);
+            throw error;
+        }
+    },
+
     updateAdoptionStatus: async (id, adoptionStatus) => {
         try {
             // Update both adoption_status and is_available fields

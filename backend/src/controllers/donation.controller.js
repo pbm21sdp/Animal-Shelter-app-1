@@ -502,3 +502,15 @@ export const deleteDonation = async (req, res) => {
         });
     }
 };
+
+// ─── POST /api/donations/create-session ──────────────────────────────────────
+// TODO: implement Stripe checkout session when STRIPE_SECRET_KEY is added to .env
+export const createDonationSession = async (req, res) => {
+    const { amount, currency, organizationName } = req.body;
+    res.status(200).json({
+        message: 'Stripe not yet configured',
+        placeholder: true,
+        amount,
+        organization: organizationName,
+    });
+};

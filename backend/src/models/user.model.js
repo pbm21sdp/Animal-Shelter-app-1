@@ -30,6 +30,16 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    bio: {
+        type: String,
+        default: null,
+        maxlength: 500,
+    },
+    city: {
+        type: String,
+        default: null,
+        maxlength: 100,
+    },
     resetPasswordToken: String,
     resetPasswordExpiresAt: Date,
     verificationToken: String,

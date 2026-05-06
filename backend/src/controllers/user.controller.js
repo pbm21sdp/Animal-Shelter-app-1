@@ -1,5 +1,6 @@
 // controllers/user.controller.js
 import { User } from '../models/user.model.js';
+import { pool } from '../config/database/connectPostgresDB.js';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -8,7 +9,7 @@ import { fileURLToPath } from 'url';
 // Get directory name properly with ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const uploadsDir = path.join(__dirname, '..', 'uploads');
+const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
 
 // Configure multer for avatar uploads
 const storage = multer.diskStorage({
@@ -20,9 +21,10 @@ const storage = multer.diskStorage({
         cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, `avatar-${req.userId}-${uniqueSuffix}${path.extname(file.originalname)}`);
-    }
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const safeUserId = (req.userId || 'user').toString().replace(/[^a-zA-Z0-9]/g, '');
+    cb(null, `avatar-${safeUserId}-${uniqueSuffix}${path.extname(file.originalname)}`);
+} 
 });
 
 const fileFilter = (req, file, cb) => {
@@ -295,6 +297,197 @@ export const updateUserAdminStatus = async (req, res) => {
         });
     } catch (error) {
         console.error('Error in updateUserAdminStatus:', error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Profile page endpoints
+// ─────────────────────────────────────────────────────────────────────────────
+
+// GET /api/users/:id/profile — public profile with pet stats
+export const getPublicUserProfile = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+            return res.status(400).json({ success: false, message: 'Invalid user ID' });
+        }
+
+        const user = await User.findById(id).select('name avatar bio city createdAt');
+        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+        // Aggregate pet stats from PostgreSQL
+        const statsResult = await pool.query(
+            `SELECT
+                COUNT(*) AS uploads_count,
+                COUNT(CASE WHEN is_adopted = true THEN 1 END) AS adopted_count
+             FROM pets
+             WHERE uploader_id = $1`,
+            [id]
+        );
+
+        const uploadsCount = parseInt(statsResult.rows[0].uploads_count) || 0;
+        const adoptedCount = parseInt(statsResult.rows[0].adopted_count) || 0;
+        const successRate  = uploadsCount > 0
+            ? Math.round((adoptedCount / uploadsCount) * 100)
+            : 0;
+
+        res.status(200).json({
+            success: true,
+            profile: {
+                id:            user._id,
+                name:          user.name,
+                avatar:        user.avatar,
+                bio:           user.bio,
+                city:          user.city,
+                createdAt:     user.createdAt,
+                uploads_count: uploadsCount,
+                adopted_count: adoptedCount,
+                success_rate:  successRate,
+            },
+        });
+    } catch (error) {
+        console.error('Error in getPublicUserProfile:', error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+// PATCH /api/users/me — update bio, city, name for the authenticated user
+export const updateMe = async (req, res) => {
+    try {
+        const { bio, city, name } = req.body;
+
+        const user = await User.findById(req.userId);
+        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+        if (bio  !== undefined) user.bio  = bio;
+        if (city !== undefined) user.city = city;
+        if (name !== undefined) user.name = name;
+
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'Profile updated',
+            user: {
+                id:   user._id,
+                name: user.name,
+                bio:  user.bio,
+                city: user.city,
+            },
+        });
+    } catch (error) {
+        console.error('Error in updateMe:', error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+// GET /api/users/:id/pets — pets uploaded by this user (uploader_id = id)
+export const getUserPets = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const result = await pool.query(
+            `SELECT p.id, p.name, p.type, p.breed, p.age_category,
+                    p.adoption_status, p.is_adopted, p.adopted_at,
+                    p.location_city, p.created_at,
+                    pp.id AS primary_photo_id
+             FROM pets p
+             LEFT JOIN pet_photos pp ON pp.pet_id = p.id AND pp.is_primary = true
+             WHERE p.uploader_id = $1
+             ORDER BY p.created_at DESC`,
+            [id]
+        );
+
+        res.status(200).json({ success: true, pets: result.rows });
+    } catch (error) {
+        console.error('Error in getUserPets:', error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+// GET /api/users/:id/adoptions — pets this user marked as adopted (adopted_by = id)
+export const getUserAdoptedPets = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const result = await pool.query(
+            `SELECT p.id, p.name, p.type, p.breed,
+                    p.adoption_status, p.is_adopted, p.adopted_at,
+                    p.location_city, p.created_at, p.uploader_id,
+                    pp.id AS primary_photo_id
+             FROM pets p
+             LEFT JOIN pet_photos pp ON pp.pet_id = p.id AND pp.is_primary = true
+             WHERE p.adopted_by = $1
+             ORDER BY p.adopted_at DESC NULLS LAST`,
+            [id]
+        );
+
+        res.status(200).json({ success: true, pets: result.rows });
+    } catch (error) {
+        console.error('Error in getUserAdoptedPets:', error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+// GET /api/users/:id/saved — animals saved/bookmarked by this user
+export const getUserSavedPets = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const result = await pool.query(
+            `SELECT p.id, p.name, p.type, p.breed, p.age_category,
+                    p.is_adopted, p.location_city, p.created_at,
+                    sa.created_at AS saved_at,
+                    pp.id AS primary_photo_id
+             FROM saved_animals sa
+             JOIN  pets p ON p.id = sa.pet_id
+             LEFT JOIN pet_photos pp ON pp.pet_id = p.id AND pp.is_primary = true
+             WHERE sa.user_id = $1
+             ORDER BY sa.created_at DESC`,
+            [id]
+        );
+
+        res.status(200).json({ success: true, pets: result.rows });
+    } catch (error) {
+        console.error('Error in getUserSavedPets:', error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+// POST /api/users/me/saved/:petId — save/bookmark an animal
+export const savePet = async (req, res) => {
+    try {
+        const { petId } = req.params;
+
+        await pool.query(
+            `INSERT INTO saved_animals (user_id, pet_id)
+             VALUES ($1, $2)
+             ON CONFLICT (user_id, pet_id) DO NOTHING`,
+            [req.userId, petId]
+        );
+
+        res.status(200).json({ success: true, message: 'Pet saved' });
+    } catch (error) {
+        console.error('Error in savePet:', error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+// DELETE /api/users/me/saved/:petId — remove a saved animal
+export const unsavePet = async (req, res) => {
+    try {
+        const { petId } = req.params;
+
+        await pool.query(
+            `DELETE FROM saved_animals WHERE user_id = $1 AND pet_id = $2`,
+            [req.userId, petId]
+        );
+
+        res.status(200).json({ success: true, message: 'Pet unsaved' });
+    } catch (error) {
+        console.error('Error in unsavePet:', error);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 };

@@ -4,19 +4,24 @@ import { Adoption } from '../models/adoption.model.js';
 
 export const getAllPets = async (req, res) => {
     try {
-        const {type, city, zipCode, limit, showAll} = req.query;
+        const {type, city, zipCode, limit, showAll, adopted, uploader_id} = req.query;
         const filters = {};
 
         // Only add filters if they have values
         if (type && type !== 'any') filters.type = type;
         if (city) filters.city = city;
         if (zipCode) filters.zipCode = zipCode;
+        if (uploader_id) filters.uploader_id = uploader_id;
 
         // Only apply the availability filter for non-admin requests
         // This allows admins to see all pets regardless of adoption status
         if (showAll !== 'true') {
             filters.is_available = true;
         }
+
+        // Optional: ?adopted=true → only community-adopted, ?adopted=false → only not adopted
+        if (adopted === 'true')  filters.is_adopted = true;
+        if (adopted === 'false') filters.is_adopted = false;
 
         let pets = await PetModel.findAll(filters);
 
@@ -167,13 +172,13 @@ export const getSimilarPets = async (req, res) => {
 
 export const createPet = async (req, res) => {
     try {
-        const petData = req.body;
+        const petData = { ...req.body, uploader_id: req.userId };
         const newPet = await PetModel.create(petData);
 
         res.status(201).json({
             success: true,
-            message: 'PetModel created successfully',
-            pet: newPet
+            message: 'Pet created successfully',
+            pet: { id: newPet.id, ...newPet }
         });
     } catch (error) {
         console.error('Error creating pet:', error);
@@ -188,19 +193,25 @@ export const createPet = async (req, res) => {
 export const updatePet = async (req, res) => {
     try {
         const {id} = req.params;
-        const updateData = req.body;
 
-        const updatedPet = await PetModel.update(id, updateData);
+        // Ownership check — uploader or admin
+        const existing = await PetModel.findById(id);
+        if (!existing) {
+            return res.status(404).json({ success: false, message: 'Pet not found' });
+        }
+        const isOwner = existing.uploader_id && existing.uploader_id === req.userId;
+        if (!isOwner && !req.isAdmin) {
+            return res.status(403).json({ success: false, message: 'Forbidden — only the uploader or an admin can edit this listing' });
+        }
+
+        const updatedPet = await PetModel.update(id, req.body);
         if (!updatedPet) {
-            return res.status(404).json({
-                success: false,
-                message: 'PetModel not found'
-            });
+            return res.status(404).json({ success: false, message: 'Pet not found' });
         }
 
         res.status(200).json({
             success: true,
-            message: 'PetModel updated successfully',
+            message: 'Pet updated successfully',
             pet: updatedPet
         });
     } catch (error) {
@@ -236,6 +247,56 @@ export const deletePet = async (req, res) => {
             message: 'Failed to delete pet',
             error: error.message
         });
+    }
+};
+
+// PATCH /api/pets/:id/adopt
+// Marks a pet as community-adopted. Requires authentication.
+// Ownership check: req.userId must match pet.uploader_id (field added in migration).
+// Until uploader_id is populated, only admins can mark pets as adopted.
+export const adoptPet = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const pet = await PetModel.findById(id);
+        if (!pet) {
+            return res.status(404).json({ success: false, message: 'Pet not found' });
+        }
+
+        const isOwner = pet.uploader_id && pet.uploader_id === req.userId;
+        if (!isOwner && !req.isAdmin) {
+            return res.status(403).json({ success: false, message: 'Forbidden — only the uploader or an admin can mark this animal as adopted' });
+        }
+
+        const updated = await PetModel.adoptPet(id, req.userId);
+        res.status(200).json({ success: true, message: 'Pet marked as adopted', pet: updated });
+    } catch (error) {
+        console.error('Error in adoptPet:', error);
+        res.status(500).json({ success: false, message: 'Failed to mark pet as adopted', error: error.message });
+    }
+};
+
+// PATCH /api/pets/:id/unadopt
+// Reverses a community-adopted mark (e.g. uploader correction). Same auth rules.
+export const unadoptPet = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const pet = await PetModel.findById(id);
+        if (!pet) {
+            return res.status(404).json({ success: false, message: 'Pet not found' });
+        }
+
+        const isOwner = pet.uploader_id && pet.uploader_id === req.userId;
+        if (!isOwner && !req.isAdmin) {
+            return res.status(403).json({ success: false, message: 'Forbidden — only the uploader or an admin can update this animal' });
+        }
+
+        const updated = await PetModel.unadoptPet(id);
+        res.status(200).json({ success: true, message: 'Pet adoption mark reversed', pet: updated });
+    } catch (error) {
+        console.error('Error in unadoptPet:', error);
+        res.status(500).json({ success: false, message: 'Failed to reverse adoption mark', error: error.message });
     }
 };
 

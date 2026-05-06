@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+* { font-family: 'Nunito', sans-serif; }
+
 /* CSS Variables - Warm Pastel Theme */
 :root {
     --color-bg: #FDF8F5;          /* Cream background */
@@ -84,4 +86,29 @@ input:focus {
 
 .success-toast {
     animation: fadeInOut 5s ease-in-out;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50%       { transform: translateY(7px); }
+}
+
+/* Hide scrollbar on homepage snap container */
+.hp-scroll-container::-webkit-scrollbar { display: none; }
+.hp-scroll-container { scrollbar-width: none; -ms-overflow-style: none; }
+
+/* Editorial palette variables */
+:root {
+    --cream:        #FAF7F4;
+    --espresso:     #2D1F14;
+    --terracotta:   #C07A4A;
+    --muted:        #7A5C44;
+    --light-muted:  #B09880;
+    --border:       rgba(45,31,20,0.12);
+}
+
+/* Pulsing green live dot */
+@keyframes pulse-green {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.55; transform: scale(1.35); }
 }
