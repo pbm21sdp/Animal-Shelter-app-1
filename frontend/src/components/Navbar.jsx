@@ -35,7 +35,7 @@ export default function Navbar() {
 
     const handleSearchKeyDown = (e) => {
         if (e.key === 'Enter' && searchValue.trim()) {
-            navigate(`/pet-search?q=${encodeURIComponent(searchValue.trim())}`);
+            navigate(`/animals?search=${encodeURIComponent(searchValue.trim())}`);
             setSearchValue('');
         }
     };

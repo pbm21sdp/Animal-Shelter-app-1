@@ -81,7 +81,12 @@ export default function EditAnimalPage() {
             setDescription(p.description || '');
             setHealthStatus(p.health_status || '');
             setLocationCity(p.location_city || '');
-            setPhotos(p.photos || []);
+            try {
+                const photoRes = await axios.get(`${API}/pets/${id}/photos`, { withCredentials: true });
+                setPhotos(photoRes.data.photos || photoRes.data || []);
+            } catch {
+                setPhotos(p.photos || []);
+            }
             setIsLoading(false);
         };
         load();
@@ -100,7 +105,13 @@ export default function EditAnimalPage() {
 
     // ── Upload new photos ─────────────────────────────────────────────────────
     const handleAddPhotos = async (files) => {
-        for (const file of Array.from(files)) {
+        const fileArray = Array.from(files);
+        if (!fileArray.length) return;
+
+        // Reset input immediately so re-selecting the same file always fires onChange
+        if (fileInputRef.current) fileInputRef.current.value = '';
+
+        for (const file of fileArray) {
             const form = new FormData();
             form.append('photo', file);
             try {
@@ -108,7 +119,11 @@ export default function EditAnimalPage() {
                     headers: { 'Content-Type': 'multipart/form-data' },
                     withCredentials: true,
                 });
-                setPhotos(prev => [...prev, res.data.photo]);
+                setPhotos(prev => {
+                    // Guard: don't add if already present (prevents double-fire duplicates)
+                    if (prev.some(p => p.id === res.data.photo.id)) return prev;
+                    return [...prev, res.data.photo];
+                });
             } catch (err) {
                 toast.error('Failed to upload photo');
             }

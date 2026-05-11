@@ -82,10 +82,16 @@ export default function AnimalsPage() {
     const [statusFilter, setStatusFilter] = useState(initialStatus);
     const [areaFilter,   setAreaFilter]   = useState('timisoara');
     const [sortBy,       setSortBy]       = useState('recent');
+    const [searchQuery,  setSearchQuery]  = useState(searchParams.get('search') || '');
 
     useEffect(() => {
         getAllPets();
     }, [getAllPets]);
+
+    useEffect(() => {
+        const q = searchParams.get('search');
+        if (q !== null) setSearchQuery(q);
+    }, [searchParams]);
 
     // ── Filtering & sorting ───────────────────────────────────────────────────
     const filtered = pets
@@ -93,7 +99,12 @@ export default function AnimalsPage() {
             const typeMatch = typeFilter === 'all' || (p.type || '').toLowerCase() === typeFilter;
             const badge     = (p.health_status || '').toLowerCase();
             const statusMatch = statusFilter === 'all' || badge === statusFilter;
-            return typeMatch && statusMatch;
+            const q = searchQuery.trim().toLowerCase();
+            const searchMatch = !q
+                || (p.name        || '').toLowerCase().includes(q)
+                || (p.description || '').toLowerCase().includes(q)
+                || (p.breed       || '').toLowerCase().includes(q);
+            return typeMatch && statusMatch && searchMatch;
         })
         .sort((a, b) => {
             if (sortBy === 'urgent') {

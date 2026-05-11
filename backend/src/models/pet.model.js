@@ -7,16 +7,17 @@ export const PetModel = {
         try {
             let query = `
                 SELECT p.*,
-                       json_agg(json_build_object(
+                       (SELECT pp.id FROM pet_photos pp WHERE pp.pet_id = p.id AND pp.is_primary = true LIMIT 1) as primary_photo_id,
+                       (SELECT json_agg(json_build_object(
                            'id', pp.id, 'pet_id', pp.pet_id,
                            'photo_name', pp.photo_name, 'content_type', pp.content_type,
                            'photo_url', pp.photo_url, 'is_primary', pp.is_primary,
                            'created_at', pp.created_at
-                       )) FILTER (WHERE pp.id IS NOT NULL) as photos,
-                       json_agg(DISTINCT pt.trait) FILTER (WHERE pt.id IS NOT NULL) as traits
+                       ) ORDER BY pp.is_primary DESC, pp.created_at ASC)
+                        FROM pet_photos pp WHERE pp.pet_id = p.id) as photos,
+                       (SELECT json_agg(DISTINCT pt.trait)
+                        FROM pet_traits pt WHERE pt.pet_id = p.id) as traits
                 FROM pets p
-                         LEFT JOIN pet_photos pp ON p.id = pp.pet_id
-                         LEFT JOIN pet_traits pt ON p.id = pt.pet_id
                 WHERE 1=1
             `;
 
@@ -61,7 +62,7 @@ export const PetModel = {
                 paramCount++;
             }
 
-            query += ` GROUP BY p.id ORDER BY p.created_at DESC`;
+            query += ` ORDER BY p.created_at DESC`;
 
             const result = await pool.query(query, values);
 
@@ -80,16 +81,17 @@ export const PetModel = {
 
             let query = `
                 SELECT p.*,
-                       json_agg(json_build_object(
+                       (SELECT pp.id FROM pet_photos pp WHERE pp.pet_id = p.id AND pp.is_primary = true LIMIT 1) as primary_photo_id,
+                       (SELECT json_agg(json_build_object(
                            'id', pp.id, 'pet_id', pp.pet_id,
                            'photo_name', pp.photo_name, 'content_type', pp.content_type,
                            'photo_url', pp.photo_url, 'is_primary', pp.is_primary,
                            'created_at', pp.created_at
-                       )) FILTER (WHERE pp.id IS NOT NULL) as photos,
-                       json_agg(DISTINCT pt.trait) FILTER (WHERE pt.id IS NOT NULL) as traits
+                       ) ORDER BY pp.is_primary DESC, pp.created_at ASC)
+                        FROM pet_photos pp WHERE pp.pet_id = p.id) as photos,
+                       (SELECT json_agg(DISTINCT pt.trait)
+                        FROM pet_traits pt WHERE pt.pet_id = p.id) as traits
                 FROM pets p
-                         LEFT JOIN pet_photos pp ON p.id = pp.pet_id
-                         LEFT JOIN pet_traits pt ON p.id = pt.pet_id
                 WHERE p.is_available = true
             `;
 
@@ -163,12 +165,12 @@ export const PetModel = {
 
             // Add sorting
             if (searchParams.sortBy === 'newest') {
-                query += ` GROUP BY p.id ORDER BY p.created_at DESC`;
+                query += ` ORDER BY p.created_at DESC`;
             } else if (searchParams.sortBy === 'oldest') {
-                query += ` GROUP BY p.id ORDER BY p.created_at ASC`;
+                query += ` ORDER BY p.created_at ASC`;
             } else {
                 // Default to nearest (could be enhanced with actual geo proximity)
-                query += ` GROUP BY p.id ORDER BY p.created_at DESC`;
+                query += ` ORDER BY p.created_at DESC`;
             }
 
             // console.log('Search query:', query);
@@ -188,18 +190,17 @@ export const PetModel = {
         try {
             const query = `
                 SELECT p.*,
-                       json_agg(json_build_object(
+                       (SELECT json_agg(json_build_object(
                            'id', pp.id, 'pet_id', pp.pet_id,
                            'photo_name', pp.photo_name, 'content_type', pp.content_type,
                            'photo_url', pp.photo_url, 'is_primary', pp.is_primary,
                            'created_at', pp.created_at
-                       )) FILTER (WHERE pp.id IS NOT NULL) as photos,
-                       json_agg(DISTINCT pt.trait) FILTER (WHERE pt.id IS NOT NULL) as traits
+                       ) ORDER BY pp.is_primary DESC, pp.created_at ASC)
+                        FROM pet_photos pp WHERE pp.pet_id = p.id) as photos,
+                       (SELECT json_agg(DISTINCT pt.trait)
+                        FROM pet_traits pt WHERE pt.pet_id = p.id) as traits
                 FROM pets p
-                         LEFT JOIN pet_photos pp ON p.id = pp.pet_id
-                         LEFT JOIN pet_traits pt ON p.id = pt.pet_id
                 WHERE p.id = $1
-                GROUP BY p.id
             `;
 
             const result = await pool.query(query, [id]);

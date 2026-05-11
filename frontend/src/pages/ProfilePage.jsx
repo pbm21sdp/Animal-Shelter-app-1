@@ -140,12 +140,14 @@ function StatusBadge({ pet }) {
 // ── Upload card (masonry tile) ─────────────────────────────────────────────────
 
 function UploadCard({ pet, index, isOwnProfile, onMarkAdopted, onEdit }) {
+    const navigate = useNavigate();
     const [hovered, setHovered] = useState(false);
     const imgH  = IMG_H[index % 3];
     const photo = photoUrl(pet.primary_photo_id);
 
     return (
         <div
+            onClick={() => navigate(`/pet/${pet.id}`)}
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
             style={{

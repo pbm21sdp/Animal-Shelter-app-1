@@ -115,6 +115,16 @@ export const deletePhoto = async (req, res) => {
     try {
         const { petId, photoId } = req.params;
 
+        // Allow admin OR the pet's uploader
+        const petResult = await pool.query('SELECT uploader_id FROM pets WHERE id = $1', [petId]);
+        if (petResult.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Pet not found' });
+        }
+        const pet = petResult.rows[0];
+        if (!req.isAdmin && pet.uploader_id !== req.userId) {
+            return res.status(403).json({ success: false, message: 'Not authorized' });
+        }
+
         // Verify the photo belongs to the pet
         const photoQuery = await pool.query(
             'SELECT * FROM pet_photos WHERE id = $1 AND pet_id = $2',

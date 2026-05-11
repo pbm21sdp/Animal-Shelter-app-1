@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import axios from 'axios';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const C = {
@@ -52,37 +53,6 @@ const liveDot = {
     animation: 'pulse-green 2s ease-in-out infinite',
 };
 
-// ── Slide data ────────────────────────────────────────────────────────────────
-const SLIDES = [
-    {
-        img:     'https://images.unsplash.com/photo-1552053831-71594a27632d?w=900&q=80',
-        badge:   'Found',
-        title:   'Golden retriever mix spotted near Piața Unirii — friendly and calm',
-        loc:     'Piața Unirii, Timișoara',
-        age:     '~2 years old',
-        caption: 'Photo submitted by community member · Timișoara, April 2026',
-        desc:    'This gentle golden mix was spotted wandering near the main square. He approaches people calmly and shows no signs of aggression. Appears to be well-socialized — possibly lost.',
-    },
-    {
-        img:     'https://images.unsplash.com/photo-1548681528-6a5c45b66063?w=900&q=80',
-        badge:   'Urgent',
-        title:   'Small terrier found on Circumvalațiunii — needs a foster home',
-        loc:     'Circumvalațiunii, Timișoara',
-        age:     '~4 years old',
-        caption: 'Photo submitted by community member · Timișoara, April 2026',
-        desc:    'A small terrier mix was found near the ring road, thin and frightened. She needs urgent foster care while a permanent home is arranged. Estimated 4 years old.',
-    },
-    {
-        img:     'https://images.unsplash.com/photo-1561037404-61cd46aa615b?w=900&q=80',
-        badge:   'Vaccinated',
-        title:   'White shepherd mix, healthy and vaccinated — looking for a home',
-        loc:     'Lipovei, Timișoara',
-        age:     '~1 year old',
-        caption: 'Photo submitted by community member · Timișoara, April 2026',
-        desc:    'Young and energetic shepherd mix, fully vaccinated and microchipped. She is playful, great with children, and ready for her forever home immediately.',
-    },
-];
-
 // ── Left column editorial stories ────────────────────────────────────────────
 const STORIES = [
     {
@@ -118,6 +88,9 @@ export default function PawsHomepage() {
     const [fading, setFading]     = useState(false);
     const [hovering, setHovering] = useState(false);
     const timerRef = useRef(null);
+    const [stats, setStats] = useState({ total_uploaded: 0, found_home: 0, urgent_cases: 0 });
+    const [recentPets, setRecentPets] = useState([]);
+    const [rightColumnPets, setRightColumnPets] = useState([]);
 
     const goToSlide = (idx) => {
         if (idx === slide) return;
@@ -139,9 +112,55 @@ export default function PawsHomepage() {
             }, 280);
         }, 4500);
         return () => clearInterval(timerRef.current);
-    }, [hovering]);
+    }, [hovering, recentPets.length]);
 
-    const cur = SLIDES[slide];
+    useEffect(() => {
+        axios.get('http://localhost:5000/api/animals/stats')
+            .then(r => { if (r.data.success) setStats(r.data.stats); })
+            .catch(() => {});
+        axios.get('http://localhost:5000/api/pets', { withCredentials: true })
+            .then(r => {
+                const pets = r.data.pets || r.data || [];
+                if (Array.isArray(pets) && pets.length > 0) {
+                    const shuffled = [...pets].sort(() => Math.random() - 0.5);
+                    setRecentPets(shuffled.slice(0, 5));
+                    setRightColumnPets(shuffled.slice(5, 7).length > 0
+                        ? shuffled.slice(5, 7)
+                        : shuffled.slice(0, 2));
+                }
+            })
+            .catch(() => {});
+    }, []);
+
+    useEffect(() => {
+        setSlide(0);
+    }, [recentPets.length]);
+
+    const SLIDES = recentPets.length > 0 ? recentPets.map(pet => ({
+        img: pet.primary_photo_id
+            ? `http://localhost:5000/api/pets/photos/${pet.primary_photo_id}`
+            : 'https://images.unsplash.com/photo-1548681528-6a5c45b66b42?w=800&q=80',
+        badge:   pet.type ? pet.type.charAt(0).toUpperCase() + pet.type.slice(1) : 'Animal',
+        caption: pet.location_city || 'Timișoara',
+        title:   pet.name || 'Animal found',
+        loc:     pet.location_city || 'Timișoara',
+        age:     pet.age_category || '',
+        desc:    pet.description ? pet.description.substring(0, 120) + '...' : 'Looking for a loving home.',
+        id:      pet.id,
+    })) : [
+        {
+            img:     'https://images.unsplash.com/photo-1548681528-6a5c45b66b42?w=800&q=80',
+            badge:   'Animal',
+            caption: 'Found in Timișoara',
+            title:   'Be the first to upload an animal',
+            loc:     'Timișoara',
+            age:     '',
+            desc:    'No animals uploaded yet. Be the first to help a stray find a home.',
+            id:      null,
+        },
+    ];
+
+    const cur = SLIDES[Math.min(slide, SLIDES.length - 1)];
     const fadeStyle = { opacity: fading ? 0 : 1, transition: 'opacity 0.28s ease' };
 
     return (
@@ -202,7 +221,7 @@ export default function PawsHomepage() {
             }}>
                 {/* Col 1 */}
                 <div style={{ padding: '14px 0', borderRight: `1px solid ${C.border}`, textAlign: 'center' }}>
-                    <div style={{ fontFamily: serif, fontSize: '32px', fontWeight: 700, color: C.espresso, lineHeight: 1 }}>248</div>
+                    <div style={{ fontFamily: serif, fontSize: '32px', fontWeight: 700, color: C.espresso, lineHeight: 1 }}>{stats.total_uploaded}</div>
                     <div style={{ fontFamily: sans, fontSize: '11px', color: C.muted, marginTop: '5px' }}>
                         Animals uploaded by the community
                     </div>
@@ -210,18 +229,18 @@ export default function PawsHomepage() {
 
                 {/* Col 2 */}
                 <div style={{ padding: '14px 0', borderRight: `1px solid ${C.border}`, textAlign: 'center' }}>
-                    <div style={{ fontFamily: serif, fontSize: '32px', fontWeight: 700, color: C.espresso, lineHeight: 1 }}>134</div>
+                    <div style={{ fontFamily: serif, fontSize: '32px', fontWeight: 700, color: C.espresso, lineHeight: 1 }}>{stats.found_home}</div>
                     <div style={{ fontFamily: sans, fontSize: '11px', color: C.muted, marginTop: '5px' }}>
                         Found a loving home
                     </div>
                     <div style={{ fontFamily: sans, fontSize: '10px', color: C.lightMuted, marginTop: '2px' }}>
-                        54% success rate
+                        {stats.total_uploaded > 0 ? Math.round((stats.found_home / stats.total_uploaded) * 100) : 0}% success rate
                     </div>
                 </div>
 
                 {/* Col 3 */}
                 <div style={{ padding: '14px 0', textAlign: 'center' }}>
-                    <div style={{ fontFamily: serif, fontSize: '32px', fontWeight: 700, color: C.espresso, lineHeight: 1 }}>12</div>
+                    <div style={{ fontFamily: serif, fontSize: '32px', fontWeight: 700, color: C.espresso, lineHeight: 1 }}>{stats.urgent_cases}</div>
                     <div style={{
                         fontFamily: sans, fontSize: '11px', color: C.muted, marginTop: '5px',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
@@ -232,7 +251,7 @@ export default function PawsHomepage() {
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', marginTop: '3px',
                     }}>
                         <span style={liveDot} />
-                        <span style={{ fontFamily: sans, fontSize: '9px', color: C.lightMuted }}>Live · in Timișoara</span>
+                        <span style={{ fontFamily: sans, fontSize: '9px', color: C.lightMuted }}>Live · near you</span>
                     </div>
                 </div>
             </div>
@@ -295,7 +314,10 @@ export default function PawsHomepage() {
                     onMouseLeave={() => setHovering(false)}
                 >
                     {/* Image with overlaid labels */}
-                    <div style={{ position: 'relative', marginBottom: '8px' }}>
+                    <div
+                        style={{ position: 'relative', marginBottom: '8px', cursor: cur.id ? 'pointer' : 'default' }}
+                        onClick={() => { if (cur.id) navigate(`/pet/${cur.id}`); }}
+                    >
                         <img
                             src={cur.img}
                             alt={cur.title}
@@ -349,15 +371,19 @@ export default function PawsHomepage() {
                     </div>
 
                     {/* Headline */}
-                    <div style={{
-                        fontFamily: serif,
-                        fontSize: '22px',
-                        fontWeight: 700,
-                        color: C.espresso,
-                        lineHeight: 1.25,
-                        marginBottom: '9px',
-                        ...fadeStyle,
-                    }}>
+                    <div
+                        onClick={() => { if (cur.id) navigate(`/pet/${cur.id}`); }}
+                        style={{
+                            fontFamily: serif,
+                            fontSize: '22px',
+                            fontWeight: 700,
+                            color: C.espresso,
+                            lineHeight: 1.25,
+                            marginBottom: '9px',
+                            cursor: cur.id ? 'pointer' : 'default',
+                            ...fadeStyle,
+                        }}
+                    >
                         {cur.title}
                     </div>
 
@@ -414,86 +440,37 @@ export default function PawsHomepage() {
                 {/* ── RIGHT COLUMN — recent upload cards + CTA ── */}
                 <div style={{ padding: '24px 22px', display: 'flex', flexDirection: 'column', gap: '0' }}>
 
-                    {/* Card 1 — horizontal */}
-                    <div style={{ paddingBottom: '18px' }}>
-                        <div style={{ display: 'flex', gap: '12px' }}>
-                            <img
-                                src="https://images.unsplash.com/photo-1529778873920-4da4926a72c2?w=400&q=80"
-                                alt="Tabby kitten"
-                                style={{
-                                    width: '80px', height: '72px',
-                                    objectFit: 'cover',
-                                    borderRadius: '2px',
-                                    flexShrink: 0,
-                                    border: `1px solid ${C.borderLight}`,
-                                }}
-                            />
-                            <div style={{ minWidth: 0 }}>
-                                <span style={labelStyle}>Recent upload</span>
-                                <div style={{
-                                    fontFamily: serif,
-                                    fontSize: '15px',
-                                    fontWeight: 700,
-                                    color: C.espresso,
-                                    lineHeight: 1.3,
-                                    marginBottom: '4px',
-                                }}>
-                                    Tabby kitten found in Fabric, needs urgent care
+                    {rightColumnPets.map((pet, i) => (
+                        <React.Fragment key={pet.id}>
+                            <div style={{ paddingBottom: '18px', paddingTop: i > 0 ? '18px' : 0 }}>
+                                <div style={{ display: 'flex', gap: '12px' }}>
+                                    <img
+                                        src={pet.primary_photo_id
+                                            ? `http://localhost:5000/api/pets/photos/${pet.primary_photo_id}`
+                                            : 'https://images.unsplash.com/photo-1548681528-6a5c45b66b42?w=400&q=80'}
+                                        alt={pet.name}
+                                        style={{ width: '80px', height: '72px', objectFit: 'cover', borderRadius: '2px', flexShrink: 0, border: `1px solid ${C.borderLight}` }}
+                                    />
+                                    <div style={{ minWidth: 0 }}>
+                                        <span style={labelStyle}>Recent upload</span>
+                                        <div style={{ fontFamily: serif, fontSize: '15px', fontWeight: 700, color: C.espresso, lineHeight: 1.3, marginBottom: '4px' }}>
+                                            {pet.name}
+                                        </div>
+                                        <div style={{ fontFamily: sans, fontSize: '10px', color: C.muted, lineHeight: 1.5, marginBottom: '5px' }}>
+                                            {pet.description ? pet.description.substring(0, 80) + '...' : 'Looking for a loving home.'}
+                                        </div>
+                                        <div style={{ fontFamily: sans, fontSize: '9px', color: C.lightMuted, marginBottom: '4px' }}>
+                                            📍 {pet.location_city || 'Timișoara'}
+                                        </div>
+                                        <button onClick={() => navigate(`/pet/${pet.id}`)} style={readMoreStyle}>
+                                            View animal →
+                                        </button>
+                                    </div>
                                 </div>
-                                <div style={{ fontFamily: sans, fontSize: '10px', color: C.muted, lineHeight: 1.5, marginBottom: '5px' }}>
-                                    Young tabby kitten found alone near Fabric market, possibly only a few weeks old.
-                                </div>
-                                <div style={{ fontFamily: sans, fontSize: '9px', color: C.lightMuted, marginBottom: '4px' }}>
-                                    📍 Fabric, Timișoara · 3h ago
-                                </div>
-                                <button onClick={() => navigate('/pet-search')} style={readMoreStyle}>
-                                    Contact uploader →
-                                </button>
                             </div>
-                        </div>
-                    </div>
-
-                    {/* Thin divider */}
-                    <div style={{ height: '1px', backgroundColor: C.border, flexShrink: 0 }} />
-
-                    {/* Card 2 — horizontal */}
-                    <div style={{ paddingTop: '18px', paddingBottom: '20px' }}>
-                        <div style={{ display: 'flex', gap: '12px' }}>
-                            <img
-                                src="https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=400&q=80"
-                                alt="Labrador mix"
-                                style={{
-                                    width: '80px', height: '72px',
-                                    objectFit: 'cover',
-                                    borderRadius: '2px',
-                                    flexShrink: 0,
-                                    border: `1px solid ${C.borderLight}`,
-                                }}
-                            />
-                            <div style={{ minWidth: 0 }}>
-                                <span style={labelStyle}>Recent upload</span>
-                                <div style={{
-                                    fontFamily: serif,
-                                    fontSize: '15px',
-                                    fontWeight: 700,
-                                    color: C.espresso,
-                                    lineHeight: 1.3,
-                                    marginBottom: '4px',
-                                }}>
-                                    Labrador mix near Gara de Nord, vaccinated
-                                </div>
-                                <div style={{ fontFamily: sans, fontSize: '10px', color: C.muted, lineHeight: 1.5, marginBottom: '5px' }}>
-                                    Friendly young lab mix found wandering near the train station. Vaccinated and socialized.
-                                </div>
-                                <div style={{ fontFamily: sans, fontSize: '9px', color: C.lightMuted, marginBottom: '4px' }}>
-                                    📍 Gara de Nord, Timișoara · 6h ago
-                                </div>
-                                <button onClick={() => navigate('/pet-search')} style={readMoreStyle}>
-                                    Contact uploader →
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                            {i < 1 && <div style={{ height: '1px', backgroundColor: C.border, flexShrink: 0 }} />}
+                        </React.Fragment>
+                    ))}
 
                     {/* ── CTA card ── */}
                     <div style={{

@@ -50,7 +50,7 @@ router.delete('/:id', verifyToken, isAdmin, deletePet);
 
 // Photo upload — authenticated users (uploader or admin); ownership enforced in controller
 router.post('/:id/photos', verifyToken, upload.single('photo'), uploadPhoto);
-router.delete('/:petId/photos/:photoId', verifyToken, isAdmin, deletePhoto);
+router.delete('/:petId/photos/:photoId', verifyToken, deletePhoto);
 router.put('/:petId/photos/:photoId/primary', verifyToken, isAdmin, setPrimaryPhoto);
 
 export default router;
