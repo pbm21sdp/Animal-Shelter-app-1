@@ -50,6 +50,10 @@ function cap(str) {
     return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
+function formatTrait(trait) {
+    return trait.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
 // ── Status badge (matches AnimalsPage Badge style) ─────────────────────────────
 function StatusBadge({ status }) {
     const styles = {
@@ -97,6 +101,8 @@ export default function PetDetailPage() {
     const [askSending,     setAskSending]     = useState(false);
     const [showAdoptForm,  setShowAdoptForm]  = useState(false);
     const [adoptSuccess,   setAdoptSuccess]   = useState(false);
+    const [isSaved,        setIsSaved]        = useState(false);
+    const [saveLoading,    setSaveLoading]    = useState(false);
     const askRef = useRef(null);
 
     // ── Load pet ───────────────────────────────────────────────────────────────
@@ -120,6 +126,36 @@ export default function PetDetailPage() {
             .then(r => setUploader(r.data.profile || null))
             .catch(() => setUploader(null));
     }, [pet?.uploader_id]);
+
+    // ── Check saved state ──────────────────────────────────────────────────────
+    useEffect(() => {
+        if (!currentUser || !pet?.id || pet.uploader_id === currentUser._id) return;
+        axios.get(`${API}/users/${currentUser._id}/saved`, { withCredentials: true })
+            .then(r => {
+                const savedList = r.data.pets || [];
+                setIsSaved(savedList.some(p => p.id === pet.id));
+            })
+            .catch(() => {});
+    }, [pet?.id, currentUser]);
+
+    // ── Save / Unsave ──────────────────────────────────────────────────────────
+    const handleSaveToggle = async () => {
+        if (!currentUser || saveLoading) return;
+        setSaveLoading(true);
+        try {
+            if (isSaved) {
+                await axios.delete(`${API}/users/me/saved/${pet.id}`, { withCredentials: true });
+                setIsSaved(false);
+            } else {
+                await axios.post(`${API}/users/me/saved/${pet.id}`, {}, { withCredentials: true });
+                setIsSaved(true);
+            }
+        } catch {
+            // ignore
+        } finally {
+            setSaveLoading(false);
+        }
+    };
 
     // ── Ask/message send ───────────────────────────────────────────────────────
     const handleAskSend = async () => {
@@ -295,7 +331,7 @@ export default function PetDetailPage() {
                                                         onClick={() => setActivePhoto(i)}
                                                         style={{ width: '72px', height: '72px', flexShrink: 0, borderRadius: '2px', overflow: 'hidden', cursor: 'pointer', border: `2px solid ${active ? '#C07A4A' : 'transparent'}`, opacity: active ? 1 : 0.55, transition: 'opacity 0.15s, border-color 0.15s', backgroundColor: '#F0E8E0' }}
                                                     >
-                                                        {src && <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onError={e => { e.target.style.display = 'none'; }} />}
+                                                        {src && <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', display: 'block' }} onError={e => { e.target.style.display = 'none'; }} />}
                                                     </div>
                                                 );
                                             })}
@@ -368,7 +404,7 @@ export default function PetDetailPage() {
                                 ))}
                                 {traitList.map((t, i) => (
                                     <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'rgba(45,31,20,0.05)', border: '1px solid rgba(45,31,20,0.1)', borderRadius: '100px', padding: '5px 12px', fontFamily: sans, fontSize: '12px', color: '#5C4030' }}>
-                                        {t}
+                                        {formatTrait(t)}
                                     </span>
                                 ))}
                             </div>
@@ -378,14 +414,35 @@ export default function PetDetailPage() {
                         <div ref={askRef} style={{ marginBottom: '32px' }}>
                             {!askSent ? (
                                 <>
-                                    <button
-                                        onClick={() => setAskOpen(o => !o)}
-                                        style={{ fontFamily: sans, fontSize: '13px', color: '#2D1F14', background: 'transparent', border: '1.5px solid rgba(45,31,20,0.2)', borderRadius: '100px', padding: '10px 20px', cursor: 'pointer', transition: 'border-color 0.15s' }}
-                                        onMouseEnter={e => { e.currentTarget.style.borderColor = '#C07A4A'; }}
-                                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(45,31,20,0.2)'; }}
-                                    >
-                                        💬 Ask about {pet.name}
-                                    </button>
+                                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                        <button
+                                            onClick={() => setAskOpen(o => !o)}
+                                            style={{ fontFamily: sans, fontSize: '13px', color: '#2D1F14', background: 'transparent', border: '1.5px solid rgba(45,31,20,0.2)', borderRadius: '100px', padding: '10px 20px', cursor: 'pointer', transition: 'border-color 0.15s' }}
+                                            onMouseEnter={e => { e.currentTarget.style.borderColor = '#C07A4A'; }}
+                                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(45,31,20,0.2)'; }}
+                                        >
+                                            💬 Ask about {pet.name}
+                                        </button>
+                                        {currentUser && pet.uploader_id !== currentUser._id && (
+                                            <button
+                                                onClick={handleSaveToggle}
+                                                disabled={saveLoading}
+                                                title={isSaved ? 'Remove from saved' : 'Save for later'}
+                                                style={{
+                                                    fontFamily: sans, fontSize: '13px',
+                                                    color: isSaved ? '#C07A4A' : '#7A5C44',
+                                                    background: 'transparent',
+                                                    border: `1.5px solid ${isSaved ? '#C07A4A' : 'rgba(45,31,20,0.2)'}`,
+                                                    borderRadius: '100px', padding: '10px 20px',
+                                                    cursor: saveLoading ? 'default' : 'pointer',
+                                                    opacity: saveLoading ? 0.6 : 1,
+                                                    transition: 'border-color 0.15s, color 0.15s',
+                                                }}
+                                            >
+                                                {isSaved ? '🔖 Saved' : '🔖 Save'}
+                                            </button>
+                                        )}
+                                    </div>
 
                                     {askOpen && (
                                         <div style={{ marginTop: '10px', background: '#fff', border: '1px solid rgba(45,31,20,0.12)', borderRadius: '4px', padding: '14px' }}>
@@ -431,7 +488,7 @@ export default function PetDetailPage() {
                                                 style={{ flexShrink: 0, width: '160px', cursor: 'pointer' }}
                                             >
                                                 <div style={{ width: '160px', height: '120px', borderRadius: '3px', overflow: 'hidden', backgroundColor: '#F0E8E0', marginBottom: '7px' }}>
-                                                    {spSrc && <img src={spSrc} alt={sp.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onError={e => { e.target.style.display = 'none'; }} />}
+                                                    {spSrc && <img src={spSrc} alt={sp.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', display: 'block' }} onError={e => { e.target.style.display = 'none'; }} />}
                                                 </div>
                                                 <div style={{ fontFamily: serif, fontSize: '13px', fontWeight: 700, color: '#2D1F14', lineHeight: 1.2, marginBottom: '3px' }}>{sp.name}</div>
                                                 <div style={{ fontFamily: sans, fontSize: '10px', color: '#9A7A60' }}>{sp.location_city}{sp.created_at ? ` · ${timeAgo(sp.created_at)}` : ''}</div>

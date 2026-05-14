@@ -1,6 +1,7 @@
 // controllers/pet.controller.js
 import {PetModel} from '../models/pet.model.js';
 import { Adoption } from '../models/adoption.model.js';
+import { pool } from '../config/database/connectPostgresDB.js';
 
 export const getAllPets = async (req, res) => {
     try {
@@ -226,27 +227,22 @@ export const updatePet = async (req, res) => {
 
 export const deletePet = async (req, res) => {
     try {
-        const {id} = req.params;
-
-        const result = await PetModel.delete(id);
-        if (!result) {
-            return res.status(404).json({
-                success: false,
-                message: 'PetModel not found'
-            });
+        const { id } = req.params;
+        const check = await pool.query('SELECT uploader_id FROM pets WHERE id = $1', [id]);
+        if (check.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Pet not found' });
         }
-
-        res.status(200).json({
-            success: true,
-            message: 'PetModel deleted successfully'
-        });
+        if (check.rows[0].uploader_id !== req.userId && !req.isAdmin) {
+            return res.status(403).json({ success: false, message: 'Not authorized' });
+        }
+        await pool.query('DELETE FROM pet_photos WHERE pet_id = $1', [id]);
+        await pool.query('DELETE FROM pet_traits WHERE pet_id = $1', [id]);
+        await pool.query('DELETE FROM saved_animals WHERE pet_id = $1', [id]);
+        await pool.query('DELETE FROM pets WHERE id = $1', [id]);
+        res.json({ success: true, message: 'Pet deleted successfully' });
     } catch (error) {
-        console.error('Error deleting pet:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to delete pet',
-            error: error.message
-        });
+        console.error('deletePet error:', error);
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 };
 

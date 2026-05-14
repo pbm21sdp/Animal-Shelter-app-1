@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import toast from 'react-hot-toast';
 import Navbar from '../components/Navbar';
 import { usePetStore } from '../store/petStore';
+import { useAuthStore } from '../store/authStore';
 
 const API = 'http://localhost:5000/api';
 const serif = "'Cormorant Garamond', serif";
@@ -74,15 +77,18 @@ function FilterLabel({ children }) {
 // ── Main component ────────────────────────────────────────────────────────────
 export default function AnimalsPage() {
     const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
     const { pets, isLoading, getAllPets } = usePetStore();
+    const { user: currentUser } = useAuthStore();
 
     const initialStatus = searchParams.get('status') || 'all';
 
     const [typeFilter,   setTypeFilter]   = useState('all');
     const [statusFilter, setStatusFilter] = useState(initialStatus);
-    const [areaFilter,   setAreaFilter]   = useState('timisoara');
+    const [areaFilter,   setAreaFilter]   = useState('everywhere');
     const [sortBy,       setSortBy]       = useState('recent');
     const [searchQuery,  setSearchQuery]  = useState(searchParams.get('search') || '');
+    const [savedPets,    setSavedPets]    = useState(new Set());
 
     useEffect(() => {
         getAllPets();
@@ -93,27 +99,76 @@ export default function AnimalsPage() {
         if (q !== null) setSearchQuery(q);
     }, [searchParams]);
 
+    useEffect(() => {
+        if (!currentUser?._id) return;
+        axios.get(`${API}/users/${currentUser._id}/saved`, { withCredentials: true })
+            .then(r => {
+                const ids = (r.data.pets || []).map(p => p.id);
+                setSavedPets(new Set(ids));
+            })
+            .catch(() => {});
+    }, [currentUser?._id]);
+
+    const toggleSave = async (e, petId) => {
+        e.stopPropagation();
+        if (!currentUser) { navigate('/login'); return; }
+        const isSaved = savedPets.has(petId);
+        try {
+            if (isSaved) {
+                await axios.delete(`${API}/users/me/saved/${petId}`, { withCredentials: true });
+                setSavedPets(prev => { const s = new Set(prev); s.delete(petId); return s; });
+                toast.success('Removed from saved');
+            } else {
+                await axios.post(`${API}/users/me/saved/${petId}`, {}, { withCredentials: true });
+                setSavedPets(prev => new Set([...prev, petId]));
+                toast.success('Saved!');
+            }
+        } catch {
+            // ignore
+        }
+    };
+
     // ── Filtering & sorting ───────────────────────────────────────────────────
     const filtered = pets
         .filter((p) => {
             const typeMatch = typeFilter === 'all' || (p.type || '').toLowerCase() === typeFilter;
-            const badge     = (p.health_status || '').toLowerCase();
-            const statusMatch = statusFilter === 'all' || badge === statusFilter;
+            const hs = (p.health_status || '').toLowerCase();
+            const as = (p.adoption_status || '').toLowerCase();
+            const statusMatch =
+                statusFilter === 'all'        ? true :
+                statusFilter === 'urgent'     ? (hs.includes('urgent') || as === 'urgent' || p.is_urgent === true) :
+                statusFilter === 'vaccinated' ? hs.includes('vacc') :
+                statusFilter === 'found'      ? (as === 'available' || hs.includes('found') || (p.type || '').toLowerCase().includes('found')) :
+                true;
             const q = searchQuery.trim().toLowerCase();
             const searchMatch = !q
                 || (p.name        || '').toLowerCase().includes(q)
                 || (p.description || '').toLowerCase().includes(q)
                 || (p.breed       || '').toLowerCase().includes(q);
-            return typeMatch && statusMatch && searchMatch;
+            const city = (p.location_city || '').toLowerCase();
+            const areaMatch =
+                areaFilter === 'everywhere' ? true :
+                areaFilter === 'timisoara'  ? city.includes('timi') :
+                areaFilter === 'near'       ? (
+                    currentUser?.city
+                        ? city.includes(currentUser.city.toLowerCase())
+                        : city.includes('timi')
+                ) : true;
+            return typeMatch && statusMatch && searchMatch && areaMatch;
         })
         .sort((a, b) => {
             if (sortBy === 'urgent') {
-                const aU = (a.health_status || '') === 'Urgent';
-                const bU = (b.health_status || '') === 'Urgent';
+                const aU = (a.health_status || '').toLowerCase().includes('urgent');
+                const bU = (b.health_status || '').toLowerCase().includes('urgent');
                 if (aU && !bU) return -1;
                 if (bU && !aU) return  1;
             }
-            // 'recent' / 'nearest' — sort by created_at desc
+            if (sortBy === 'nearest') {
+                const userCity = (currentUser?.city || 'timișoara').toLowerCase();
+                const aMatch = (a.location_city || '').toLowerCase().includes(userCity) ? 0 : 1;
+                const bMatch = (b.location_city || '').toLowerCase().includes(userCity) ? 0 : 1;
+                if (aMatch !== bMatch) return aMatch - bMatch;
+            }
             return new Date(b.created_at) - new Date(a.created_at);
         });
 
@@ -125,6 +180,7 @@ export default function AnimalsPage() {
     ];
 
     const statusPills = [
+        { label: 'All',        value: 'all',        urgent: false },
         { label: 'Urgent',     value: 'urgent',     urgent: true  },
         { label: 'Vaccinated', value: 'vaccinated', urgent: false },
         { label: 'Found',      value: 'found',      urgent: false },
@@ -209,7 +265,13 @@ export default function AnimalsPage() {
                     </div>
                 ) : filtered.length > 0 ? (
                     filtered.map((pet, idx) => (
-                        <AnimalCard key={pet.id} pet={pet} height={HEIGHTS[idx % HEIGHTS.length]} />
+                        <AnimalCard
+                            key={pet.id}
+                            pet={pet}
+                            height={HEIGHTS[idx % HEIGHTS.length]}
+                            isSaved={savedPets.has(pet.id)}
+                            onToggleSave={toggleSave}
+                        />
                     ))
                 ) : (
                     <div style={{ columnSpan: 'all', padding: '48px 0', textAlign: 'center', fontFamily: serif, fontSize: '18px', fontStyle: 'italic', color: '#B09880' }}>
@@ -221,15 +283,25 @@ export default function AnimalsPage() {
     );
 }
 
+// ── Badge type helper ─────────────────────────────────────────────────────────
+function getBadgeType(pet) {
+    const hs = (pet.health_status || '').toLowerCase();
+    const as = (pet.adoption_status || '').toLowerCase();
+    if (hs.includes('urgent')) return 'Urgent';
+    if (hs.includes('vacc')) return 'Vaccinated';
+    if (as === 'adopted' || pet.is_adopted) return 'Adopted';
+    return 'Found';
+}
+
 // ── Animal card ───────────────────────────────────────────────────────────────
-function AnimalCard({ pet, height }) {
+function AnimalCard({ pet, height, isSaved, onToggleSave }) {
     const navigate = useNavigate();
     const [hovered, setHovered] = useState(false);
     const photoUrl = getPrimaryPhotoUrl(pet.photos);
 
     const location = pet.location_city || pet.location_address || '';
     const age      = pet.age_category  || '';
-    const badge    = pet.health_status || '';
+    const badge    = getBadgeType(pet);
     const title    = pet.name          || 'Unknown animal';
 
     return (
@@ -247,20 +319,41 @@ function AnimalCard({ pet, height }) {
                 transform: hovered ? 'translateY(-2px)' : 'translateY(0)',
                 transition: 'transform 0.2s ease',
                 cursor: 'pointer',
+                willChange: 'transform',
             }}
         >
-            {photoUrl ? (
-                <img
-                    src={photoUrl}
-                    alt={title}
-                    style={{ width: '100%', height: `${height}px`, objectFit: 'cover', display: 'block' }}
-                    onError={(e) => { e.target.style.display = 'none'; }}
-                />
-            ) : (
-                <div style={{ width: '100%', height: `${height}px`, backgroundColor: '#F0E8E0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span style={{ fontFamily: serif, fontSize: '32px', color: '#C07A4A', opacity: 0.4 }}>🐾</span>
-                </div>
-            )}
+            <div style={{ position: 'relative', height: `${height}px`, overflow: 'hidden', backgroundColor: '#F0E8E0' }}>
+                {photoUrl ? (
+                    <img
+                        src={photoUrl}
+                        alt={title}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', display: 'block' }}
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                ) : (
+                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span style={{ fontFamily: serif, fontSize: '32px', color: '#C07A4A', opacity: 0.4 }}>🐾</span>
+                    </div>
+                )}
+                <button
+                    onClick={(e) => onToggleSave(e, pet.id)}
+                    title={isSaved ? 'Remove from saved' : 'Save for later'}
+                    style={{
+                        position: 'absolute', top: '8px', right: '8px',
+                        background: 'rgba(250,247,244,0.92)',
+                        border: 'none', borderRadius: '50%',
+                        width: '28px', height: '28px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        cursor: 'pointer', fontSize: '13px',
+                        boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+                        color: isSaved ? '#C07A4A' : 'rgba(45,31,20,0.4)',
+                        opacity: isSaved ? 1 : 0.85,
+                        transition: 'opacity 0.15s, color 0.15s',
+                    }}
+                >
+                    🔖
+                </button>
+            </div>
             <div style={{ padding: '10px 12px 12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '7px' }}>
                     <Badge type={badge} />

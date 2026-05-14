@@ -156,6 +156,7 @@ function UploadCard({ pet, index, isOwnProfile, onMarkAdopted, onEdit }) {
                 borderRadius: 3, overflow: 'hidden', cursor: 'pointer',
                 transform: hovered ? 'translateY(-2px)' : 'translateY(0)',
                 transition: 'transform 0.2s ease', position: 'relative',
+                willChange: 'transform',
             }}
         >
             {/* Image */}
@@ -163,7 +164,7 @@ function UploadCard({ pet, index, isOwnProfile, onMarkAdopted, onEdit }) {
                 {photo ? (
                     <img
                         src={photo} alt={pet.name}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', display: 'block' }}
                         onError={(e) => { e.target.style.display = 'none'; }}
                     />
                 ) : (
@@ -266,7 +267,7 @@ function AdoptedCard({ pet }) {
             }}>
                 {photo ? (
                     <img src={photo} alt={pet.name}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%' }}
                         onError={(e) => { e.target.style.display = 'none'; }} />
                 ) : (
                     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: serif, fontSize: 18, color: '#C4A882' }}>
@@ -335,7 +336,7 @@ export default function ProfilePage() {
     const [profileData,   setProfileData]   = useState(null);
     const [pets,          setPets]          = useState([]);
     const [adoptedPets,   setAdoptedPets]   = useState([]);
-    const [savedPets]                       = useState([]);          // placeholder
+    const [savedPets,    setSavedPets]    = useState([]);
     const [activeTab,     setActiveTab]     = useState('uploads');
     const [isEditingBio,  setIsEditingBio]  = useState(false);
     const [bioValue,      setBioValue]      = useState('');
@@ -381,6 +382,16 @@ export default function ProfilePage() {
         }
     }, [profileId, adoptedPets.length]);
 
+    const fetchSaved = useCallback(async () => {
+        if (!profileId) return;
+        try {
+            const res = await axios.get(`${API}/users/${profileId}/saved`, { withCredentials: true });
+            setSavedPets(res.data.pets || []);
+        } catch {
+            setSavedPets([]);
+        }
+    }, [profileId]);
+
     // ── Effects ──────────────────────────────────────────────────────────────
 
     useEffect(() => {
@@ -391,6 +402,10 @@ export default function ProfilePage() {
     useEffect(() => {
         if (activeTab === 'adopted') fetchAdopted();
     }, [activeTab, fetchAdopted]);
+
+    useEffect(() => {
+        if (activeTab === 'saved') fetchSaved();
+    }, [activeTab, fetchSaved]);
 
     // ── Bio save ─────────────────────────────────────────────────────────────
 
@@ -825,10 +840,71 @@ export default function ProfilePage() {
                 {activeTab === 'saved' && (
                     <div>
                         <SectionLabel>Saved for later</SectionLabel>
-                        <EmptyState
-                            text="Saved animals will appear here."
-                            note="Save feature coming soon."
-                        />
+                        {savedPets.length === 0 ? (
+                            <EmptyState text="No saved animals yet." note="Tap the bookmark on any animal listing to save it." />
+                        ) : (
+                            <div style={{ columnCount: 3, columnGap: 14 }}>
+                                {savedPets.map((pet, i) => {
+                                    const photo = photoUrl(pet.primary_photo_id);
+                                    const imgH  = IMG_H[i % 3];
+                                    return (
+                                        <div
+                                            key={pet.id}
+                                            onClick={() => navigate(`/pet/${pet.id}`)}
+                                            style={{
+                                                breakInside: 'avoid', marginBottom: 14,
+                                                background: '#fff', border: '1px solid rgba(45,31,20,0.1)',
+                                                borderRadius: 3, overflow: 'hidden', cursor: 'pointer',
+                                                position: 'relative',
+                                            }}
+                                        >
+                                            <div style={{ height: imgH, background: '#F0EAE3', overflow: 'hidden' }}>
+                                                {photo ? (
+                                                    <img
+                                                        src={photo} alt={pet.name}
+                                                        style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', display: 'block' }}
+                                                        onError={e => { e.target.style.display = 'none'; }}
+                                                    />
+                                                ) : (
+                                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: serif, fontSize: 22, color: '#C4A882' }}>
+                                                        {pet.type?.charAt(0).toUpperCase() || '?'}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div style={{ padding: '10px 12px 8px' }}>
+                                                <div style={{ fontFamily: serif, fontSize: 15, fontWeight: 700, color: '#2D1F14', marginBottom: 2 }}>{pet.name}</div>
+                                                {pet.location_city && (
+                                                    <div style={{ fontFamily: sans, fontSize: 11, color: '#9A7A60' }}>◎ {pet.location_city}</div>
+                                                )}
+                                            </div>
+                                            {isOwnProfile && (
+                                                <button
+                                                    type="button"
+                                                    onClick={async (e) => {
+                                                        e.stopPropagation();
+                                                        try {
+                                                            await axios.delete(`${API}/users/me/saved/${pet.id}`, { withCredentials: true });
+                                                            setSavedPets(prev => prev.filter(p => p.id !== pet.id));
+                                                        } catch {
+                                                            // ignore
+                                                        }
+                                                    }}
+                                                    style={{
+                                                        position: 'absolute', top: 6, right: 6,
+                                                        fontFamily: sans, fontSize: 9,
+                                                        background: 'rgba(45,31,20,0.65)', color: '#FAF7F4',
+                                                        border: 'none', borderRadius: 2,
+                                                        padding: '3px 7px', cursor: 'pointer',
+                                                    }}
+                                                >
+                                                    Unsave
+                                                </button>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
                 )}
 

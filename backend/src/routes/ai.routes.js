@@ -1,13 +1,29 @@
 // routes/ai.routes.js
 import express from 'express';
 import axios from 'axios';
-import { getAIInsights, getAIOrganizations } from '../controllers/about.controller.js';
+import { getAIOrganizations } from '../controllers/about.controller.js';
 import { verifyToken } from '../middleware/verifyToken.js';
 
 const router = express.Router();
 
-// POST /api/ai/insights — generate data-driven insights using Claude
-router.post('/insights', verifyToken, getAIInsights);
+// POST /api/ai/insights — proxy to Flask statistical insights generator
+router.post('/insights', async (req, res) => {
+    try {
+        const response = await axios.post('http://127.0.0.1:5001/api/ml/insights', req.body, {
+            timeout: 10000
+        });
+        res.json(response.data);
+    } catch (error) {
+        console.error('Flask insights error:', error.message);
+        res.status(503).json({
+            success: false,
+            insights: [
+                { text: 'Our community is making a difference — every animal uploaded gets a chance at a loving home.', trend: 'positive' },
+                { text: 'Complete listings with photos are adopted significantly faster than those without.', trend: 'positive' }
+            ]
+        });
+    }
+});
 
 // POST /api/ai/organizations — public: curated DB lookup + Claude fallback, no user data exposed
 router.post('/organizations', getAIOrganizations);

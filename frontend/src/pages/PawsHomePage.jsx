@@ -53,27 +53,6 @@ const liveDot = {
     animation: 'pulse-green 2s ease-in-out infinite',
 };
 
-// ── Left column editorial stories ────────────────────────────────────────────
-const STORIES = [
-    {
-        label: 'How to adopt',
-        title: 'Three steps to giving a street animal its forever home',
-        desc:  'From spotting a stray to making it official — our streamlined process makes adoption simple for both the animal and the adopter.',
-        href:  '/how-to-adopt',
-    },
-    {
-        label: 'Community',
-        title: '134 animals found homes through Paws this year',
-        desc:  'Thanks to hundreds of community uploads and connections made on the platform, our city is making a real difference one animal at a time.',
-        href:  '/animals?status=vaccinated',
-    },
-    {
-        label: 'Tips',
-        title: 'What to do when you find a stray animal',
-        desc:  'Stay calm, check for ID tags, photograph the animal, and post on Paws immediately. Speed matters when it comes to reuniting lost pets.',
-        href:  '/guide',
-    },
-];
 
 // ── Masthead date (dynamic) ───────────────────────────────────────────────────
 function getMastheadDate() {
@@ -91,6 +70,27 @@ export default function PawsHomepage() {
     const [stats, setStats] = useState({ total_uploaded: 0, found_home: 0, urgent_cases: 0 });
     const [recentPets, setRecentPets] = useState([]);
     const [rightColumnPets, setRightColumnPets] = useState([]);
+
+    const STORIES = [
+        {
+            label: 'How to adopt',
+            title: 'Three steps to giving a street animal its forever home',
+            desc:  'From spotting a stray to making it official — our streamlined process makes adoption simple for both the animal and the adopter.',
+            href:  '/how-to-adopt',
+        },
+        {
+            label: 'Community',
+            title: `${stats.found_home || 0} animals found homes through Paws`,
+            desc:  'Thanks to hundreds of community uploads and connections made on the platform, our city is making a real difference one animal at a time.',
+            href:  '/animals',
+        },
+        {
+            label: 'Tips',
+            title: 'What to do when you find a stray animal',
+            desc:  'Stay calm, check for ID tags, photograph the animal, and post on Paws immediately. Speed matters when it comes to reuniting lost pets.',
+            href:  '/guide',
+        },
+    ];
 
     const goToSlide = (idx) => {
         if (idx === slide) return;
@@ -449,7 +449,7 @@ export default function PawsHomepage() {
                                             ? `http://localhost:5000/api/pets/photos/${pet.primary_photo_id}`
                                             : 'https://images.unsplash.com/photo-1548681528-6a5c45b66b42?w=400&q=80'}
                                         alt={pet.name}
-                                        style={{ width: '80px', height: '72px', objectFit: 'cover', borderRadius: '2px', flexShrink: 0, border: `1px solid ${C.borderLight}` }}
+                                        style={{ width: '80px', height: '72px', objectFit: 'cover', objectPosition: 'center 20%', borderRadius: '2px', flexShrink: 0, border: `1px solid ${C.borderLight}` }}
                                     />
                                     <div style={{ minWidth: 0 }}>
                                         <span style={labelStyle}>Recent upload</span>
@@ -541,7 +541,7 @@ export default function PawsHomepage() {
                             </div>
 
                             <button
-                                onClick={() => navigate('/pet-search')}
+                                onClick={() => navigate('/add-animal')}
                                 style={{
                                     backgroundColor: '#C07A4A',
                                     color: '#FAF7F4',
@@ -575,9 +575,9 @@ export default function PawsHomepage() {
                                 gap: '16px',
                             }}>
                                 {[
-                                    { num: '248', label: 'Uploaded' },
-                                    { num: '134', label: 'Found a home' },
-                                    { num: '54%', label: 'Success rate' },
+                                    { num: stats.total_uploaded || '0', label: 'Uploaded' },
+                                    { num: stats.found_home || '0', label: 'Found a home' },
+                                    { num: `${stats.total_uploaded > 0 ? Math.round((stats.found_home / stats.total_uploaded) * 100) : 0}%`, label: 'Success rate' },
                                 ].map(({ num, label }) => (
                                     <div key={label}>
                                         <div style={{

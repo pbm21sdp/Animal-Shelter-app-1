@@ -53,6 +53,11 @@ export default function EditAnimalPage() {
     const [description, setDescription] = useState('');
     const [healthStatus, setHealthStatus] = useState('');
     const [locationCity, setLocationCity] = useState('');
+    const [type,        setType]        = useState('');
+    const [ageCategory, setAgeCategory] = useState('');
+    const [gender,      setGender]      = useState('');
+    const [size,        setSize]        = useState('');
+    const [breed,       setBreed]       = useState('');
     const [photos,      setPhotos]      = useState([]);
 
     const fileInputRef = useRef(null);
@@ -81,6 +86,11 @@ export default function EditAnimalPage() {
             setDescription(p.description || '');
             setHealthStatus(p.health_status || '');
             setLocationCity(p.location_city || '');
+            setType(p.type || '');
+            setAgeCategory(p.age_category || '');
+            setGender(p.gender || '');
+            setSize(p.size || '');
+            setBreed(p.breed || '');
             try {
                 const photoRes = await axios.get(`${API}/pets/${id}/photos`, { withCredentials: true });
                 setPhotos(photoRes.data.photos || photoRes.data || []);
@@ -130,6 +140,18 @@ export default function EditAnimalPage() {
         }
     };
 
+    // ── Delete listing ────────────────────────────────────────────────────────
+    const handleDeletePet = async () => {
+        if (!window.confirm('Are you sure you want to permanently delete this listing? This cannot be undone.')) return;
+        try {
+            await axios.delete(`${API}/pets/${id}`, { withCredentials: true });
+            toast.success('Listing deleted.');
+            navigate('/profile');
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to delete listing.');
+        }
+    };
+
     // ── Save ──────────────────────────────────────────────────────────────────
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -140,6 +162,11 @@ export default function EditAnimalPage() {
                 description:   description.trim(),
                 health_status: healthStatus,
                 location_city: locationCity.trim(),
+                type,
+                age_category:  ageCategory,
+                gender,
+                size,
+                breed:         breed.trim(),
             }, { withCredentials: true });
             toast.success('Listing updated!');
             navigate(`/pet/${id}`);
@@ -205,6 +232,57 @@ export default function EditAnimalPage() {
                             borderBottom: '2px solid rgba(45,31,20,0.12)',
                             background: 'none', outline: 'none',
                             width: '100%', boxSizing: 'border-box', padding: '4px 0',
+                        }}
+                    />
+                </div>
+
+                {/* Type */}
+                <div style={{ marginBottom: '24px' }}>
+                    <div style={{ fontFamily: sans, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.14em', color: '#C07A4A', fontWeight: 500, marginBottom: '8px' }}>
+                        Type
+                    </div>
+                    <PillToggle options={['dog', 'cat', 'other']} value={type} onChange={setType} />
+                </div>
+
+                {/* Age category */}
+                <div style={{ marginBottom: '24px' }}>
+                    <div style={{ fontFamily: sans, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.14em', color: '#C07A4A', fontWeight: 500, marginBottom: '8px' }}>
+                        Age
+                    </div>
+                    <PillToggle options={['puppy', 'young', 'adult', 'senior']} value={ageCategory} onChange={setAgeCategory} />
+                </div>
+
+                {/* Gender */}
+                <div style={{ marginBottom: '24px' }}>
+                    <div style={{ fontFamily: sans, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.14em', color: '#C07A4A', fontWeight: 500, marginBottom: '8px' }}>
+                        Gender
+                    </div>
+                    <PillToggle options={['Male', 'Female', 'Unknown']} value={gender} onChange={setGender} />
+                </div>
+
+                {/* Size */}
+                <div style={{ marginBottom: '24px' }}>
+                    <div style={{ fontFamily: sans, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.14em', color: '#C07A4A', fontWeight: 500, marginBottom: '8px' }}>
+                        Size
+                    </div>
+                    <PillToggle options={['small', 'medium', 'large']} value={size} onChange={setSize} />
+                </div>
+
+                {/* Breed */}
+                <div style={{ marginBottom: '24px' }}>
+                    <div style={{ fontFamily: sans, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.14em', color: '#C07A4A', fontWeight: 500, marginBottom: '8px' }}>
+                        Breed
+                    </div>
+                    <input
+                        type="text"
+                        value={breed}
+                        onChange={e => setBreed(e.target.value)}
+                        placeholder="e.g. Labrador, Mixed, Unknown"
+                        style={{
+                            fontFamily: sans, fontSize: '14px', color: '#2D1F14',
+                            border: 'none', borderBottom: '1px solid rgba(45,31,20,0.15)',
+                            background: 'none', outline: 'none',
+                            width: '100%', boxSizing: 'border-box', padding: '6px 0',
                         }}
                     />
                 </div>

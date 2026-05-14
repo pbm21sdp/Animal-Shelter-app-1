@@ -46,7 +46,7 @@ router.patch('/:id/unadopt', verifyToken, unadoptPet);
 router.post('/', verifyToken, createPet);
 router.patch('/:id', verifyToken, updatePet);
 router.put('/:id', verifyToken, isAdmin, updatePet);
-router.delete('/:id', verifyToken, isAdmin, deletePet);
+router.delete('/:id', verifyToken, deletePet);
 
 // Photo upload — authenticated users (uploader or admin); ownership enforced in controller
 router.post('/:id/photos', verifyToken, upload.single('photo'), uploadPhoto);

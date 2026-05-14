@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import axios from 'axios';
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid } from 'recharts';
 
 const serif = "'Cormorant Garamond', serif";
 const sans  = "'DM Sans', sans-serif";
@@ -332,6 +333,24 @@ export default function AboutPage() {
 
     // ─────────────────────────────────────────────────────────────────────────
 
+    const CustomTooltip = ({ active, payload, label }) => {
+        if (active && payload && payload.length) {
+            return (
+                <div style={{
+                    background: '#1A0F0A',
+                    border: '1px solid rgba(250,247,244,0.2)',
+                    borderRadius: '6px',
+                    padding: '8px 12px',
+                    fontFamily: "'DM Sans', sans-serif",
+                }}>
+                    <div style={{ fontSize: '11px', color: 'rgba(250,247,244,0.6)', marginBottom: '2px' }}>{label}</div>
+                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#FAF7F4' }}>{payload[0].value}</div>
+                </div>
+            );
+        }
+        return null;
+    };
+
     return (
         <>
             <style>{`
@@ -430,10 +449,174 @@ export default function AboutPage() {
                             <StatCell loading={statsLoading} value={stats?.vaccinated}         label="Vaccinated animals"   trend="↑ health verified" />
                         </div>
 
-                        {/* AI insight cards */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                            <InsightCard loading={insightsLoading} text={insights[0]} />
-                            <InsightCard loading={insightsLoading} text={insights[1]} />
+                        {/* ── UNIFIED ANALYTICS + INSIGHTS DASHBOARD ─────────── */}
+                        <div style={{
+                            background: '#2D1F14',
+                            borderRadius: '8px',
+                            padding: '32px',
+                            marginBottom: '48px',
+                            color: '#FAF7F4',
+                        }}>
+                            {/* Header row */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <div style={{ fontFamily: sans, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.14em', color: '#C07A4A', fontWeight: 500 }}>
+                                    Platform Analytics
+                                </div>
+                                <div style={{ fontFamily: sans, fontSize: '9px', color: 'rgba(250,247,244,0.35)', letterSpacing: '0.06em' }}>
+                                    AI Generated · Live
+                                </div>
+                            </div>
+                            <div style={{ borderBottom: '1px solid rgba(250,247,244,0.1)', marginTop: '12px', marginBottom: '28px' }} />
+
+                            {/* 2-column: 60% charts / 40% insights */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '60% 40%', gap: '32px' }}>
+
+                                {/* ── LEFT: Charts ── */}
+                                <div>
+                                    {/* Top row: donut + bar */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+
+                                        {/* Donut — adoption rate */}
+                                        {(() => {
+                                            const adoptionData = [
+                                                { name: 'Found home',   value: stats?.found_home || 0,                                                               color: '#0F6E56' },
+                                                { name: 'Still listed', value: Math.max(0, (stats?.total_uploaded || 0) - (stats?.found_home || 0)), color: '#5C3D2E' },
+                                            ];
+                                            const successRate = (stats?.total_uploaded > 0)
+                                                ? Math.round((stats.found_home / stats.total_uploaded) * 100)
+                                                : 0;
+                                            return (
+                                                <div>
+                                                    <div style={{ position: 'relative' }}>
+                                                        <ResponsiveContainer width="100%" height={180}>
+                                                            <PieChart>
+                                                                <Pie data={adoptionData} dataKey="value" innerRadius={45} outerRadius={70} paddingAngle={3} startAngle={90} endAngle={-270}>
+                                                                    {adoptionData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                                                                </Pie>
+                                                                <Tooltip contentStyle={{ background: '#1A0F0A', border: 'none', borderRadius: 4, color: '#FAF7F4', fontFamily: sans, fontSize: 11 }} />
+                                                            </PieChart>
+                                                        </ResponsiveContainer>
+                                                        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                                                            <div style={{ fontFamily: serif, fontSize: '20px', fontWeight: 700, color: '#FAF7F4', lineHeight: 1 }}>{successRate}%</div>
+                                                            <div style={{ fontFamily: sans, fontSize: '9px', color: 'rgba(250,247,244,0.7)', marginTop: '4px' }}>success rate</div>
+                                                        </div>
+                                                    </div>
+                                                    <div style={{ fontFamily: sans, fontSize: '11px', color: 'rgba(250,247,244,0.75)', textAlign: 'center', marginTop: '8px' }}>Adoption Rate</div>
+                                                </div>
+                                            );
+                                        })()}
+
+                                        {/* Bar — health & status */}
+                                        {(() => {
+                                            const healthData = [
+                                                { label: 'Vacc.',   value: stats?.vaccinated     || 0, color: '#2ECC8A' },
+                                                { label: 'Urgent',  value: stats?.urgent_cases   || 0, color: '#E8845A' },
+                                                { label: 'Adopted', value: stats?.found_home     || 0, color: '#8BB8A8' },
+                                                { label: 'Total',   value: stats?.total_uploaded || 0, color: 'rgba(250,247,244,0.25)' },
+                                            ];
+                                            return (
+                                                <div>
+                                                    <ResponsiveContainer width="100%" height={180}>
+                                                        <BarChart data={healthData} barSize={20} barCategoryGap="30%" margin={{ top: 8, right: 0, left: 0, bottom: 0 }}>
+                                                            <XAxis dataKey="label" tick={{ fontFamily: sans, fontSize: 9, fill: 'rgba(250,247,244,0.7)' }} axisLine={false} tickLine={false} />
+                                                            <YAxis hide={true} />
+                                                            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(250,247,244,0.05)' }} />
+                                                            <Bar dataKey="value" radius={[3, 3, 0, 0]}>
+                                                                {healthData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                                                            </Bar>
+                                                        </BarChart>
+                                                    </ResponsiveContainer>
+                                                    <div style={{ fontFamily: sans, fontSize: '11px', color: 'rgba(250,247,244,0.75)', textAlign: 'center', marginTop: '8px' }}>Health & Status</div>
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
+
+                                    {/* Line chart — growth trend */}
+                                    {(() => {
+                                        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+                                        const total = stats?.total_uploaded || 0;
+                                        const growthData = months.map((month, i) => ({
+                                            month,
+                                            uploads: Math.round(total * (0.05 + (i * 0.18))),
+                                            adopted: Math.round((stats?.found_home || 0) * (0.05 + (i * 0.18))),
+                                        }));
+                                        return (
+                                            <div>
+                                                <ResponsiveContainer width="100%" height={120}>
+                                                    <LineChart data={growthData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(250,247,244,0.06)" vertical={false} />
+                                                        <XAxis dataKey="month" tick={{ fontFamily: sans, fontSize: 9, fill: 'rgba(250,247,244,0.4)' }} axisLine={false} tickLine={false} />
+                                                        <YAxis hide={true} />
+                                                        <Tooltip contentStyle={{ background: '#1A0F0A', border: 'none', borderRadius: 4, color: '#FAF7F4', fontFamily: sans, fontSize: 11 }} />
+                                                        <Line type="monotone" dataKey="uploads" stroke="#E8845A" strokeWidth={2} dot={false} name="Uploads" />
+                                                        <Line type="monotone" dataKey="adopted" stroke="#2ECC8A"  strokeWidth={2} dot={false} name="Adopted" />
+                                                    </LineChart>
+                                                </ResponsiveContainer>
+                                                <div style={{ display: 'flex', gap: '20px', marginTop: '8px', justifyContent: 'center', alignItems: 'center' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        <div style={{ width: '20px', height: '2px', background: '#E8845A', borderRadius: '1px' }} />
+                                                        <span style={{ fontFamily: sans, fontSize: '10px', color: 'rgba(250,247,244,0.7)' }}>Uploads</span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        <div style={{ width: '20px', height: '2px', background: '#2ECC8A', borderRadius: '1px' }} />
+                                                        <span style={{ fontFamily: sans, fontSize: '10px', color: 'rgba(250,247,244,0.7)' }}>Adopted</span>
+                                                    </div>
+                                                </div>
+                                                <div style={{ fontFamily: sans, fontSize: '11px', color: 'rgba(250,247,244,0.75)', textAlign: 'center', marginTop: '4px' }}>
+                                                    Growth Trend · Simulated
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
+
+                                {/* ── RIGHT: AI Insights ── */}
+                                <div>
+                                    <div style={{ fontFamily: sans, fontSize: '11px', fontWeight: 500, color: 'rgba(250,247,244,0.6)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '16px' }}>
+                                        AI Insights
+                                    </div>
+
+                                    {insightsLoading ? (
+                                        [0, 1].map(i => (
+                                            <div key={i} style={{ background: 'rgba(250,247,244,0.06)', border: '1px solid rgba(250,247,244,0.15)', borderRadius: '6px', padding: '16px', marginBottom: '12px' }}>
+                                                <div style={{ height: '10px', borderRadius: '3px', marginBottom: '8px', backgroundImage: 'linear-gradient(90deg, rgba(250,247,244,0.06) 25%, rgba(250,247,244,0.12) 50%, rgba(250,247,244,0.06) 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s infinite' }} />
+                                                <div style={{ height: '10px', borderRadius: '3px', width: '75%', backgroundImage: 'linear-gradient(90deg, rgba(250,247,244,0.06) 25%, rgba(250,247,244,0.12) 50%, rgba(250,247,244,0.06) 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s infinite' }} />
+                                            </div>
+                                        ))
+                                    ) : insights.length > 0 ? (
+                                        insights.slice(0, 2).map((insight, i) => {
+                                            const insightText = insight?.text ?? insight;
+                                            const trend = insight?.trend || 'neutral';
+                                            const dotColor = trend === 'positive' ? '#2ECC8A'
+                                                : (trend === 'alert' || trend === 'improving') ? '#E8845A'
+                                                : 'rgba(250,247,244,0.5)';
+                                            return (
+                                                <div key={i} style={{ background: 'rgba(250,247,244,0.06)', border: '1px solid rgba(250,247,244,0.15)', borderRadius: '6px', padding: '16px', marginBottom: '12px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                                                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: dotColor, display: 'inline-block', flexShrink: 0 }} />
+                                                        <span style={{ fontFamily: sans, fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#C07A4A', fontWeight: 600 }}>AI Insight</span>
+                                                    </div>
+                                                    <p style={{ fontFamily: serif, fontSize: '15px', fontStyle: 'italic', color: '#FAF7F4', lineHeight: 1.6, margin: 0 }}>
+                                                        {insightText}
+                                                    </p>
+                                                </div>
+                                            );
+                                        })
+                                    ) : (
+                                        <div style={{ background: 'rgba(250,247,244,0.06)', border: '1px solid rgba(250,247,244,0.15)', borderRadius: '6px', padding: '16px' }}>
+                                            <p style={{ fontFamily: serif, fontSize: '15px', fontStyle: 'italic', color: 'rgba(250,247,244,0.4)', margin: 0, lineHeight: 1.6 }}>
+                                                Insights will appear once platform data is available.
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    <div style={{ fontFamily: sans, fontSize: '9px', color: 'rgba(250,247,244,0.4)', marginTop: '16px', lineHeight: 1.5 }}>
+                                        Insights generated by the Paws ML service using platform statistics.
+                                    </div>
+                                </div>
+
+                            </div>
                         </div>
                     </section>
 
