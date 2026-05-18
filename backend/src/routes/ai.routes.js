@@ -62,4 +62,21 @@ router.post('/analyse-image', verifyToken, async (req, res) => {
     }
 });
 
+// GET /api/ai/contract — proxy to Flask PDF contract generator
+router.get('/contract', async (req, res) => {
+    try {
+        const axios = (await import('axios')).default;
+        const response = await axios.get('http://127.0.0.1:5001/api/ml/generate-contract', {
+            responseType: 'arraybuffer',
+            timeout: 15000
+        });
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'attachment; filename="paws_adoption_agreement.pdf"');
+        res.send(Buffer.from(response.data));
+    } catch (error) {
+        console.error('Contract generation error:', error.message);
+        res.status(503).json({ error: 'Contract generation unavailable' });
+    }
+});
+
 export default router;
