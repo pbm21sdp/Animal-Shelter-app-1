@@ -9,7 +9,7 @@ import passport from './config/passport.js';
 import path from 'path';
 import { generalLimiter } from './middleware/rateLimiter.js';
 
-import { connectPostgresDB } from './config/database/connectPostgresDB.js';
+import { connectPostgresDB, pool } from './config/database/connectPostgresDB.js';
 import { config } from 'dotenv';
 import { connectMongoDB } from "./config/database/connectMongoDB.js";
 import { fileURLToPath } from 'url';
@@ -25,6 +25,7 @@ import scheduledMeetingRoutes from './routes/scheduledMeeting.routes.js';
 import predictionRoutes from './routes/predictions.routes.js';
 import animalsRoutes from './routes/animals.routes.js';
 import aiRoutes from './routes/ai.routes.js';
+import conversationsRouter from './routes/conversations.routes.js';
 
 // Load .env only in non-Docker environment
 if (!process.env.DOCKER_ENV) {
@@ -117,6 +118,7 @@ app.use('/api/meetings', scheduledMeetingRoutes);
 app.use('/api/predictions', predictionRoutes);
 app.use('/api/animals', animalsRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/conversations', conversationsRouter);
 app.use("/api/auth", authRoutes);
 
 // Root route
@@ -132,9 +134,27 @@ app.use((err, req, res, next) => {
     res.status(500).send('Server error!');
 });
 
+async function runConversationsMigration() {
+    try {
+        const fs = await import('fs');
+        const path = await import('path');
+        const { fileURLToPath } = await import('url');
+        const __dirname = path.default.dirname(fileURLToPath(import.meta.url));
+        const sqlPath = path.default.join(__dirname, '..', '..', 'db', 'migrations', 'create_conversations.sql');
+        if (fs.default.existsSync(sqlPath)) {
+            const sql = fs.default.readFileSync(sqlPath, 'utf8');
+            await pool.query(sql);
+            console.log('Conversations migration applied');
+        }
+    } catch (err) {
+        console.error('Conversations migration error:', err.message);
+    }
+}
+
 async function start() {
     await connectPostgresDB();
     await connectMongoDB();
+    await runConversationsMigration();
     app.listen(PORT, () => {
         console.log(`Server running on port ${PORT}`);
     });
