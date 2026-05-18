@@ -142,6 +142,8 @@ dist
 /backend/src/uploads/**
 
 backend/ml-service/venv/
+backend/.env.backup
+backend/db/migrations/
 backend/ml-service/__pycache__/
 backend/uploads/
 *.pyc
