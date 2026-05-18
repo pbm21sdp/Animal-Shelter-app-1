@@ -32,6 +32,10 @@ import HowToAdoptPage from './pages/HowToAdoptPage';
 import GuidePage from './pages/GuidePage';
 import AddAnimalPage from './pages/AddAnimalPage';
 import EditAnimalPage from './pages/EditAnimalPage';
+import AdoptionContractPage from './pages/AdoptionContractPage';
+import SafetyGuidePage from './pages/SafetyGuidePage';
+import NewPetGuidePage from './pages/NewPetGuidePage';
+import MessagesPage from './pages/MessagesPage';
 
 // Protect routes that require authentication
 const ProtectedRoute = ({children}) => {
@@ -237,6 +241,26 @@ function App() {
                 <Route path="/pet/:id/edit" element={
                     <ProtectedRoute>
                         <EditAnimalPage />
+                    </ProtectedRoute>
+                }/>
+                <Route path="/adoption-contract" element={
+                    <ProtectedRoute>
+                        <AdoptionContractPage />
+                    </ProtectedRoute>
+                }/>
+                <Route path="/safety-guide" element={
+                    <ProtectedRoute>
+                        <SafetyGuidePage />
+                    </ProtectedRoute>
+                }/>
+                <Route path="/new-pet-guide" element={
+                    <ProtectedRoute>
+                        <NewPetGuidePage />
+                    </ProtectedRoute>
+                }/>
+                <Route path="/messages" element={
+                    <ProtectedRoute>
+                        <MessagesPage />
                     </ProtectedRoute>
                 }/>
                 <Route path="/oauth-callback" element={<OAuthCallbackPage />} />

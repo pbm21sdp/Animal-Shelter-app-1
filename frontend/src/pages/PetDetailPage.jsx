@@ -162,10 +162,10 @@ export default function PetDetailPage() {
         if (!askMsg.trim()) return;
         setAskSending(true);
         try {
-            await axios.post(`${API}/messages`, {
-                name:    currentUser?.name  || 'Anonymous',
-                email:   currentUser?.email || '',
-                message: askMsg.trim(),
+            await axios.post(`${API}/conversations`, {
+                pet_id:       pet.id,
+                recipient_id: pet.uploader_id,
+                message:      askMsg.trim(),
             }, { withCredentials: true });
             setAskSent(true);
             setAskMsg('');
@@ -467,7 +467,8 @@ export default function PetDetailPage() {
                                 </>
                             ) : (
                                 <div style={{ fontFamily: sans, fontSize: '13px', color: '#0F6E56' }}>
-                                    ✓ Message sent! The uploader will be in touch.
+                                    ✓ Message sent!{' '}
+                                    <Link to="/messages" style={{ color: '#C07A4A', textDecoration: 'underline' }}>View in Messages</Link>
                                 </div>
                             )}
                         </div>
@@ -528,16 +529,6 @@ export default function PetDetailPage() {
                                         onMouseLeave={e => { e.currentTarget.style.background = '#C07A4A'; }}
                                     >
                                         Contact uploader →
-                                    </button>
-
-                                    {/* Secondary: open adoption form */}
-                                    <button
-                                        onClick={() => setShowAdoptForm(true)}
-                                        style={{ width: '100%', fontFamily: sans, fontSize: '13px', background: 'rgba(250,247,244,0.08)', border: '1px solid rgba(250,247,244,0.15)', color: 'rgba(250,247,244,0.8)', borderRadius: '100px', padding: '11px', cursor: 'pointer', transition: 'background 0.15s' }}
-                                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(250,247,244,0.14)'; }}
-                                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(250,247,244,0.08)'; }}
-                                    >
-                                        Send a message
                                     </button>
                                 </>
                             )}
