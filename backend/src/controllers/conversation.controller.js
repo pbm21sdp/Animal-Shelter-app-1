@@ -5,6 +5,7 @@ export const startConversation = async (req, res) => {
     try {
         const { pet_id, recipient_id, message } = req.body;
         const sender_id = req.userId;
+        console.log('startConversation ids:', sender_id, recipient_id, pet_id);
         if (!recipient_id || !message?.trim())
             return res.status(400).json({ success: false, message: 'recipient_id and message required' });
         if (sender_id === recipient_id)
@@ -17,6 +18,7 @@ export const startConversation = async (req, res) => {
             [pet_id || null, sender_id, recipient_id]
         );
 
+        console.log('startConversation existing rows:', convResult.rows);
         let conversationId;
         if (convResult.rows.length > 0) {
             conversationId = convResult.rows[0].id;

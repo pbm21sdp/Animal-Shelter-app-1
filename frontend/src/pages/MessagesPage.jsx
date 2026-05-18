@@ -274,7 +274,7 @@ export default function MessagesPage() {
                                         border: '1px solid rgba(192,122,74,0.15)',
                                         borderRadius: '8px',
                                         marginBottom: '12px',
-                                        alignSelf: 'flex-end',
+                                        alignSelf: activeConv.participant_one === user?._id ? 'flex-end' : 'flex-start',
                                         maxWidth: '320px',
                                     }}>
                                         {activeConv.pet_photo_id && (
