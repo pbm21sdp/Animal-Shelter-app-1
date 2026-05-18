@@ -90,6 +90,12 @@ export default function PawsHomepage() {
             desc:  'Stay calm, check for ID tags, photograph the animal, and post on Paws immediately. Speed matters when it comes to reuniting lost pets.',
             href:  '/guide',
         },
+        {
+            label: 'Legal',
+            title: 'Why you need an adoption contract',
+            desc:  'A written agreement protects both you and the animal. Learn what to include and download our free template.',
+            href:  '/adoption-contract',
+        },
     ];
 
     const goToSlide = (idx) => {
@@ -215,7 +221,7 @@ export default function PawsHomepage() {
             {/* ── STATS BAR ─────────────────────────────────────────────── */}
             <div style={{
                 display: 'grid',
-                gridTemplateColumns: '1fr 1fr 1fr',
+                gridTemplateColumns: '30% 40% 30%',
                 borderBottom: `1px solid ${C.border}`,
                 backgroundColor: C.cream,
             }}>
@@ -259,8 +265,7 @@ export default function PawsHomepage() {
             {/* ── EDITORIAL GRID ────────────────────────────────────────── */}
             <div style={{
                 display: 'grid',
-                gridTemplateColumns: '25% 40% 35%',
-                flex: 1,
+                gridTemplateColumns: '30% 40% 30%',
                 minHeight: '520px',
             }}>
 
@@ -417,7 +422,7 @@ export default function PawsHomepage() {
                     </div>
 
                     {/* Dot indicators */}
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '20px' }}>
                         {SLIDES.map((_, i) => (
                             <button
                                 key={i}
@@ -435,46 +440,9 @@ export default function PawsHomepage() {
                             />
                         ))}
                     </div>
-                </div>
-
-                {/* ── RIGHT COLUMN — recent upload cards + CTA ── */}
-                <div style={{ padding: '24px 22px', display: 'flex', flexDirection: 'column', gap: '0' }}>
-
-                    {rightColumnPets.map((pet, i) => (
-                        <React.Fragment key={pet.id}>
-                            <div style={{ paddingBottom: '18px', paddingTop: i > 0 ? '18px' : 0 }}>
-                                <div style={{ display: 'flex', gap: '12px' }}>
-                                    <img
-                                        src={pet.primary_photo_id
-                                            ? `http://localhost:5000/api/pets/photos/${pet.primary_photo_id}`
-                                            : 'https://images.unsplash.com/photo-1548681528-6a5c45b66b42?w=400&q=80'}
-                                        alt={pet.name}
-                                        style={{ width: '80px', height: '72px', objectFit: 'cover', objectPosition: 'center 20%', borderRadius: '2px', flexShrink: 0, border: `1px solid ${C.borderLight}` }}
-                                    />
-                                    <div style={{ minWidth: 0 }}>
-                                        <span style={labelStyle}>Recent upload</span>
-                                        <div style={{ fontFamily: serif, fontSize: '15px', fontWeight: 700, color: C.espresso, lineHeight: 1.3, marginBottom: '4px' }}>
-                                            {pet.name}
-                                        </div>
-                                        <div style={{ fontFamily: sans, fontSize: '10px', color: C.muted, lineHeight: 1.5, marginBottom: '5px' }}>
-                                            {pet.description ? pet.description.substring(0, 80) + '...' : 'Looking for a loving home.'}
-                                        </div>
-                                        <div style={{ fontFamily: sans, fontSize: '9px', color: C.lightMuted, marginBottom: '4px' }}>
-                                            📍 {pet.location_city || 'Timișoara'}
-                                        </div>
-                                        <button onClick={() => navigate(`/pet/${pet.id}`)} style={readMoreStyle}>
-                                            View animal →
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                            {i < 1 && <div style={{ height: '1px', backgroundColor: C.border, flexShrink: 0 }} />}
-                        </React.Fragment>
-                    ))}
 
                     {/* ── CTA card ── */}
                     <div style={{
-                        flex: 1,
                         backgroundColor: '#2D1F14',
                         borderRadius: '4px',
                         padding: '22px 20px',
@@ -598,6 +566,61 @@ export default function PawsHomepage() {
                             </div>
                         </div>
                     </div>
+                </div>
+
+                {/* ── RIGHT COLUMN — recent uploads + Safety + Care ── */}
+                <div style={{ padding: '24px 22px', display: 'flex', flexDirection: 'column', gap: '0' }}>
+
+                    {rightColumnPets.map((pet, i) => (
+                        <React.Fragment key={pet.id}>
+                            <div style={{ paddingBottom: '18px', paddingTop: i > 0 ? '18px' : 0 }}>
+                                <div style={{ display: 'flex', gap: '12px' }}>
+                                    <img
+                                        src={pet.primary_photo_id
+                                            ? `http://localhost:5000/api/pets/photos/${pet.primary_photo_id}`
+                                            : 'https://images.unsplash.com/photo-1548681528-6a5c45b66b42?w=400&q=80'}
+                                        alt={pet.name}
+                                        style={{ width: '80px', height: '72px', objectFit: 'cover', objectPosition: 'center 20%', borderRadius: '2px', flexShrink: 0, border: `1px solid ${C.borderLight}` }}
+                                    />
+                                    <div style={{ minWidth: 0 }}>
+                                        <span style={labelStyle}>Recent upload</span>
+                                        <div style={{ fontFamily: serif, fontSize: '15px', fontWeight: 700, color: C.espresso, lineHeight: 1.3, marginBottom: '4px' }}>
+                                            {pet.name}
+                                        </div>
+                                        <div style={{ fontFamily: sans, fontSize: '10px', color: C.muted, lineHeight: 1.5, marginBottom: '5px' }}>
+                                            {pet.description ? pet.description.substring(0, 80) + '...' : 'Looking for a loving home.'}
+                                        </div>
+                                        <div style={{ fontFamily: sans, fontSize: '9px', color: C.lightMuted, marginBottom: '4px' }}>
+                                            📍 {pet.location_city || 'Timișoara'}
+                                        </div>
+                                        <button onClick={() => navigate(`/pet/${pet.id}`)} style={readMoreStyle}>
+                                            View animal →
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            {i < 1 && <div style={{ height: '1px', backgroundColor: C.border, flexShrink: 0 }} />}
+                        </React.Fragment>
+                    ))}
+
+                    {[
+                        { label: 'Safety', title: 'How to verify adopters and stay safe', desc: 'Red flags to watch for, how to conduct a safe meet-and-greet, and how to protect yourself and the animal.', href: '/safety-guide' },
+                        { label: 'Care', title: 'The first 30 days with your new pet', desc: 'Everything you need to know about helping a rescued animal settle into their new home.', href: '/new-pet-guide' },
+                    ].map((article, i) => (
+                        <React.Fragment key={article.href}>
+                            <div style={{ height: '1px', backgroundColor: C.border, flexShrink: 0 }} />
+                            <div style={{ paddingTop: '18px', paddingBottom: i < 1 ? '18px' : 0 }}>
+                                <span style={labelStyle}>{article.label}</span>
+                                <div style={{ fontFamily: serif, fontSize: '15px', fontWeight: 700, color: C.espresso, lineHeight: 1.35, marginBottom: '7px', marginTop: '6px' }}>
+                                    {article.title}
+                                </div>
+                                <div style={{ fontFamily: sans, fontSize: '11px', color: C.muted, lineHeight: 1.65, marginBottom: '10px' }}>
+                                    {article.desc}
+                                </div>
+                                <Link to={article.href} style={readMoreStyle}>Read more →</Link>
+                            </div>
+                        </React.Fragment>
+                    ))}
                 </div>
             </div>
         </div>

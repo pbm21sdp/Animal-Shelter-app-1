@@ -3,15 +3,31 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LogOut, MessageCircle } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import axios from 'axios';
 
 const BASE_URL = 'http://localhost:5000';
 
 export default function Navbar() {
     const { user, logout } = useAuthStore();
-    const navigate = useNavigate(); // used by notification icon onClick
+    const isAuthenticated = !!user;
+    const navigate = useNavigate();
     const location = useLocation();
     const [showProfileDropdown, setShowProfileDropdown] = useState(false);
     const [searchValue, setSearchValue] = useState('');
+    const [unreadCount, setUnreadCount] = useState(0);
+
+    useEffect(() => {
+        if (!isAuthenticated) { setUnreadCount(0); return; }
+        const fetchUnread = async () => {
+            try {
+                const r = await axios.get('http://localhost:5000/api/conversations/unread-count', { withCredentials: true });
+                setUnreadCount(r.data.count || 0);
+            } catch (e) {}
+        };
+        fetchUnread();
+        const interval = setInterval(fetchUnread, 30000);
+        return () => clearInterval(interval);
+    }, [isAuthenticated]);
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -44,13 +60,13 @@ export default function Navbar() {
         { to: '/',         label: 'Home' },
         { to: '/animals',  label: 'Animals' },
         { to: '/map',      label: 'Map' },
-        { to: '/profile',  label: 'My Animals' },
+        { to: '/my-animals', label: 'My Animals' },
         { to: '/about',    label: 'About' },
     ];
 
     const dropdownLinks = [
         { to: '/profile',                   label: 'Profile' },
-        { to: '/my-profile?tab=messages',   label: 'Messages' },
+        { to: '/messages',                   label: 'Messages' },
         { to: '/my-profile?tab=adoptions',  label: 'Requests' },
     ];
 
@@ -192,7 +208,7 @@ export default function Navbar() {
                             {/* Notifications icon */}
                             <div style={{ position: 'relative' }}>
                                 <button
-                                    onClick={() => navigate('/profile?tab=messages')}
+                                    onClick={() => navigate('/messages')}
                                     style={{
                                         width: '30px',
                                         height: '30px',
@@ -212,27 +228,30 @@ export default function Navbar() {
                                 >
                                     <MessageCircle style={{ width: '14px', height: '14px', color: '#2D1F14' }} />
                                 </button>
-                                {/* Badge */}
-                                <span style={{
-                                    position: 'absolute',
-                                    top: '-2px',
-                                    right: '-2px',
-                                    width: '14px',
-                                    height: '14px',
-                                    borderRadius: '50%',
-                                    backgroundColor: '#C07A4A',
-                                    border: '2px solid #FAF7F4',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    fontFamily: "'DM Sans', sans-serif",
-                                    fontSize: '8px',
-                                    fontWeight: 600,
-                                    color: '#FAF7F4',
-                                    lineHeight: 1,
-                                }}>
-                                    3
-                                </span>
+                                {/* Unread badge */}
+                                {unreadCount > 0 && (
+                                    <span style={{
+                                        position: 'absolute',
+                                        top: '-2px',
+                                        right: '-2px',
+                                        minWidth: '14px',
+                                        height: '14px',
+                                        borderRadius: '50%',
+                                        backgroundColor: '#C07A4A',
+                                        border: '2px solid #FAF7F4',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontFamily: "'DM Sans', sans-serif",
+                                        fontSize: '8px',
+                                        fontWeight: 600,
+                                        color: '#FAF7F4',
+                                        lineHeight: 1,
+                                        padding: '0 2px',
+                                    }}>
+                                        {unreadCount > 99 ? '99+' : unreadCount}
+                                    </span>
+                                )}
                             </div>
 
                         <div style={{ position: 'relative' }}>
