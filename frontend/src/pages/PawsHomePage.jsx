@@ -70,6 +70,7 @@ export default function PawsHomepage() {
     const [stats, setStats] = useState({ total_uploaded: 0, found_home: 0, urgent_cases: 0 });
     const [recentPets, setRecentPets] = useState([]);
     const [rightColumnPets, setRightColumnPets] = useState([]);
+    const [donationStats, setDonationStats] = useState({ totalRaised: 0, donorCount: 0, donors: [] });
 
     const STORIES = [
         {
@@ -95,6 +96,12 @@ export default function PawsHomepage() {
             title: 'Why you need an adoption contract',
             desc:  'A written agreement protects both you and the animal. Learn what to include and download our free template.',
             href:  '/adoption-contract',
+        },
+        {
+            label: 'Community Fund',
+            title: `${donationStats.totalRaised > 0 ? donationStats.totalRaised.toLocaleString('en-US', { maximumFractionDigits: 0 }) + ' €' : '0 €'} raised by the community`,
+            desc:  `${donationStats.donorCount} ${donationStats.donorCount === 1 ? 'donor has contributed' : 'donors have contributed'} to the welfare of animals on the platform. See the full list and make a difference.`,
+            href:  '/donations',
         },
     ];
 
@@ -123,6 +130,9 @@ export default function PawsHomepage() {
     useEffect(() => {
         axios.get('http://localhost:5000/api/animals/stats')
             .then(r => { if (r.data.success) setStats(r.data.stats); })
+            .catch(() => {});
+        axios.get('http://localhost:5000/api/donations/public/stats')
+            .then(r => { if (r.data.success) setDonationStats(r.data); })
             .catch(() => {});
         axios.get('http://localhost:5000/api/pets', { withCredentials: true })
             .then(r => {
