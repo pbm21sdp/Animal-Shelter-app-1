@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import axios from 'axios';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid } from 'recharts';
@@ -203,7 +204,7 @@ function AmountPill({ value, active, onClick }) {
                 transition: 'all 0.15s',
             }}
         >
-            {value} RON
+            {value} €
         </button>
     );
 }
@@ -211,6 +212,16 @@ function AmountPill({ value, active, onClick }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function AboutPage() {
+    const location = useLocation();
+
+    useEffect(() => {
+        if (location.hash === '#donation-cta') {
+            setTimeout(() => {
+                document.getElementById('donation-cta')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 200);
+        }
+    }, [location.hash]);
+
     const [stats, setStats]             = useState(null);
     const [statsLoading, setStatsLoading] = useState(true);
     const [insights, setInsights]       = useState([]);
@@ -318,11 +329,11 @@ export default function AboutPage() {
         try {
             const r = await axios.post(
                 `${API}/donations/create-session`,
-                { amount, currency: 'ron', organizationName: orgName || donationTarget || 'Paws Community Fund' },
+                { amount, currency: 'eur', organizationName: orgName || donationTarget || 'Paws Community Fund' },
                 { withCredentials: true }
             );
-            if (r.data.placeholder) {
-                setDonationMsg(`Thank you! Your ${amount} RON donation to ${r.data.organization} will be processed once Stripe is configured.`);
+            if (r.data.url) {
+                window.location.href = r.data.url;
             }
         } catch {
             setDonationMsg('Something went wrong. Please try again.');
