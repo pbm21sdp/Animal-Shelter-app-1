@@ -10,8 +10,7 @@ const API = 'http://localhost:5000/api';
 const serif = "'Cormorant Garamond', serif";
 const sans  = "'DM Sans', sans-serif";
 
-// Heights cycle so masonry columns feel organic
-const HEIGHTS = [200, 130, 160];
+const PHOTO_HEIGHT = 180;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function getPrimaryPhotoUrl(photos) {
@@ -257,24 +256,23 @@ export default function AnimalsPage() {
                 </select>
             </div>
 
-            {/* ── MASONRY GRID ─────────────────────────────────────────── */}
-            <div style={{ padding: '20px 48px 40px', columnCount: 3, columnGap: '16px' }}>
+            {/* ── GRID ─────────────────────────────────────────────────── */}
+            <div style={{ padding: '20px 48px 40px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', alignItems: 'start' }}>
                 {isLoading ? (
-                    <div style={{ columnSpan: 'all', padding: '48px 0', textAlign: 'center', fontFamily: serif, fontSize: '18px', fontStyle: 'italic', color: '#B09880' }}>
+                    <div style={{ gridColumn: '1/-1', padding: '48px 0', textAlign: 'center', fontFamily: serif, fontSize: '18px', fontStyle: 'italic', color: '#B09880' }}>
                         Loading animals…
                     </div>
                 ) : filtered.length > 0 ? (
-                    filtered.map((pet, idx) => (
+                    filtered.map((pet) => (
                         <AnimalCard
                             key={pet.id}
                             pet={pet}
-                            height={HEIGHTS[idx % HEIGHTS.length]}
                             isSaved={savedPets.has(pet.id)}
                             onToggleSave={toggleSave}
                         />
                     ))
                 ) : (
-                    <div style={{ columnSpan: 'all', padding: '48px 0', textAlign: 'center', fontFamily: serif, fontSize: '18px', fontStyle: 'italic', color: '#B09880' }}>
+                    <div style={{ gridColumn: '1/-1', padding: '48px 0', textAlign: 'center', fontFamily: serif, fontSize: '18px', fontStyle: 'italic', color: '#B09880' }}>
                         No animals match the current filters.
                     </div>
                 )}
@@ -294,7 +292,7 @@ function getBadgeType(pet) {
 }
 
 // ── Animal card ───────────────────────────────────────────────────────────────
-function AnimalCard({ pet, height, isSaved, onToggleSave }) {
+function AnimalCard({ pet, isSaved, onToggleSave }) {
     const navigate = useNavigate();
     const [hovered, setHovered] = useState(false);
     const photoUrl = getPrimaryPhotoUrl(pet.photos);
@@ -310,19 +308,15 @@ function AnimalCard({ pet, height, isSaved, onToggleSave }) {
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
             style={{
-                breakInside: 'avoid',
-                marginBottom: '16px',
                 backgroundColor: '#fff',
                 border: '1px solid rgba(45,31,20,0.1)',
                 borderRadius: '3px',
-                overflow: 'hidden',
                 transform: hovered ? 'translateY(-2px)' : 'translateY(0)',
                 transition: 'transform 0.2s ease',
                 cursor: 'pointer',
-                willChange: 'transform',
             }}
         >
-            <div style={{ position: 'relative', height: `${height}px`, overflow: 'hidden', backgroundColor: '#F0E8E0' }}>
+            <div style={{ position: 'relative', height: `${PHOTO_HEIGHT}px`, overflow: 'hidden', backgroundColor: '#F0E8E0', borderRadius: '3px 3px 0 0' }}>
                 {photoUrl ? (
                     <img
                         src={photoUrl}
