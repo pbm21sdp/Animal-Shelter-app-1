@@ -1,7 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Navbar from '../components/Navbar';
+import LocationPicker from '../components/LocationPicker';
 
 const API   = 'http://localhost:5000/api';
 const serif = "'Cormorant Garamond', serif";
@@ -113,9 +114,14 @@ export default function AddAnimalPage() {
     const navigate = useNavigate();
     const fileInputRef    = useRef(null);
     const descTextareaRef = useRef(null);
+    const pageContainerRef = useRef(null);
 
     // ── Step state ────────────────────────────────────────────────────────────
     const [step, setStep] = useState(1);
+
+    useEffect(() => {
+        if (pageContainerRef.current) pageContainerRef.current.scrollTop = 0;
+    }, [step]);
 
     // ── Step 1 state ──────────────────────────────────────────────────────────
     const [foundHow,       setFoundHow]       = useState('');
@@ -136,8 +142,12 @@ export default function AddAnimalPage() {
     const [status,      setStatus]      = useState('');
     const [description, setDescription] = useState('');
     const [descVersion, setDescVersion] = useState(0);
-    const [location,    setLocation]    = useState('');
+    const [locValue,    setLocValue]    = useState({ county: '', city: '', address: '', latitude: null, longitude: null });
     const [contact,     setContact]     = useState('');
+    const [aiBreed,     setAiBreed]     = useState('');
+    const [aiColor,     setAiColor]     = useState('');
+    const [aiCoat,      setAiCoat]      = useState('');
+    const [clipSelected, setClipSelected] = useState({});
     const [agreed,      setAgreed]      = useState(false);
     const [errors,      setErrors]      = useState({});
     const [submitting,  setSubmitting]  = useState(false);
@@ -167,23 +177,7 @@ export default function AddAnimalPage() {
         };
         setStatus(statusMap[animalStatus] || '');
 
-        // Pre-populate clean readable description
-        const summaryParts = [];
-        if (actualFoundHow) summaryParts.push(`Found ${actualFoundHow.toLowerCase()}.`);
-        if (approxAge && approxAge !== 'Unknown') summaryParts.push(`Approximately ${approxAge.toLowerCase()} old.`);
-        if (approxSize && approxSize !== 'Unknown') summaryParts.push(`Size: ${approxSize}.`);
-
-        const healthParts = [];
-        if (isVaccinated && isVaccinated !== "Don't know") healthParts.push(`Vaccinated: ${isVaccinated.toLowerCase()}`);
-        if (isNeutered   && isNeutered   !== "Don't know") healthParts.push(`Neutered: ${isNeutered.toLowerCase()}`);
-        if (hasMicrochip && hasMicrochip !== "Don't know") healthParts.push(`Microchip: ${hasMicrochip.toLowerCase()}`);
-        if (healthParts.length > 0) summaryParts.push(healthParts.join(', ') + '.');
-
-        summaryParts.push("Please add more details about the animal's temperament and appearance.");
-        setDescription(summaryParts.join(' '));
-
         console.log('Continuing to step 2 with:', { animalType, status: statusMap[animalStatus] });
-
         setStep(2);
     };
 
@@ -204,6 +198,10 @@ export default function AddAnimalPage() {
                 neutered:   isNeutered,
                 microchip:  hasMicrochip,
                 foundHow:   actualFoundHow || foundHow,
+                breed:      aiBreed  || '',
+                color:      aiColor  || '',
+                coat:       aiCoat   || '',
+                city:       locValue.city || locValue.county || '',
             }, { withCredentials: true });
             setDescription(res.data.description || '');
             setDescVersion(v => v + 1);
@@ -237,7 +235,11 @@ export default function AddAnimalPage() {
 
             const res = await axios.post(`${API}/ai/analyse-image`, { image: base64 }, { withCredentials: true });
             if (res.data.success) {
-                setClipResults(res.data.summary);
+                const summary = res.data.summary || {};
+                setClipResults(summary);
+                const sel = {};
+                Object.entries(summary).forEach(([k, v]) => { if (v && k !== 'species_confidence') sel[k] = true; });
+                setClipSelected(sel);
             }
         } catch (err) {
             setClipError('Analysis unavailable — please fill in manually');
@@ -248,20 +250,15 @@ export default function AddAnimalPage() {
 
     const applyClipResults = () => {
         if (!clipResults) return;
-        if (clipResults.type) {
+        if (clipSelected.type && clipResults.type) {
             const typeMap = { dog: 'Dog', cat: 'Cat', other: 'Other' };
-            setAnimalType(typeMap[clipResults.type] || animalType);
+            setAnimalType(typeMap[clipResults.type.toLowerCase()] || animalType);
         }
-        if (clipResults.size) setApproxSize(clipResults.size);
-        if (clipResults.age)  setApproxAge(clipResults.age);
-        if (clipResults.breed || clipResults.color || clipResults.fur) {
-            const extras = [];
-            if (clipResults.breed) extras.push(`Appears to be ${clipResults.breed}.`);
-            if (clipResults.color) extras.push(`Coat: ${clipResults.color}.`);
-            if (clipResults.fur)   extras.push(`Fur length: ${clipResults.fur}.`);
-            setDescription(prev => (prev ? prev + ' ' : '') + extras.join(' '));
-            setDescVersion(v => v + 1);
-        }
+        if (clipSelected.size  && clipResults.size)  setApproxSize(clipResults.size);
+        if (clipSelected.age   && clipResults.age)   setApproxAge(clipResults.age);
+        if (clipSelected.breed && clipResults.breed) setAiBreed(clipResults.breed);
+        if (clipSelected.color && clipResults.color) setAiColor(clipResults.color);
+        if (clipSelected.fur   && clipResults.fur)   setAiCoat(clipResults.fur);
     };
 
     // ── File handling ─────────────────────────────────────────────────────────
@@ -319,9 +316,11 @@ export default function AddAnimalPage() {
                 description:           description.trim(),
                 health_status:         status || '',
                 story:                 caption.trim(),
-                location_address:      location.trim(),
-                location_city:         location.trim(),
+                location_address:      locValue.address || '',
+                location_city:         locValue.city || locValue.county || '',
                 location_country:      '',
+                latitude:              locValue.latitude || null,
+                longitude:             locValue.longitude || null,
                 shelter_contact_email: looksLikeEmail ? contact.trim() : '',
                 shelter_contact_phone: !looksLikeEmail ? contact.trim() : '',
                 zip_code:              '',
@@ -385,7 +384,7 @@ export default function AddAnimalPage() {
     // ══════════════════════════════════════════════════════════════════════════
     if (step === 1) {
         return (
-            <div style={{ position: 'fixed', inset: 0, zIndex: 10, display: 'flex', flexDirection: 'column', backgroundColor: '#FAF7F4', overflowY: 'auto' }}>
+            <div ref={pageContainerRef} style={{ position: 'fixed', inset: 0, zIndex: 10, display: 'flex', flexDirection: 'column', backgroundColor: '#FAF7F4', overflowY: 'auto' }}>
                 <Navbar />
                 <StepIndicator step={1} />
 
@@ -484,6 +483,11 @@ export default function AddAnimalPage() {
                         />
                     </QuestionCard>
 
+                    {/* Q9 */}
+                    <QuestionCard label="Where did you find this animal?">
+                        <LocationPicker value={locValue} onChange={setLocValue} />
+                    </QuestionCard>
+
                     {/* Continue button */}
                     <div style={{ display: 'flex', justifyContent: 'center', marginTop: '24px' }}>
                         <button
@@ -518,7 +522,7 @@ export default function AddAnimalPage() {
     console.log('RENDER - description value:', description.substring(0, 50));
 
     return (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 10, display: 'flex', flexDirection: 'column', backgroundColor: '#FAF7F4', overflowY: 'auto' }}>
+        <div ref={pageContainerRef} style={{ position: 'fixed', inset: 0, zIndex: 10, display: 'flex', flexDirection: 'column', backgroundColor: '#FAF7F4', overflowY: 'auto' }}>
             <Navbar />
             <StepIndicator step={2} />
 
@@ -558,21 +562,8 @@ export default function AddAnimalPage() {
                         <div style={{ fontFamily: sans, fontSize: '11px', color: '#C07A4A', marginBottom: '8px' }}>{errors.headline}</div>
                     )}
 
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontFamily: sans, fontSize: '12px', color: '#B09880', flexWrap: 'wrap' }}>
-                        <span>Found by you ·</span>
-                        <input
-                            type="text"
-                            placeholder="add location"
-                            value={location}
-                            onChange={(e) => setLocation(e.target.value)}
-                            style={{
-                                fontFamily: sans, fontSize: '12px', color: '#7A5C44',
-                                border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)',
-                                background: 'none', outline: 'none',
-                                width: '120px', textAlign: 'center',
-                            }}
-                        />
-                        <span>· {today}</span>
+                    <div style={{ fontFamily: sans, fontSize: '12px', color: '#B09880' }}>
+                        Found by you{(locValue.city || locValue.county) ? ` in ${locValue.city || locValue.county}` : ''} · {today}
                     </div>
 
                     <div style={{ borderBottom: '3px double rgba(45,31,20,0.15)', marginTop: '20px' }} />
@@ -609,44 +600,77 @@ export default function AddAnimalPage() {
                                 style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '11px', color: '#7A5C44', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.12)', background: 'none', outline: 'none', width: '100%', boxSizing: 'border-box', padding: '6px 0', marginTop: '6px' }}
                             />
 
-                            {/* CLIP analyse button */}
-                            <button
-                                type="button"
-                                onClick={handleClipAnalyse}
-                                disabled={clipLoading}
-                                style={{
-                                    marginTop: '10px', fontFamily: sans, fontSize: '11px', fontWeight: 500,
-                                    background: 'rgba(192,122,74,0.1)', border: '1px solid rgba(192,122,74,0.25)',
-                                    color: '#8B4E28', borderRadius: '100px', padding: '5px 14px',
-                                    cursor: clipLoading ? 'default' : 'pointer', opacity: clipLoading ? 0.7 : 1,
-                                }}
-                            >
-                                {clipLoading ? '🔍 Analysing...' : '🔍 Analyse with AI'}
-                            </button>
-                            {clipError && (
-                                <div style={{ fontFamily: sans, fontSize: '11px', color: '#993C1D', marginTop: '6px' }}>{clipError}</div>
-                            )}
-                            {clipResults && (
-                                <div style={{ marginTop: '10px', background: 'rgba(192,122,74,0.05)', border: '1px solid rgba(192,122,74,0.15)', borderRadius: '4px', padding: '12px 16px' }}>
-                                    <div style={{ fontFamily: sans, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#C07A4A', marginBottom: '8px' }}>
-                                        AI detected · feel free to correct
-                                    </div>
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                                        {Object.entries(clipResults).map(([key, val]) => val && key !== 'species_confidence' ? (
-                                            <span key={key} style={{ fontFamily: sans, fontSize: '11px', background: '#fff', border: '1px solid rgba(45,31,20,0.12)', borderRadius: '100px', padding: '3px 10px', color: '#5C4030' }}>
-                                                {key}: {val}
-                                            </span>
-                                        ) : null)}
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={applyClipResults}
-                                        style={{ marginTop: '10px', fontFamily: sans, fontSize: '11px', background: '#2D1F14', color: '#FAF7F4', border: 'none', borderRadius: '100px', padding: '6px 14px', cursor: 'pointer' }}
-                                    >
-                                        Apply to form →
-                                    </button>
-                                </div>
-                            )}
+                            {/* CLIP analyse button — shown whenever any AI-detectable trait is still unset */}
+                            {(() => {
+                                const typeOk  = !!animalType && animalType !== 'Unknown';
+                                const ageOk   = !!approxAge  && approxAge  !== 'Unknown';
+                                const sizeOk  = !!approxSize && approxSize !== 'Unknown';
+                                const hasUnfilled = !typeOk || !ageOk || !sizeOk || !aiBreed || !aiColor || !aiCoat;
+                                if (!hasUnfilled) return null;
+                                return (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={handleClipAnalyse}
+                                            disabled={clipLoading}
+                                            style={{
+                                                marginTop: '10px', fontFamily: sans, fontSize: '11px', fontWeight: 500,
+                                                background: 'rgba(192,122,74,0.1)', border: '1px solid rgba(192,122,74,0.25)',
+                                                color: '#8B4E28', borderRadius: '100px', padding: '5px 14px',
+                                                cursor: clipLoading ? 'default' : 'pointer', opacity: clipLoading ? 0.7 : 1,
+                                            }}
+                                        >
+                                            {clipLoading ? '🔍 Analysing...' : '🔍 Analyse with AI'}
+                                        </button>
+                                        {clipError && (
+                                            <div style={{ fontFamily: sans, fontSize: '11px', color: '#993C1D', marginTop: '6px' }}>{clipError}</div>
+                                        )}
+                                        {clipResults && (
+                                            <div style={{ marginTop: '10px', background: 'rgba(192,122,74,0.05)', border: '1px solid rgba(192,122,74,0.15)', borderRadius: '4px', padding: '12px 16px' }}>
+                                                <div style={{ fontFamily: sans, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#C07A4A', marginBottom: '8px' }}>
+                                                    AI detected · click to toggle, then apply
+                                                </div>
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                                    {Object.entries(clipResults).map(([key, val]) => {
+                                                        if (!val || key === 'species_confidence') return null;
+                                                        // Hide chips for traits already selected in Step 1
+                                                        if (key === 'type'  && typeOk)   return null;
+                                                        if (key === 'age'   && ageOk)    return null;
+                                                        if (key === 'size'  && sizeOk)   return null;
+                                                        if (key === 'breed' && aiBreed)  return null;
+                                                        if (key === 'color' && aiColor)  return null;
+                                                        if (key === 'fur'   && aiCoat)   return null;
+                                                        return (
+                                                            <button
+                                                                key={key}
+                                                                type="button"
+                                                                onClick={() => setClipSelected(prev => ({ ...prev, [key]: !prev[key] }))}
+                                                                style={{
+                                                                    fontFamily: sans, fontSize: '11px',
+                                                                    background: clipSelected[key] ? '#2D1F14' : '#fff',
+                                                                    color: clipSelected[key] ? '#FAF7F4' : '#5C4030',
+                                                                    border: '1px solid rgba(45,31,20,0.18)',
+                                                                    borderRadius: '100px', padding: '3px 10px',
+                                                                    cursor: 'pointer', transition: 'all 0.12s',
+                                                                }}
+                                                            >
+                                                                {key}: {val}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={applyClipResults}
+                                                    style={{ marginTop: '10px', fontFamily: sans, fontSize: '11px', background: '#2D1F14', color: '#FAF7F4', border: 'none', borderRadius: '100px', padding: '6px 14px', cursor: 'pointer' }}
+                                                >
+                                                    Apply selected →
+                                                </button>
+                                            </div>
+                                        )}
+                                    </>
+                                );
+                            })()}
 
                             {(extraPhotos.length > 0 || previews.length < 5) && (
                                 <div style={{ display: 'flex', gap: '8px', marginTop: '10px', alignItems: 'center' }}>
@@ -728,7 +752,7 @@ export default function AddAnimalPage() {
                     <textarea
                         key={descVersion}
                         ref={descTextareaRef}
-                        placeholder="Describe this animal — where found, behavior, age, markings..."
+                        placeholder="Tell this animal's story here, talk about its personality, behaviour, and how it was found…"
                         value={description}
                         onChange={(e) => { setDescription(e.target.value); if (aiGenerated) setAiGenerated(false); }}
                         style={{
@@ -763,6 +787,9 @@ export default function AddAnimalPage() {
                         isVaccinated && isVaccinated !== "Don't know" ? { label: 'Vaccinated', value: isVaccinated } : null,
                         isNeutered && isNeutered !== "Don't know" ? { label: 'Neutered', value: isNeutered } : null,
                         hasMicrochip && hasMicrochip !== "Don't know" ? { label: 'Microchip', value: hasMicrochip } : null,
+                        aiBreed ? { label: 'Breed', value: aiBreed } : null,
+                        aiColor ? { label: 'Color', value: aiColor } : null,
+                        aiCoat  ? { label: 'Coat',  value: aiCoat  } : null,
                     ].filter(Boolean);
                     return step1Summary.length > 0 ? (
                         <div style={{ marginTop: '12px', display: 'flex', flexWrap: 'wrap', gap: '6px', justifyContent: 'center' }}>
