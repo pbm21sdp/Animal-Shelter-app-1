@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { User, Mail, Lock, Loader } from "lucide-react";
+import { User, Mail, Lock, Loader, MapPin } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import PasswordStrengthMeter from "../components/PasswordStrengthMeter.jsx";
@@ -26,6 +26,7 @@ const SignUpPage = () => {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
+    const [city, setCity] = useState("");
 
     const navigate = useNavigate();
     const { signup, error, isLoading, checkAuth } = useAuthStore();
@@ -39,7 +40,7 @@ const SignUpPage = () => {
         }
 
         try {
-            await signup(email, password, name);
+            await signup(email, password, name, city.trim() || null);
             navigate("/verify-email");
         } catch (error) {
             console.log(error);
@@ -93,10 +94,11 @@ const SignUpPage = () => {
     };
 
     const fields = [
-        { id: 'name', type: 'text', label: 'Full Name', placeholder: 'Jane Doe', value: name, onChange: (e) => setName(e.target.value), icon: User },
-        { id: 'email', type: 'email', label: 'Email', placeholder: 'your@email.com', value: email, onChange: (e) => setEmail(e.target.value), icon: Mail },
-        { id: 'password', type: 'password', label: 'Password', placeholder: '••••••••', value: password, onChange: (e) => setPassword(e.target.value), icon: Lock },
-        { id: 'confirmPassword', type: 'password', label: 'Confirm Password', placeholder: '••••••••', value: confirmPassword, onChange: (e) => setConfirmPassword(e.target.value), icon: Lock },
+        { id: 'name',            type: 'text',     label: 'Full Name',        placeholder: 'Jane Doe',        value: name,            onChange: (e) => setName(e.target.value),            icon: User,   required: true  },
+        { id: 'city',            type: 'text',     label: 'City (optional)',   placeholder: 'e.g. Timișoara',  value: city,            onChange: (e) => setCity(e.target.value),            icon: MapPin, required: false },
+        { id: 'email',           type: 'email',    label: 'Email',            placeholder: 'your@email.com',  value: email,           onChange: (e) => setEmail(e.target.value),           icon: Mail,   required: true  },
+        { id: 'password',        type: 'password', label: 'Password',         placeholder: '••••••••',        value: password,        onChange: (e) => setPassword(e.target.value),        icon: Lock,   required: true  },
+        { id: 'confirmPassword', type: 'password', label: 'Confirm Password', placeholder: '••••••••',        value: confirmPassword, onChange: (e) => setConfirmPassword(e.target.value), icon: Lock,   required: true  },
     ];
 
     return (
@@ -129,7 +131,7 @@ const SignUpPage = () => {
                 </div>
 
                 <form onSubmit={handleSignUp} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    {fields.map(({ id, type, label, placeholder, value, onChange, icon: Icon }) => (
+                    {fields.map(({ id, type, label, placeholder, value, onChange, icon: Icon, required }) => (
                         <div key={id}>
                             <label style={labelStyle}>{label}</label>
                             <div style={{ position: 'relative' }}>
@@ -140,7 +142,7 @@ const SignUpPage = () => {
                                     placeholder={placeholder}
                                     value={value}
                                     onChange={onChange}
-                                    required
+                                    required={required}
                                     style={inputStyle}
                                     onFocus={(e) => e.target.style.borderColor = '#D4967A'}
                                     onBlur={(e) => e.target.style.borderColor = '#E8C4B0'}
