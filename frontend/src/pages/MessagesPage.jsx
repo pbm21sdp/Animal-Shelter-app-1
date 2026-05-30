@@ -129,7 +129,7 @@ export default function MessagesPage() {
 
                 {/* ── LEFT PANEL ─────────────────────────────────────────── */}
                 <div style={{ width: '320px', flexShrink: 0, borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ padding: '20px', borderBottom: `1px solid ${C.border}` }}>
+                    <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', minHeight: '68px', boxSizing: 'border-box' }}>
                         <h1 style={{ fontFamily: serif, fontSize: '22px', fontWeight: 700, color: C.espresso, margin: 0 }}>
                             Messages
                         </h1>
