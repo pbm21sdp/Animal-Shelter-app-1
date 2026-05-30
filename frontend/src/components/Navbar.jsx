@@ -65,9 +65,8 @@ export default function Navbar() {
     ];
 
     const dropdownLinks = [
-        { to: '/profile',                   label: 'Profile' },
-        { to: '/messages',                   label: 'Messages' },
-        { to: '/my-profile?tab=adoptions',  label: 'Requests' },
+        { to: '/profile',  label: 'Profile' },
+        { to: '/messages', label: 'Messages' },
     ];
 
     return (
@@ -153,7 +152,7 @@ export default function Navbar() {
                         color: '#8B4E28',
                         whiteSpace: 'nowrap',
                     }}>
-                        ◎ Timișoara
+                        ◎ {user?.city || 'Somewhere'}
                     </span>
                 </div>
 
