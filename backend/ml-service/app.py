@@ -477,8 +477,8 @@ class AnimalDescriptionGenerator:
         breed = data.get('breed') or ''
         color = data.get('color') or ''
         coat = data.get('coat') or ''
+        traits = [t for t in (data.get('traits') or []) if t]
 
-        # Time-based seed for variation on every call
         random.seed(int(time.time() * 1000) % 10000)
 
         found_key = 'default'
@@ -502,7 +502,7 @@ class AnimalDescriptionGenerator:
 
         parts = [opening]
 
-        # Optional breed / color / coat sentence from AI analysis
+        # Appearance sentence (breed / color / coat from AI analysis)
         appearance_parts = []
         if breed:
             appearance_parts.append(f'appears to be a {breed}')
@@ -513,43 +513,93 @@ class AnimalDescriptionGenerator:
         if appearance_parts:
             parts.append(f'This {animal_type} {", ".join(appearance_parts)}.')
 
-        # Age sentence
-        age_map = {
-            'Under 3 months': 'Just a few months old, this little one will adapt quickly to a loving home.',
-            '3-12 months':    'Still young at under a year old, full of energy and ready to bond.',
-            '1-3 years':      f'At {age.lower()}, they have the perfect balance of playfulness and calm.',
-            '3-7 years':      f'A settled adult at {age.lower()}, calm and fully developed in character.',
-            'Over 7 years':   'A wise and gentle soul — older animals make incredibly loyal companions.',
-        }
-        if age in age_map:
-            parts.append(age_map[age])
+        # Personality traits — multiple sentence patterns for variety
+        if traits:
+            t_lower = [t.lower() for t in traits]
+            if len(t_lower) == 1:
+                trait_str = t_lower[0]
+            elif len(t_lower) == 2:
+                trait_str = f'{t_lower[0]} and {t_lower[1]}'
+            else:
+                trait_str = ', '.join(t_lower[:-1]) + f', and {t_lower[-1]}'
 
-        # Health sentence — combine vaccinated + neutered + microchip
+            trait_templates = [
+                f'Known to be {trait_str}, they would make a wonderful companion for the right family.',
+                f'Their personality shines through — {trait_str} describes them perfectly.',
+                f'Those who know them best describe this {animal_type} as {trait_str}.',
+                f'A truly {trait_str} soul, this {animal_type} is looking for someone to share their days with.',
+                f'What makes them special? They are {trait_str} — and they wear it every single day.',
+            ]
+            parts.append(random.choice(trait_templates))
+
+        # Age sentence — multiple options per bracket
+        age_options = {
+            'Under 3 months': [
+                'Just a few months old, this little one will adapt quickly to a loving home.',
+                'At such a young age, they are a blank canvas — ready to grow alongside their new family.',
+                'Still a baby, they have their whole life ahead of them and will bond deeply with whoever takes them in.',
+            ],
+            '3-12 months': [
+                'Still young and full of energy, they are at the perfect age to bond with a new family.',
+                'Under a year old, they bring buckets of curiosity and enthusiasm to every moment.',
+                'Young, lively, and eager to explore — this one will keep you on your toes in the best possible way.',
+            ],
+            '1-3 years': [
+                f'At {age.lower()}, they have found the sweet spot between playfulness and calm.',
+                'A young adult with just enough energy to keep life interesting and just enough calm to curl up beside you.',
+                f'At this age they are fully themselves — confident, settled, and ready for a real connection.',
+            ],
+            '3-7 years': [
+                f'A mature and settled companion at {age.lower()}, calm and fully developed in character.',
+                'Past the chaotic puppy or kitten phase, this animal knows exactly who they are and what they want — a loving home.',
+                f'At {age.lower()}, what you see is what you get: a loyal, grounded companion for daily life.',
+            ],
+            'Over 7 years': [
+                'A wise and gentle soul — older animals make incredibly loyal and calm companions.',
+                'Senior animals love just as fiercely, if not more. This one has years of affection left to give.',
+                'There is something irreplaceable about an older animal: quiet, grateful, and deeply loyal.',
+            ],
+        }
+        if age in age_options:
+            parts.append(random.choice(age_options[age]))
+
+        # Health sentence — varied phrasing
         health_parts = []
         if vaccinated == 'Yes, fully':
-            health_parts.append('fully vaccinated')
+            health_parts.append(random.choice(['fully vaccinated', 'up to date on all vaccinations']))
         elif vaccinated == 'Partially':
             health_parts.append('partially vaccinated')
         elif vaccinated == 'No':
-            health_parts.append('not yet vaccinated (will need vaccines upon adoption)')
+            health_parts.append('not yet vaccinated (vaccines recommended upon adoption)')
 
         if neutered == 'Yes':
-            health_parts.append('neutered/spayed')
+            health_parts.append(random.choice(['neutered/spayed', 'already neutered']))
         elif neutered == 'No':
             health_parts.append('not yet neutered')
 
         if microchip == 'Yes':
-            health_parts.append('microchipped')
+            health_parts.append(random.choice(['microchipped', 'already microchipped for peace of mind']))
         elif microchip == 'No':
             health_parts.append('not yet microchipped')
 
         if health_parts:
-            parts.append(f'Health status: {", ".join(health_parts)}.')
+            health_intros = [
+                f'Health notes: {", ".join(health_parts)}.',
+                f'On the health side: {", ".join(health_parts)}.',
+                f'Medical update: {", ".join(health_parts)}.',
+            ]
+            parts.append(random.choice(health_intros))
         else:
-            parts.append('Health status is currently being assessed by volunteers.')
+            parts.append(random.choice([
+                'Health status is currently being assessed by local volunteers.',
+                'A full health check is in progress with the help of local volunteers.',
+            ]))
 
         if status == 'Needs urgent care':
-            parts.append('This animal needs urgent care and a loving home as soon as possible — please reach out today.')
+            parts.append(random.choice([
+                'This animal needs urgent care and a loving home as soon as possible — please reach out today.',
+                'Time is important here — this animal needs care urgently. If you can help, please get in touch.',
+            ]))
 
         parts.append(random.choice(self.templates['closing']))
 

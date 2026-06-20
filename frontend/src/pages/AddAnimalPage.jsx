@@ -10,6 +10,8 @@ const sans  = "'DM Sans', sans-serif";
 
 const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
+const titleCase = str => (str || '').replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+
 // ── Pill toggle (shared by both steps) ───────────────────────────────────────
 function PillToggle({ options, value, onChange, large }) {
     return (
@@ -154,6 +156,8 @@ export default function AddAnimalPage() {
     const [submitError, setSubmitError] = useState('');
     const [publishedId, setPublishedId] = useState(null);
 
+    const [selectedTraits, setSelectedTraits] = useState([]);
+
     // ── AI generation state ───────────────────────────────────────────────────
     const [aiLoading,   setAiLoading]   = useState(false);
     const [aiGenerated, setAiGenerated] = useState(false);
@@ -202,6 +206,7 @@ export default function AddAnimalPage() {
                 color:      aiColor  || '',
                 coat:       aiCoat   || '',
                 city:       locValue.city || locValue.county || '',
+                traits:     selectedTraits,
             }, { withCredentials: true });
             setDescription(res.data.description || '');
             setDescVersion(v => v + 1);
@@ -314,6 +319,7 @@ export default function AddAnimalPage() {
                 coat:                  '',
                 fee:                   0,
                 description:           description.trim(),
+                traits:                selectedTraits,
                 health_status:         status || '',
                 story:                 caption.trim(),
                 location_address:      locValue.address || '',
@@ -627,42 +633,53 @@ export default function AddAnimalPage() {
                                         )}
                                         {clipResults && (
                                             <div style={{ marginTop: '10px', background: 'rgba(192,122,74,0.05)', border: '1px solid rgba(192,122,74,0.15)', borderRadius: '4px', padding: '12px 16px' }}>
-                                                <div style={{ fontFamily: sans, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#C07A4A', marginBottom: '8px' }}>
-                                                    AI detected · click to toggle, then apply
+                                                <div style={{ fontFamily: sans, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#C07A4A', marginBottom: '6px' }}>
+                                                    AI detected · select what to apply
                                                 </div>
-                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                                                    {Object.entries(clipResults).map(([key, val]) => {
-                                                        if (!val || key === 'species_confidence') return null;
-                                                        // Hide chips for traits already selected in Step 1
-                                                        if (key === 'type'  && typeOk)   return null;
-                                                        if (key === 'age'   && ageOk)    return null;
-                                                        if (key === 'size'  && sizeOk)   return null;
-                                                        if (key === 'breed' && aiBreed)  return null;
-                                                        if (key === 'color' && aiColor)  return null;
-                                                        if (key === 'fur'   && aiCoat)   return null;
+                                                <div style={{ fontFamily: sans, fontSize: '10px', color: '#9A7A60', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    <span>⚠️</span> AI results may not always be accurate — review each suggestion before applying.
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    {[
+                                                        { key: 'breed', label: 'Breed' },
+                                                        { key: 'color', label: 'Color' },
+                                                        { key: 'fur',   label: 'Fur'   },
+                                                        { key: 'age',   label: 'Age'   },
+                                                        { key: 'size',  label: 'Size'  },
+                                                        { key: 'type',  label: 'Type'  },
+                                                    ].map(({ key, label }) => {
+                                                        const val = clipResults[key];
+                                                        if (!val) return null;
+                                                        if (key === 'type' && typeOk) return null;
+                                                        const active = !!clipSelected[key];
                                                         return (
-                                                            <button
-                                                                key={key}
-                                                                type="button"
-                                                                onClick={() => setClipSelected(prev => ({ ...prev, [key]: !prev[key] }))}
-                                                                style={{
-                                                                    fontFamily: sans, fontSize: '11px',
-                                                                    background: clipSelected[key] ? '#2D1F14' : '#fff',
-                                                                    color: clipSelected[key] ? '#FAF7F4' : '#5C4030',
-                                                                    border: '1px solid rgba(45,31,20,0.18)',
-                                                                    borderRadius: '100px', padding: '3px 10px',
-                                                                    cursor: 'pointer', transition: 'all 0.12s',
-                                                                }}
-                                                            >
-                                                                {key}: {val}
-                                                            </button>
+                                                            <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                                <span style={{ fontFamily: sans, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.12em', color: '#C07A4A', fontWeight: 500, minWidth: '36px' }}>
+                                                                    {label}
+                                                                </span>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setClipSelected(prev => ({ ...prev, [key]: !prev[key] }))}
+                                                                    style={{
+                                                                        fontFamily: sans, fontSize: '10px',
+                                                                        padding: '4px 10px', borderRadius: '100px',
+                                                                        cursor: 'pointer',
+                                                                        border: `1px solid ${active ? '#2D1F14' : 'rgba(45,31,20,0.15)'}`,
+                                                                        background: active ? '#2D1F14' : 'transparent',
+                                                                        color: active ? '#FAF7F4' : '#7A5C44',
+                                                                        transition: 'all 0.15s',
+                                                                    }}
+                                                                >
+                                                                    {titleCase(val)}
+                                                                </button>
+                                                            </div>
                                                         );
                                                     })}
                                                 </div>
                                                 <button
                                                     type="button"
                                                     onClick={applyClipResults}
-                                                    style={{ marginTop: '10px', fontFamily: sans, fontSize: '11px', background: '#2D1F14', color: '#FAF7F4', border: 'none', borderRadius: '100px', padding: '6px 14px', cursor: 'pointer' }}
+                                                    style={{ marginTop: '12px', fontFamily: sans, fontSize: '11px', background: '#2D1F14', color: '#FAF7F4', border: 'none', borderRadius: '100px', padding: '6px 14px', cursor: 'pointer' }}
                                                 >
                                                     Apply selected →
                                                 </button>
@@ -714,6 +731,48 @@ export default function AddAnimalPage() {
                     <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={(e) => handleFiles(e.target.files)} />
                     {errors.photos && <div style={{ fontFamily: sans, fontSize: '11px', color: '#C07A4A', marginTop: '5px', textAlign: 'center' }}>{errors.photos}</div>}
                 </div>
+
+                {/* ── PERSONALITY TRAITS ──────────────────────────────── */}
+                {(() => {
+                    const TRAITS = [
+                        'Friendly', 'Playful', 'Calm', 'Affectionate', 'Gentle',
+                        'Energetic', 'Curious', 'Loyal', 'Sociable', 'Independent',
+                        'Shy', 'Good with kids', 'Good with dogs', 'Good with cats', 'House-trained',
+                    ];
+                    const toggle = (t) => setSelectedTraits(prev =>
+                        prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]
+                    );
+                    return (
+                        <div style={{ marginTop: '28px' }}>
+                            <div style={{ fontFamily: sans, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.14em', color: '#C07A4A', fontWeight: 500, marginBottom: '10px' }}>
+                                Personality traits <span style={{ color: '#B09880', textTransform: 'none', letterSpacing: 0, fontWeight: 400 }}>— optional, used by AI</span>
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px' }}>
+                                {TRAITS.map(t => {
+                                    const active = selectedTraits.includes(t);
+                                    return (
+                                        <button
+                                            key={t}
+                                            type="button"
+                                            onClick={() => toggle(t)}
+                                            style={{
+                                                fontFamily: sans, fontSize: '12px', fontWeight: active ? 500 : 400,
+                                                padding: '5px 13px', borderRadius: '100px',
+                                                border: `1.5px solid ${active ? '#C07A4A' : 'rgba(45,31,20,0.18)'}`,
+                                                background: active ? '#C07A4A' : 'transparent',
+                                                color: active ? '#FAF7F4' : '#7A5C44',
+                                                cursor: 'pointer',
+                                                transition: 'background 0.13s, border-color 0.13s, color 0.13s',
+                                            }}
+                                        >
+                                            {t}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    );
+                })()}
 
                 {/* ── DESCRIPTION ─────────────────────────────────────── */}
                 <div style={{ marginTop: '24px' }}>
