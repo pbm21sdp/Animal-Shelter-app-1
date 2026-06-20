@@ -79,7 +79,7 @@ export default function Navbar() {
             alignItems: 'center',
             position: 'sticky',
             top: 0,
-            zIndex: 50,
+            zIndex: 1000,
             flexShrink: 0,
         }}>
             {/* Logo — left */}
