@@ -18,11 +18,13 @@
     "@stripe/stripe-js": "^7.2.0",
     "axios": "^1.8.4",
     "framer-motion": "^12.6.2",
+    "leaflet": "^1.9.4",
     "lottie-web": "^5.13.0",
     "lucide-react": "^0.485.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hot-toast": "^2.5.2",
+    "react-leaflet": "^5.0.0",
     "react-router-dom": "^6.30.0",
     "recharts": "^3.3.0",
     "zustand": "^5.0.3"

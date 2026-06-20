@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Navbar from '../components/Navbar';
+import LocationPicker from '../components/LocationPicker';
 import { usePetStore } from '../store/petStore';
 import { useAuthStore } from '../store/authStore';
 
@@ -52,7 +53,7 @@ export default function EditAnimalPage() {
     const [name,        setName]        = useState('');
     const [description, setDescription] = useState('');
     const [healthStatus, setHealthStatus] = useState('');
-    const [locationCity, setLocationCity] = useState('');
+    const [locValue,    setLocValue]    = useState({ county: '', city: '', address: '', latitude: null, longitude: null });
     const [type,        setType]        = useState('');
     const [ageCategory, setAgeCategory] = useState('');
     const [gender,      setGender]      = useState('');
@@ -85,7 +86,13 @@ export default function EditAnimalPage() {
             setName(p.name || '');
             setDescription(p.description || '');
             setHealthStatus(p.health_status || '');
-            setLocationCity(p.location_city || '');
+            setLocValue({
+                county:    '',
+                city:      p.location_city    || '',
+                address:   p.location_address || '',
+                latitude:  p.latitude  ? parseFloat(p.latitude)  : null,
+                longitude: p.longitude ? parseFloat(p.longitude) : null,
+            });
             setType(p.type || '');
             setAgeCategory(p.age_category || '');
             setGender(p.gender || '');
@@ -158,15 +165,18 @@ export default function EditAnimalPage() {
         setSaving(true);
         try {
             await axios.patch(`${API}/pets/${id}`, {
-                name:          name.trim(),
-                description:   description.trim(),
-                health_status: healthStatus,
-                location_city: locationCity.trim(),
+                name:             name.trim(),
+                description:      description.trim(),
+                health_status:    healthStatus,
+                location_city:    locValue.city || locValue.county || '',
+                location_address: locValue.address || '',
+                latitude:         locValue.latitude  ?? null,
+                longitude:        locValue.longitude ?? null,
                 type,
-                age_category:  ageCategory,
+                age_category:     ageCategory,
                 gender,
                 size,
-                breed:         breed.trim(),
+                breed:            breed.trim(),
             }, { withCredentials: true });
             toast.success('Listing updated!');
             navigate(`/pet/${id}`);
@@ -320,21 +330,7 @@ export default function EditAnimalPage() {
 
                 {/* Location */}
                 <div style={{ marginBottom: '32px' }}>
-                    <div style={{ fontFamily: sans, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.14em', color: '#C07A4A', fontWeight: 500, marginBottom: '8px' }}>
-                        Location
-                    </div>
-                    <input
-                        type="text"
-                        value={locationCity}
-                        onChange={e => setLocationCity(e.target.value)}
-                        placeholder="City or area"
-                        style={{
-                            fontFamily: sans, fontSize: '14px', color: '#2D1F14',
-                            border: 'none', borderBottom: '1px solid rgba(45,31,20,0.15)',
-                            background: 'none', outline: 'none',
-                            width: '100%', boxSizing: 'border-box', padding: '6px 0',
-                        }}
-                    />
+                    <LocationPicker value={locValue} onChange={setLocValue} />
                 </div>
 
                 {/* Photos */}
