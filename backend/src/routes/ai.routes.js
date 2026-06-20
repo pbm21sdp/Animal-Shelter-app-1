@@ -67,6 +67,7 @@ router.get('/contract', async (req, res) => {
     try {
         const axios = (await import('axios')).default;
         const response = await axios.get('http://127.0.0.1:5001/api/ml/generate-contract', {
+            params: req.query,
             responseType: 'arraybuffer',
             timeout: 15000
         });

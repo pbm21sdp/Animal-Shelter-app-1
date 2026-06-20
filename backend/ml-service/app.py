@@ -473,6 +473,10 @@ class AnimalDescriptionGenerator:
         neutered = data.get('neutered') or 'unknown'
         age = data.get('age') or 'Unknown'
         status = data.get('status') or ''
+        city = data.get('city') or ''
+        breed = data.get('breed') or ''
+        color = data.get('color') or ''
+        coat = data.get('coat') or ''
 
         # Time-based seed for variation on every call
         random.seed(int(time.time() * 1000) % 10000)
@@ -492,10 +496,22 @@ class AnimalDescriptionGenerator:
         size_str = size_map.get(size, size)
 
         opening_tpl = random.choice(self.templates['opening'].get(found_key, self.templates['opening']['default']))
-        opening = opening_tpl.format(type=animal_type, size=size_str, city='Timișoara').strip()
+        city_label = city if city else 'the area'
+        opening = opening_tpl.format(type=animal_type, size=size_str, city=city_label).strip()
         opening = ' '.join(opening.split())
 
         parts = [opening]
+
+        # Optional breed / color / coat sentence from AI analysis
+        appearance_parts = []
+        if breed:
+            appearance_parts.append(f'appears to be a {breed}')
+        if color:
+            appearance_parts.append(f'with a {color} coat')
+        if coat and not color:
+            appearance_parts.append(f'with {coat} fur')
+        if appearance_parts:
+            parts.append(f'This {animal_type} {", ".join(appearance_parts)}.')
 
         # Age sentence
         age_map = {
@@ -836,8 +852,16 @@ def generate_contract():
         sys.path.insert(0, os.path.dirname(__file__))
         from generate_contract import create_contract_pdf_v2 as create_contract_pdf
         import io
+        animal_data = {
+            'name':    request.args.get('name', ''),
+            'species': request.args.get('species', ''),
+            'breed':   request.args.get('breed', ''),
+            'color':   request.args.get('color', ''),
+            'sex':     request.args.get('sex', ''),
+            'age':     request.args.get('age', ''),
+        }
         buffer = io.BytesIO()
-        create_contract_pdf(buffer)
+        create_contract_pdf(buffer, animal_data=animal_data)
         buffer.seek(0)
         from flask import send_file
         return send_file(
