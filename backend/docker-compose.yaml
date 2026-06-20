@@ -37,12 +37,9 @@ services:
     container_name: stripe-cli
     command:
       - listen
-      - --api-key=${STRIPE_API_KEY}
       - --forward-to=http://host.docker.internal:5000/api/donations/webhook
     env_file:
       - ./.env
-    environment:
-      - STRIPE_API_KEY=${STRIPE_API_KEY}
 
 volumes:
   postgres-data:
