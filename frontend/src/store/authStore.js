@@ -13,11 +13,11 @@ export const useAuthStore = create((set) => ({
     isLoading: false,
     isCheckingAuth:true,
 
-    signup: async(email, password, name) => {
+    signup: async(email, password, name, city) => {
         set({isLoading:true, error:null});
 
         try{
-            const response = await axios.post(`${API_URL}/signup`, {email, password, name});
+            const response = await axios.post(`${API_URL}/signup`, {email, password, name, city});
             set({user:response.data.user, isAuthenticated:true, isLoading:false});
         }catch (error) {
             set({error:error.response.data.message || "Error signing up", isLoading:false});
@@ -122,6 +122,12 @@ export const useAuthStore = create((set) => ({
             });
             throw error;
         }
+    },
+
+    syncProfile: (data) => {
+        set(state => ({
+            user: state.user ? { ...state.user, ...data } : state.user,
+        }));
     },
 
     uploadAvatar: async (file) => {
