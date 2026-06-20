@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import Navbar from '../components/Navbar';
 import { useAuthStore } from '../store/authStore';
@@ -60,13 +60,15 @@ function Avatar({ name, avatar, size = 36 }) {
 
 export default function MessagesPage() {
     const { user } = useAuthStore();
-    const [conversations, setConversations]   = useState([]);
-    const [activeConvId, setActiveConvId]     = useState(null);
-    const [messages, setMessages]             = useState([]);
-    const [newMessage, setNewMessage]         = useState('');
-    const [loading, setLoading]               = useState(true);
-    const [sending, setSending]               = useState(false);
-    const [hoveredConvId, setHoveredConvId]   = useState(null);
+    const [searchParams] = useSearchParams();
+    const [conversations, setConversations]         = useState([]);
+    const [activeConvId, setActiveConvId]           = useState(null);
+    const [messages, setMessages]                   = useState([]);
+    const [newMessage, setNewMessage]               = useState('');
+    const [loading, setLoading]                     = useState(true);
+    const [sending, setSending]                     = useState(false);
+    const [hoveredConvId, setHoveredConvId]         = useState(null);
+    const [contractGenerating, setContractGenerating] = useState(false);
     const messagesEndRef = useRef(null);
 
     const activeConv = conversations.find(c => c.id === activeConvId) || null;
@@ -77,6 +79,17 @@ export default function MessagesPage() {
             .catch(() => {})
             .finally(() => setLoading(false));
     }, []);
+
+    // Auto-select conversation from URL param ?conv=<id>
+    useEffect(() => {
+        const convParam = searchParams.get('conv');
+        if (convParam && conversations.length > 0) {
+            const convId = parseInt(convParam, 10);
+            if (conversations.find(c => c.id === convId)) {
+                setActiveConvId(convId);
+            }
+        }
+    }, [conversations, searchParams]);
 
     useEffect(() => {
         if (!activeConvId) { setMessages([]); return; }
@@ -119,6 +132,26 @@ export default function MessagesPage() {
             e.preventDefault();
             handleSend();
         }
+    };
+
+    const handleGenerateContract = async () => {
+        if (!activeConv?.pet_id || contractGenerating) return;
+        setContractGenerating(true);
+        let petData = null;
+        try {
+            const r = await axios.get(`${API}/pets/${activeConv.pet_id}`, { withCredentials: true });
+            petData = r.data.pet || r.data;
+        } catch { /* use fallback below */ }
+        const params = new URLSearchParams({
+            name:    petData?.name    || activeConv.pet_name || '',
+            species: petData?.type    || '',
+            breed:   petData?.breed   || '',
+            color:   petData?.color   || '',
+            sex:     petData?.sex     || petData?.gender || '',
+            age:     petData?.age_category || '',
+        });
+        window.open(`${API}/ai/contract?${params.toString()}`, '_blank');
+        setContractGenerating(false);
     };
 
     return (
@@ -248,13 +281,36 @@ export default function MessagesPage() {
                                     </div>
                                     {activeConv?.pet_name && (
                                         <div style={{ fontFamily: sans, fontSize: '11px', color: C.terracotta }}>
-                                            re: {activeConv.pet_name}
+                                            {activeConv.is_adoption_request ? '🐾 Adoption request · ' : 're: '}
+                                            {activeConv.pet_name}
                                         </div>
                                     )}
                                 </div>
+                                {activeConv?.is_adoption_request && user?._id === activeConv?.pet_uploader_id && (
+                                    <button
+                                        onClick={handleGenerateContract}
+                                        disabled={contractGenerating}
+                                        style={{
+                                            marginLeft: 'auto',
+                                            fontFamily: sans, fontSize: '12px', fontWeight: 500,
+                                            color: '#FAF7F4',
+                                            background: '#2D1F14',
+                                            border: 'none', borderRadius: '4px',
+                                            padding: '8px 14px',
+                                            cursor: contractGenerating ? 'default' : 'pointer',
+                                            opacity: contractGenerating ? 0.6 : 1,
+                                            transition: 'background 0.15s',
+                                            flexShrink: 0,
+                                        }}
+                                        onMouseEnter={e => { if (!contractGenerating) e.currentTarget.style.background = '#C07A4A'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.background = '#2D1F14'; }}
+                                    >
+                                        {contractGenerating ? 'Generating…' : '📄 Generate Contract'}
+                                    </button>
+                                )}
                                 <button
                                     onClick={() => setActiveConvId(null)}
-                                    style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', fontFamily: sans, fontSize: '18px', color: C.muted, padding: '4px 8px', borderRadius: '4px' }}
+                                    style={{ marginLeft: activeConv?.is_adoption_request && user?._id === activeConv?.pet_uploader_id ? '0' : 'auto', background: 'none', border: 'none', cursor: 'pointer', fontFamily: sans, fontSize: '18px', color: C.muted, padding: '4px 8px', borderRadius: '4px' }}
                                     onMouseEnter={e => e.currentTarget.style.background = 'rgba(45,31,20,0.06)'}
                                     onMouseLeave={e => e.currentTarget.style.background = 'none'}
                                 >
