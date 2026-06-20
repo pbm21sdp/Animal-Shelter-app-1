@@ -155,7 +155,7 @@ export default function GuidePage() {
                         Animal shelters across Romania
                     </div>
                     <div style={{ fontFamily: sans, fontSize: '12px', color: '#B09880', marginBottom: '24px', lineHeight: 1.6 }}>
-                        Asociații voluntare de protecție a animalelor, pe reședințe de județ. Datele de contact sunt preluate din surse publice și pot fi schimbate — verifică și pagina de Facebook a asociației dacă nu primești răspuns.
+                        Volunteer animal protection associations, listed by county seat. Contact details are sourced from public records and may change. Please check the association's Facebook page if you don't receive a reply.
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
