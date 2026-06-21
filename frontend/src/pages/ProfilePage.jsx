@@ -362,8 +362,13 @@ export default function ProfilePage() {
     const [nameValue,     setNameValue]     = useState('');
     const [cityValue,     setCityValue]     = useState('');
     const [infoSaving,    setInfoSaving]    = useState(false);
-    const [isLoading,     setIsLoading]     = useState(true);
-    const [bioSaving,     setBioSaving]     = useState(false);
+    const [isLoading,      setIsLoading]      = useState(true);
+    const [bioSaving,      setBioSaving]      = useState(false);
+    const [isEditingAvail, setIsEditingAvail] = useState(false);
+    const [availDays,      setAvailDays]      = useState([]);
+    const [availFrom,      setAvailFrom]      = useState('');
+    const [availTo,        setAvailTo]        = useState('');
+    const [availSaving,    setAvailSaving]    = useState(false);
     const [avatarKey,     setAvatarKey]     = useState(Date.now());
     const fileInputRef = useRef(null);
 
@@ -490,6 +495,36 @@ export default function ProfilePage() {
         setIsEditingInfo(false);
     };
 
+    // ── Contact availability ──────────────────────────────────────────────────
+
+    const openAvailEdit = () => {
+        const a = profileData?.contactAvailability ?? currentUser?.contactAvailability;
+        setAvailDays(a?.days?.length ? [...a.days] : []);
+        setAvailFrom(a?.from || '');
+        setAvailTo(a?.to   || '');
+        setIsEditingAvail(true);
+    };
+
+    const cancelAvailEdit = () => setIsEditingAvail(false);
+
+    const saveAvailability = async () => {
+        setAvailSaving(true);
+        try {
+            await axios.patch(
+                `${API}/users/me`,
+                { contactAvailability: { days: availDays, from: availFrom, to: availTo } },
+                { withCredentials: true }
+            );
+            setProfileData(prev => ({ ...prev, contactAvailability: { days: availDays, from: availFrom, to: availTo } }));
+            setIsEditingAvail(false);
+            toast.success('Availability updated!');
+        } catch {
+            toast.error('Failed to save availability.');
+        } finally {
+            setAvailSaving(false);
+        }
+    };
+
     // ── Avatar upload ────────────────────────────────────────────────────────
 
     const handleAvatarChange = async (e) => {
@@ -577,8 +612,9 @@ export default function ProfilePage() {
     // For own profile: prefer live currentUser for avatar/name (stays in sync with uploads)
     const displayName   = isOwnProfile ? (currentUser?.name   || profileData?.name   || '…') : (profileData?.name   || '…');
     const displayAvatar = isOwnProfile ? (currentUser?.avatar || profileData?.avatar)         : profileData?.avatar;
-    const displayBio    = profileData?.bio ?? (isOwnProfile ? currentUser?.bio : null);
+    const displayBio    = profileData?.bio  ?? (isOwnProfile ? currentUser?.bio  : null);
     const displayCity   = profileData?.city ?? (isOwnProfile ? currentUser?.city : null);
+    const displayAvail  = profileData?.contactAvailability ?? (isOwnProfile ? currentUser?.contactAvailability : null);
     const createdAt     = isOwnProfile ? (currentUser?.createdAt || profileData?.createdAt) : profileData?.createdAt;
 
     const uploadsCount    = pets.length;
@@ -819,16 +855,90 @@ export default function ProfilePage() {
                                     }}>
                                         {displayBio || 'No bio yet.'}
                                     </div>
-                                    {isOwnProfile && (
-                                        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 6 }}>
+
+                                    {/* ── Contact availability ─────────────────── */}
+                                    {isEditingAvail ? (
+                                        <div style={{ marginTop: 12 }}>
+                                            <div style={{ fontFamily: sans, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#C07A4A', marginBottom: 8 }}>
+                                                Available days
+                                            </div>
+                                            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 12 }}>
+                                                {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => {
+                                                    const on = availDays.includes(d);
+                                                    return (
+                                                        <button
+                                                            key={d}
+                                                            onClick={() => setAvailDays(prev => on ? prev.filter(x => x !== d) : [...prev, d])}
+                                                            style={{
+                                                                fontFamily: sans, fontSize: 10, fontWeight: 500,
+                                                                padding: '4px 10px', borderRadius: 2, cursor: 'pointer',
+                                                                border: '1px solid rgba(192,122,74,0.45)',
+                                                                background: on ? '#C07A4A' : 'transparent',
+                                                                color: on ? '#FAF7F4' : '#7A5C44',
+                                                                transition: 'background 0.12s, color 0.12s',
+                                                            }}
+                                                        >
+                                                            {d}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                            <div style={{ fontFamily: sans, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#C07A4A', marginBottom: 8 }}>
+                                                Hours
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                                                <input
+                                                    type="time"
+                                                    value={availFrom}
+                                                    onChange={e => setAvailFrom(e.target.value)}
+                                                    style={{ fontFamily: sans, fontSize: 12, padding: '4px 8px', border: '1px solid rgba(45,31,20,0.2)', borderRadius: 2, background: '#fff', color: '#2D1F14', outline: 'none' }}
+                                                />
+                                                <span style={{ fontFamily: sans, fontSize: 12, color: '#7A5C44' }}>–</span>
+                                                <input
+                                                    type="time"
+                                                    value={availTo}
+                                                    onChange={e => setAvailTo(e.target.value)}
+                                                    style={{ fontFamily: sans, fontSize: 12, padding: '4px 8px', border: '1px solid rgba(45,31,20,0.2)', borderRadius: 2, background: '#fff', color: '#2D1F14', outline: 'none' }}
+                                                />
+                                            </div>
+                                            <div style={{ display: 'flex', gap: 10 }}>
+                                                <button
+                                                    onClick={saveAvailability}
+                                                    disabled={availSaving}
+                                                    style={{ fontFamily: sans, fontSize: 10, fontWeight: 500, padding: '4px 12px', borderRadius: 2, background: '#C07A4A', color: '#FAF7F4', border: 'none', cursor: 'pointer' }}
+                                                >
+                                                    {availSaving ? 'Saving…' : 'Save'}
+                                                </button>
+                                                <button
+                                                    onClick={cancelAvailEdit}
+                                                    style={{ fontFamily: sans, fontSize: 10, padding: '4px 12px', borderRadius: 2, background: 'transparent', color: '#7A5C44', border: '1px solid rgba(45,31,20,0.2)', cursor: 'pointer' }}
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        displayAvail?.days?.length > 0 && (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                                                <span style={{ fontFamily: sans, fontSize: 10, color: '#9A7A60' }}>✦</span>
+                                                <span style={{ fontFamily: sans, fontSize: 11, color: '#5C4030' }}>
+                                                    {displayAvail.days.join(', ')}
+                                                    {(displayAvail.from || displayAvail.to) && (
+                                                        <span style={{ color: '#9A7A60' }}>
+                                                            {' · '}{displayAvail.from || '?'} – {displayAvail.to || '?'}
+                                                        </span>
+                                                    )}
+                                                </span>
+                                            </div>
+                                        )
+                                    )}
+
+                                    {isOwnProfile && !isEditingAvail && (
+                                        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 8 }}>
                                             {!isEditingInfo && (
                                                 <button
                                                     onClick={() => { setBioValue(displayBio || ''); setIsEditingBio(true); }}
-                                                    style={{
-                                                        fontFamily: sans, fontSize: 10,
-                                                        color: '#C07A4A', background: 'none',
-                                                        border: 'none', cursor: 'pointer', padding: 0,
-                                                    }}
+                                                    style={{ fontFamily: sans, fontSize: 10, color: '#C07A4A', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                                                 >
                                                     Edit bio →
                                                 </button>
@@ -836,13 +946,17 @@ export default function ProfilePage() {
                                             {!isEditingInfo && (
                                                 <button
                                                     onClick={() => { setNameValue(displayName); setCityValue(displayCity || ''); setIsEditingInfo(true); }}
-                                                    style={{
-                                                        fontFamily: sans, fontSize: 10,
-                                                        color: '#C07A4A', background: 'none',
-                                                        border: 'none', cursor: 'pointer', padding: 0,
-                                                    }}
+                                                    style={{ fontFamily: sans, fontSize: 10, color: '#C07A4A', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                                                 >
                                                     Edit name & city →
+                                                </button>
+                                            )}
+                                            {!isEditingInfo && (
+                                                <button
+                                                    onClick={openAvailEdit}
+                                                    style={{ fontFamily: sans, fontSize: 10, color: '#C07A4A', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                                                >
+                                                    Edit availability →
                                                 </button>
                                             )}
                                             {isEditingInfo && (
@@ -850,23 +964,13 @@ export default function ProfilePage() {
                                                     <button
                                                         onClick={saveInfo}
                                                         disabled={infoSaving}
-                                                        style={{
-                                                            fontFamily: sans, fontSize: 10, fontWeight: 500,
-                                                            padding: '4px 12px', borderRadius: 2,
-                                                            background: '#C07A4A', color: '#FAF7F4',
-                                                            border: 'none', cursor: 'pointer',
-                                                        }}
+                                                        style={{ fontFamily: sans, fontSize: 10, fontWeight: 500, padding: '4px 12px', borderRadius: 2, background: '#C07A4A', color: '#FAF7F4', border: 'none', cursor: 'pointer' }}
                                                     >
                                                         {infoSaving ? 'Saving…' : 'Save'}
                                                     </button>
                                                     <button
                                                         onClick={cancelInfo}
-                                                        style={{
-                                                            fontFamily: sans, fontSize: 10,
-                                                            padding: '4px 12px', borderRadius: 2,
-                                                            background: 'transparent', color: '#7A5C44',
-                                                            border: '1px solid rgba(45,31,20,0.2)', cursor: 'pointer',
-                                                        }}
+                                                        style={{ fontFamily: sans, fontSize: 10, padding: '4px 12px', borderRadius: 2, background: 'transparent', color: '#7A5C44', border: '1px solid rgba(45,31,20,0.2)', cursor: 'pointer' }}
                                                     >
                                                         Cancel
                                                     </button>
