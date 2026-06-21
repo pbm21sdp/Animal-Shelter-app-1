@@ -51,7 +51,7 @@ function Badge({ type }) {
 
 // ── Filter pill ───────────────────────────────────────────────────────────────
 function Pill({ label, active, onClick, urgent }) {
-    const base    = { fontFamily: sans, fontSize: '11px', padding: '5px 13px', borderRadius: '100px', cursor: 'pointer', border: '1px solid rgba(45,31,20,0.15)', color: '#7A5C44', background: 'transparent', transition: 'all 0.15s', whiteSpace: 'nowrap' };
+    const base    = { fontFamily: sans, fontSize: '11px', padding: '5px 13px', borderRadius: '100px', cursor: 'pointer', borderWidth: '1px', borderStyle: 'solid', borderColor: 'rgba(45,31,20,0.15)', color: '#7A5C44', background: 'transparent', transition: 'all 0.15s', whiteSpace: 'nowrap' };
     const urgDef  = { borderColor: 'rgba(192,74,74,0.3)', color: '#993C1D' };
     const actStyle = urgent ? { background: '#993C1D', color: '#FAF7F4', borderColor: '#993C1D' } : { background: '#2D1F14', color: '#FAF7F4', borderColor: '#2D1F14' };
     return (

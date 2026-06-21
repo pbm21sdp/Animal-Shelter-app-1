@@ -299,8 +299,15 @@ function PetSearchPage() {
                                     <option value="any">Any</option>
                                     <option value="dog">Dogs</option>
                                     <option value="cat">Cats</option>
-                                    <option value="bird">Birds</option>
-                                    <option value="other">Other</option>
+                                    <optgroup label="── Other ──">
+                                        <option value="other">All other types</option>
+                                        <option value="bird">Birds</option>
+                                        <option value="rabbit">Rabbits</option>
+                                        <option value="fish">Fish</option>
+                                        <option value="hamster">Hamsters</option>
+                                        <option value="guinea pig">Guinea pigs</option>
+                                        <option value="reptile">Reptiles</option>
+                                    </optgroup>
                                 </select>
                                 <ChevronDown className="absolute right-2 top-8 h-5 w-5 text-white pointer-events-none" />
                             </div>
@@ -466,7 +473,7 @@ function PetSearchPage() {
 
                         {filters.type !== 'any' && (
                             <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs flex items-center">
-                                Type: {filters.type}
+                                Type: {filters.type === 'other' ? 'Other (all)' : filters.type === 'guinea pig' ? 'Guinea pigs' : filters.type.charAt(0).toUpperCase() + filters.type.slice(1)}
                                 <button
                                     onClick={() => handleFilterChange('type', 'any')}
                                     className="ml-2 text-blue-800"

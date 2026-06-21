@@ -39,9 +39,13 @@ export const PetModel = {
             }
 
             if (filters.type && filters.type !== 'any') {
-                query += ` AND p.type = $${paramCount}`;
-                values.push(filters.type);
-                paramCount++;
+                if (filters.type === 'other') {
+                    query += ` AND p.type NOT IN ('dog', 'cat')`;
+                } else {
+                    query += ` AND p.type = $${paramCount}`;
+                    values.push(filters.type);
+                    paramCount++;
+                }
             }
 
             if (filters.city) {
@@ -100,9 +104,13 @@ export const PetModel = {
 
             // Add type filter
             if (searchParams.type && searchParams.type !== 'any') {
-                query += ` AND LOWER(p.type) = LOWER($${paramCount})`;
-                values.push(searchParams.type);
-                paramCount++;
+                if (searchParams.type === 'other') {
+                    query += ` AND LOWER(p.type) NOT IN ('dog', 'cat')`;
+                } else {
+                    query += ` AND LOWER(p.type) = LOWER($${paramCount})`;
+                    values.push(searchParams.type);
+                    paramCount++;
+                }
             }
 
             // Handle radius and zipCode

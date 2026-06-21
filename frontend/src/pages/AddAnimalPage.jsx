@@ -269,8 +269,9 @@ export default function AddAnimalPage() {
     const applyClipResults = () => {
         if (!clipResults) return;
         if (clipSelected.type && clipResults.type) {
-            const typeMap = { dog: 'Dog', cat: 'Cat', other: 'Other' };
-            setAnimalType(typeMap[clipResults.type.toLowerCase()] || animalType);
+            const typeMap = { dog: 'Dog', cat: 'Cat', rabbit: 'Rabbit', bird: 'Bird', fish: 'Fish', hamster: 'Hamster', 'guinea pig': 'Guinea pig', reptile: 'Reptile', other: 'Other' };
+            setAnimalType(typeMap[clipResults.type.toLowerCase()] || 'Other');
+            if (!typeMap[clipResults.type.toLowerCase()]) setAnimalTypeOther(sentenceCase(clipResults.type));
         }
         if (clipSelected.size  && clipResults.size)  setApproxSize(clipResults.size);
         if (clipSelected.age   && clipResults.age)   setApproxAge(clipResults.age);
@@ -455,7 +456,7 @@ export default function AddAnimalPage() {
 
                         <div>
                             <FieldLabel>Type of animal</FieldLabel>
-                            <PillToggle large options={['Dog', 'Cat', 'Other']} value={animalType} onChange={setAnimalType} />
+                            <PillToggle large options={['Dog', 'Cat', 'Rabbit', 'Bird', 'Fish', 'Hamster', 'Guinea pig', 'Reptile', 'Other']} value={animalType} onChange={setAnimalType} />
                             {animalType === 'Other' && (
                                 <input
                                     type="text"
@@ -951,7 +952,7 @@ export default function AddAnimalPage() {
                 {/* ── DETAILS ROW ─────────────────────────────────────── */}
                 <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' }}>
                     <span style={{ fontFamily: sans, fontSize: '9px', color: '#B09880', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Type:</span>
-                    <PillToggle options={['Dog', 'Cat', 'Other']} value={animalType} onChange={setAnimalType} />
+                    <PillToggle options={['Dog', 'Cat', 'Rabbit', 'Bird', 'Fish', 'Hamster', 'Guinea pig', 'Reptile', 'Other']} value={animalType} onChange={setAnimalType} />
                     {errors.animalType && <span style={{ fontFamily: sans, fontSize: '11px', color: '#C07A4A' }}>{errors.animalType}</span>}
 
                     <span style={{ color: '#D4C4B8', fontSize: '14px' }}>·</span>
