@@ -903,12 +903,17 @@ def generate_contract():
         from generate_contract import create_contract_pdf_v2 as create_contract_pdf
         import io
         animal_data = {
-            'name':    request.args.get('name', ''),
-            'species': request.args.get('species', ''),
-            'breed':   request.args.get('breed', ''),
-            'color':   request.args.get('color', ''),
-            'sex':     request.args.get('sex', ''),
-            'age':     request.args.get('age', ''),
+            'name':          request.args.get('name', ''),
+            'species':       request.args.get('species', ''),
+            'breed':         request.args.get('breed', ''),
+            'color':         request.args.get('color', ''),
+            'sex':           request.args.get('sex', ''),
+            'age':           request.args.get('age', ''),
+            'size':          request.args.get('size', ''),
+            'coat':          request.args.get('coat', ''),
+            'health_status': request.args.get('health_status', ''),
+            'description':   request.args.get('description', ''),
+            'location_city': request.args.get('location_city', ''),
         }
         buffer = io.BytesIO()
         create_contract_pdf(buffer, animal_data=animal_data)
