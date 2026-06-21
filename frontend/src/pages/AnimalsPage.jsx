@@ -75,7 +75,7 @@ function FilterLabel({ children }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function AnimalsPage() {
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
     const { pets, isLoading, getAllPets } = usePetStore();
     const { user: currentUser } = useAuthStore();
@@ -98,6 +98,13 @@ export default function AnimalsPage() {
         const q = searchParams.get('search');
         if (q !== null) setSearchQuery(q);
     }, [searchParams]);
+
+    const clearSearch = () => {
+        setSearchQuery('');
+        const p = new URLSearchParams(searchParams);
+        p.delete('search');
+        setSearchParams(p, { replace: true });
+    };
 
     useEffect(() => {
         if (!currentUser?._id) return;
@@ -146,7 +153,10 @@ export default function AnimalsPage() {
                 statusFilter === 'found'      ? (as === 'available' || hs.includes('found') || (p.type || '').toLowerCase().includes('found')) :
                 true;
             const q = searchQuery.trim().toLowerCase();
+            const qSingular = q.endsWith('s') && q.length > 3 ? q.slice(0, -1) : q;
             const searchMatch = !q
+                || petType === q
+                || petType === qSingular
                 || (p.name        || '').toLowerCase().includes(q)
                 || (p.description || '').toLowerCase().includes(q)
                 || (p.breed       || '').toLowerCase().includes(q);
@@ -216,13 +226,25 @@ export default function AnimalsPage() {
 
             {/* ── FILTER BAR ───────────────────────────────────────────── */}
             <div style={{ padding: '14px 48px', borderBottom: '1px solid rgba(45,31,20,0.08)', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', backgroundColor: '#FAF7F4' }}>
+                {searchQuery && (
+                    <span style={{
+                        fontFamily: sans, fontSize: '11px', color: '#2D1F14',
+                        background: 'rgba(45,31,20,0.08)', border: '1px solid rgba(45,31,20,0.2)',
+                        borderRadius: '100px', padding: '4px 10px',
+                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                    }}>
+                        Search: <strong>{searchQuery}</strong>
+                        <button onClick={clearSearch} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#7A5C44', fontSize: '14px', lineHeight: 1 }}>×</button>
+                    </span>
+                )}
+                {searchQuery && <Sep />}
                 <FilterLabel>Type</FilterLabel>
                 {typePills.map(({ label, value }) => (
                     <Pill
                         key={value}
                         label={label}
                         active={typeFilter === value}
-                        onClick={() => { setTypeFilter(value); setOtherSubtype(''); }}
+                        onClick={() => { setTypeFilter(value); setOtherSubtype(''); clearSearch(); }}
                     />
                 ))}
                 {typeFilter === 'other' && (
