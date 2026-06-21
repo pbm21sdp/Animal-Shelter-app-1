@@ -299,7 +299,7 @@ function PetSearchPage() {
                                     <option value="any">Any</option>
                                     <option value="dog">Dogs</option>
                                     <option value="cat">Cats</option>
-                                    <optgroup label="── Other ──">
+                                    <optgroup label="--- Other ---">
                                         <option value="other">All other types</option>
                                         <option value="bird">Birds</option>
                                         <option value="rabbit">Rabbits</option>

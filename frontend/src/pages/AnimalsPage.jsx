@@ -82,7 +82,8 @@ export default function AnimalsPage() {
 
     const initialStatus = searchParams.get('status') || 'all';
 
-    const [typeFilter,   setTypeFilter]   = useState('all');
+    const [typeFilter,    setTypeFilter]    = useState('all');
+    const [otherSubtype,  setOtherSubtype]  = useState('');
     const [statusFilter, setStatusFilter] = useState(initialStatus);
     const [areaFilter,   setAreaFilter]   = useState('everywhere');
     const [sortBy,       setSortBy]       = useState('recent');
@@ -130,7 +131,12 @@ export default function AnimalsPage() {
     // ── Filtering & sorting ───────────────────────────────────────────────────
     const filtered = pets
         .filter((p) => {
-            const typeMatch = typeFilter === 'all' || (p.type || '').toLowerCase() === typeFilter;
+            const petType = (p.type || '').toLowerCase();
+            const typeMatch =
+                typeFilter === 'all' ? true :
+                typeFilter === 'other'
+                    ? (!['dog', 'cat'].includes(petType) && (otherSubtype === '' || petType === otherSubtype))
+                    : petType === typeFilter;
             const hs = (p.health_status || '').toLowerCase();
             const as = (p.adoption_status || '').toLowerCase();
             const statusMatch =
@@ -212,8 +218,35 @@ export default function AnimalsPage() {
             <div style={{ padding: '14px 48px', borderBottom: '1px solid rgba(45,31,20,0.08)', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', backgroundColor: '#FAF7F4' }}>
                 <FilterLabel>Type</FilterLabel>
                 {typePills.map(({ label, value }) => (
-                    <Pill key={value} label={label} active={typeFilter === value} onClick={() => setTypeFilter(value)} />
+                    <Pill
+                        key={value}
+                        label={label}
+                        active={typeFilter === value}
+                        onClick={() => { setTypeFilter(value); setOtherSubtype(''); }}
+                    />
                 ))}
+                {typeFilter === 'other' && (
+                    <>
+                        <Sep />
+                        <FilterLabel>Species</FilterLabel>
+                        {[
+                            { label: 'All',          value: ''           },
+                            { label: 'Birds',        value: 'bird'       },
+                            { label: 'Rabbits',      value: 'rabbit'     },
+                            { label: 'Fish',         value: 'fish'       },
+                            { label: 'Hamsters',     value: 'hamster'    },
+                            { label: 'Guinea pigs',  value: 'guinea pig' },
+                            { label: 'Reptiles',     value: 'reptile'    },
+                        ].map(({ label, value }) => (
+                            <Pill
+                                key={value || 'all-other'}
+                                label={label}
+                                active={otherSubtype === value}
+                                onClick={() => setOtherSubtype(value)}
+                            />
+                        ))}
+                    </>
+                )}
 
                 <Sep />
 
