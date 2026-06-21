@@ -216,7 +216,7 @@ function UploadCard({ pet, isOwnProfile, onMarkAdopted, onEdit }) {
                 <div style={{ padding: '0 10px 10px', display: 'flex', flexDirection: 'column', gap: 5 }}>
                     {!pet.is_adopted && (
                         <button
-                            onClick={(e) => { e.stopPropagation(); onMarkAdopted(pet.id); }}
+                            onClick={(e) => { e.stopPropagation(); onMarkAdopted(pet); }}
                             style={{
                                 width: '100%', fontFamily: sans, fontSize: 10,
                                 fontWeight: 500, padding: '5px 0', borderRadius: 2,
@@ -336,8 +336,9 @@ export default function ProfilePage() {
     // ── State ────────────────────────────────────────────────────────────────
     const [profileData,   setProfileData]   = useState(null);
     const [pets,          setPets]          = useState([]);
-    const [adoptedPets,   setAdoptedPets]   = useState([]);
-    const [savedPets,    setSavedPets]    = useState([]);
+    const [adoptedPets,      setAdoptedPets]      = useState([]);
+    const [savedPets,        setSavedPets]        = useState([]);
+    const [receivedMsgCount, setReceivedMsgCount] = useState(null);
     const [activeTab,     setActiveTab]     = useState('uploads');
     const [isEditingBio,  setIsEditingBio]  = useState(false);
     const [bioValue,      setBioValue]      = useState('');
@@ -349,6 +350,14 @@ export default function ProfilePage() {
     const [bioSaving,     setBioSaving]     = useState(false);
     const [avatarKey,     setAvatarKey]     = useState(Date.now());
     const fileInputRef = useRef(null);
+
+    // Adopt dialog state
+    const [adoptDialog, setAdoptDialog]         = useState(null);
+    const [adopterSearch, setAdopterSearch]     = useState('');
+    const [adopterResults, setAdopterResults]   = useState([]);
+    const [selectedAdopter, setSelectedAdopter] = useState(null);
+    const [adopterLoading, setAdopterLoading]   = useState(false);
+    const [adoptConfirming, setAdoptConfirming] = useState(false);
 
     // ── Fetchers ─────────────────────────────────────────────────────────────
 
@@ -405,12 +414,19 @@ export default function ProfilePage() {
     }, [fetchProfile, fetchPets]);
 
     useEffect(() => {
-        if (activeTab === 'adopted') fetchAdopted();
+        if (activeTab === 'adopted' || activeTab === 'activity') fetchAdopted();
     }, [activeTab, fetchAdopted]);
 
     useEffect(() => {
-        if (activeTab === 'saved') fetchSaved();
+        if (activeTab === 'saved' || activeTab === 'activity') fetchSaved();
     }, [activeTab, fetchSaved]);
+
+    useEffect(() => {
+        if (activeTab !== 'activity' || receivedMsgCount !== null) return;
+        axios.get('http://localhost:5000/api/conversations/received-count', { withCredentials: true })
+            .then(res => setReceivedMsgCount(res.data.count ?? 0))
+            .catch(() => setReceivedMsgCount(0));
+    }, [activeTab, receivedMsgCount]);
 
     // ── Bio save ─────────────────────────────────────────────────────────────
 
@@ -476,16 +492,56 @@ export default function ProfilePage() {
         e.target.value = '';
     };
 
-    // ── Mark as adopted ──────────────────────────────────────────────────────
+    // ── Mark as adopted (dialog) ─────────────────────────────────────────────
 
-    const handleMarkAdopted = async (petId) => {
+    useEffect(() => {
+        if (!adopterSearch.trim() || adopterSearch.length < 2) { setAdopterResults([]); return; }
+        setAdopterLoading(true);
+        const t = setTimeout(() => {
+            axios.get(`${API}/users/search?q=${encodeURIComponent(adopterSearch)}`, { withCredentials: true })
+                .then(r => setAdopterResults(r.data.users || []))
+                .catch(() => setAdopterResults([]))
+                .finally(() => setAdopterLoading(false));
+        }, 300);
+        return () => clearTimeout(t);
+    }, [adopterSearch]);
+
+    const openAdoptDialog = (pet) => {
+        setAdoptDialog(pet);
+        setAdopterSearch('');
+        setAdopterResults([]);
+        setSelectedAdopter(null);
+    };
+
+    const closeAdoptDialog = () => {
+        if (adoptConfirming) return;
+        setAdoptDialog(null);
+        setAdopterSearch('');
+        setAdopterResults([]);
+        setSelectedAdopter(null);
+    };
+
+    const confirmMarkAdopted = async (adoptedById) => {
+        if (!adoptDialog) return;
+        setAdoptConfirming(true);
         try {
-            await axios.patch(`${API}/pets/${petId}/adopt`, {}, { withCredentials: true });
-            setPets(prev => prev.map(p => p.id === petId ? { ...p, is_adopted: true } : p));
+            await axios.patch(
+                `${API}/pets/${adoptDialog.id}/adopt`,
+                { adoptedById: adoptedById || null },
+                { withCredentials: true }
+            );
+            toast.success('Marked as adopted!');
+            setPets(prev => prev.map(p => p.id === adoptDialog.id ? { ...p, is_adopted: true } : p));
+            closeAdoptDialog();
         } catch (err) {
             console.error('Mark adopted failed:', err);
+            toast.error('Failed to update.');
+        } finally {
+            setAdoptConfirming(false);
         }
     };
+
+    const handleMarkAdopted = openAdoptDialog;
 
     // ── Derived display values ────────────────────────────────────────────────
 
@@ -890,9 +946,9 @@ export default function ProfilePage() {
                         }}>
                             <StatCell value={uploadsCount}            label="Animals uploaded" />
                             <StatCell value={foundCount}              label="Found a home"       trend={foundCount > 0 ? `↑ ${foundCount} total` : null} />
-                            <StatCell value="—"                       label="Messages received (soon)" />
-                            <StatCell value={adoptedPets.length || '—'} label="Adopted personally" />
-                            <StatCell value={savedPets.length  || '—'} label="Saved for later" />
+                            <StatCell value={receivedMsgCount ?? '—'} label="Messages received" />
+                            <StatCell value={adoptedPets.length} label="Adopted personally" />
+                            <StatCell value={savedPets.length}   label="Saved for later" />
                             <StatCell value={fmtMemberFor(createdAt)} label="Member for" />
                         </div>
 
@@ -1015,6 +1071,92 @@ export default function ProfilePage() {
                 )}
 
             </div>
+
+            {/* ── Adopter selection dialog ─────────────────────────────────────── */}
+            {adoptDialog && (
+            <div
+                style={{ position: 'fixed', inset: 0, background: 'rgba(45,31,20,0.6)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
+                onClick={closeAdoptDialog}
+            >
+                <div
+                    style={{ background: '#FAF7F4', borderRadius: '6px', padding: '32px', maxWidth: '480px', width: '100%', position: 'relative' }}
+                    onClick={e => e.stopPropagation()}
+                >
+                    <div style={{ fontFamily: serif, fontSize: '22px', fontWeight: 700, color: '#2D1F14', marginBottom: '6px' }}>
+                        Who adopted {adoptDialog.name}?
+                    </div>
+                    <div style={{ fontFamily: sans, fontSize: '13px', color: '#7A5C44', marginBottom: '20px', lineHeight: 1.5 }}>
+                        Search for the person who adopted this animal on Paws, or skip if they're not on the platform.
+                    </div>
+
+                    <input
+                        type="text"
+                        placeholder="Search by name or email…"
+                        value={adopterSearch}
+                        autoFocus
+                        onChange={e => { setAdopterSearch(e.target.value); setSelectedAdopter(null); }}
+                        style={{ width: '100%', boxSizing: 'border-box', fontFamily: sans, fontSize: '13px', padding: '10px 12px', border: '1px solid rgba(45,31,20,0.2)', borderRadius: '3px', outline: 'none', background: '#fff', color: '#2D1F14' }}
+                    />
+
+                    {adopterLoading && (
+                        <div style={{ fontFamily: sans, fontSize: '12px', color: '#B09880', padding: '8px 0' }}>Searching…</div>
+                    )}
+
+                    {adopterResults.length > 0 && !selectedAdopter && (
+                        <div style={{ marginTop: '6px', border: '1px solid rgba(45,31,20,0.15)', borderRadius: '3px', overflow: 'hidden' }}>
+                            {adopterResults.map(u => (
+                                <button
+                                    key={u._id}
+                                    onClick={() => { setSelectedAdopter(u); setAdopterSearch(u.name); setAdopterResults([]); }}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 12px', background: '#fff', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.08)', cursor: 'pointer', textAlign: 'left' }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = '#F5EFE8'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
+                                >
+                                    {u.avatar && (
+                                        <img src={u.avatar.startsWith('http') ? u.avatar : `http://localhost:5000${u.avatar}`} alt="" style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} onError={e => { e.target.style.display = 'none'; }} />
+                                    )}
+                                    <div>
+                                        <div style={{ fontFamily: sans, fontSize: '13px', fontWeight: 500, color: '#2D1F14' }}>{u.name}</div>
+                                        <div style={{ fontFamily: sans, fontSize: '11px', color: '#9A7A60' }}>{u.email}</div>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    {selectedAdopter && (
+                        <div style={{ marginTop: '8px', padding: '10px 12px', background: 'rgba(15,110,86,0.07)', border: '1px solid rgba(15,110,86,0.2)', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span style={{ fontFamily: sans, fontSize: '13px', color: '#0F6E56' }}>✓ {selectedAdopter.name}</span>
+                            <button onClick={() => { setSelectedAdopter(null); setAdopterSearch(''); }} style={{ fontFamily: sans, fontSize: '11px', color: '#993C1D', background: 'none', border: 'none', cursor: 'pointer' }}>Change</button>
+                        </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '20px' }}>
+                        <button
+                            onClick={() => confirmMarkAdopted(null)}
+                            disabled={adoptConfirming}
+                            style={{ flex: 1, fontFamily: sans, fontSize: '12px', padding: '10px 8px', border: '1px solid rgba(45,31,20,0.2)', borderRadius: '3px', background: 'transparent', color: '#7A5C44', cursor: adoptConfirming ? 'default' : 'pointer', opacity: adoptConfirming ? 0.5 : 1 }}
+                        >
+                            Skip — not on Paws
+                        </button>
+                        <button
+                            onClick={() => confirmMarkAdopted(selectedAdopter?._id || null)}
+                            disabled={adoptConfirming}
+                            style={{ flex: 1, fontFamily: sans, fontSize: '12px', padding: '10px 8px', border: 'none', borderRadius: '3px', background: '#0F6E56', color: '#fff', cursor: adoptConfirming ? 'default' : 'pointer', opacity: adoptConfirming ? 0.6 : 1 }}
+                        >
+                            {adoptConfirming ? 'Saving…' : selectedAdopter ? `Confirm — ${selectedAdopter.name}` : 'Confirm'}
+                        </button>
+                        <button
+                            onClick={closeAdoptDialog}
+                            disabled={adoptConfirming}
+                            style={{ fontFamily: sans, fontSize: '12px', padding: '10px 14px', border: '1px solid rgba(153,60,29,0.3)', borderRadius: '3px', background: 'transparent', color: '#993C1D', cursor: adoptConfirming ? 'default' : 'pointer' }}
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+            )}
         </div>
     );
 }
