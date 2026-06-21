@@ -264,7 +264,8 @@ export const adoptPet = async (req, res) => {
             return res.status(403).json({ success: false, message: 'Forbidden — only the uploader or an admin can mark this animal as adopted' });
         }
 
-        const updated = await PetModel.adoptPet(id, req.userId);
+        const { adoptedById } = req.body;
+        const updated = await PetModel.adoptPet(id, adoptedById || null);
         res.status(200).json({ success: true, message: 'Pet marked as adopted', pet: updated });
     } catch (error) {
         console.error('Error in adoptPet:', error);

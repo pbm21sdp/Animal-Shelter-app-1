@@ -491,3 +491,26 @@ export const unsavePet = async (req, res) => {
         res.status(500).json({ success: false, message: 'Server error' });
     }
 };
+
+// GET /api/users/search?q= — search users by name or email
+export const searchUsers = async (req, res) => {
+    try {
+        const q = (req.query.q || '').trim();
+        if (q.length < 2) return res.json({ success: true, users: [] });
+
+        const users = await User.find({
+            $or: [
+                { name: { $regex: q, $options: 'i' } },
+                { email: { $regex: q, $options: 'i' } },
+            ],
+            isVerified: true,
+        })
+            .select('name email avatar')
+            .limit(8);
+
+        res.json({ success: true, users });
+    } catch (error) {
+        console.error('Error in searchUsers:', error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};

@@ -40,6 +40,7 @@ function Badge({ type }) {
         Found:      { background: '#2D1F14', color: '#FAF7F4', border: 'none' },
         Urgent:     { background: '#993C1D', color: '#FAF7F4', border: 'none' },
         Vaccinated: { background: 'rgba(29,158,117,0.12)', color: '#0F6E56', border: '1px solid rgba(29,158,117,0.2)' },
+        Adopted:    { background: 'rgba(15,110,86,0.12)', color: '#0F6E56', border: '1px solid rgba(15,110,86,0.2)' },
     };
     const s = styles[type] || { background: 'rgba(45,31,20,0.08)', color: '#7A5C44', border: '1px solid rgba(45,31,20,0.12)' };
     return (
@@ -146,7 +147,11 @@ export default function AnimalsPage() {
                     : petType === typeFilter;
             const hs = (p.health_status || '').toLowerCase();
             const as = (p.adoption_status || '').toLowerCase();
+            const isAdoptedPet = p.is_adopted === true || as === 'adopted';
+
             const statusMatch =
+                statusFilter === 'adopted'    ? isAdoptedPet :
+                isAdoptedPet                  ? false :
                 statusFilter === 'all'        ? true :
                 statusFilter === 'urgent'     ? (hs.includes('urgent') || as === 'urgent' || p.is_urgent === true) :
                 statusFilter === 'vaccinated' ? hs.includes('vacc') :
@@ -199,6 +204,7 @@ export default function AnimalsPage() {
         { label: 'Urgent',     value: 'urgent',     urgent: true  },
         { label: 'Vaccinated', value: 'vaccinated', urgent: false },
         { label: 'Found',      value: 'found',      urgent: false },
+        { label: 'Adopted',    value: 'adopted',    urgent: false },
     ];
 
     const areaPills = [
@@ -338,11 +344,11 @@ export default function AnimalsPage() {
 
 // ── Badge type helper ─────────────────────────────────────────────────────────
 function getBadgeType(pet) {
-    const hs = (pet.health_status || '').toLowerCase();
     const as = (pet.adoption_status || '').toLowerCase();
+    if (as === 'adopted' || pet.is_adopted) return 'Adopted';
+    const hs = (pet.health_status || '').toLowerCase();
     if (hs.includes('urgent')) return 'Urgent';
     if (hs.includes('vacc')) return 'Vaccinated';
-    if (as === 'adopted' || pet.is_adopted) return 'Adopted';
     return 'Found';
 }
 
