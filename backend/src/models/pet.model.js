@@ -530,6 +530,7 @@ export const PetModel = {
                 UPDATE pets
                 SET is_adopted = FALSE,
                     adopted_at = NULL,
+                    adopted_by = NULL,
                     adoption_status = 'available',
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = $1

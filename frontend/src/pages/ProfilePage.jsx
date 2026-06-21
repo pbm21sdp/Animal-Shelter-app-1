@@ -139,7 +139,7 @@ function StatusBadge({ pet }) {
 
 // ── Upload card ────────────────────────────────────────────────────────────────
 
-function UploadCard({ pet, isOwnProfile, onMarkAdopted, onEdit }) {
+function UploadCard({ pet, isOwnProfile, onMarkAdopted, onUnadopt, onEdit }) {
     const navigate = useNavigate();
     const [hovered, setHovered] = useState(false);
     const photo = photoUrl(pet.primary_photo_id);
@@ -211,10 +211,26 @@ function UploadCard({ pet, isOwnProfile, onMarkAdopted, onEdit }) {
                 )}
             </div>
 
-            {/* Actions — space always reserved, shown on hover via opacity */}
+            {/* Actions — shown on hover */}
             {isOwnProfile && (
                 <div style={{ padding: '0 10px 10px', display: 'flex', flexDirection: 'column', gap: 5 }}>
-                    {!pet.is_adopted && (
+                    {pet.is_adopted ? (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onUnadopt(pet.id); }}
+                            style={{
+                                width: '100%', fontFamily: sans, fontSize: 10,
+                                fontWeight: 500, padding: '5px 0', borderRadius: 2,
+                                border: '1px solid rgba(192,122,74,0.35)',
+                                color: '#8B4E28', background: 'rgba(192,122,74,0.06)',
+                                cursor: 'pointer',
+                                opacity: hovered ? 1 : 0,
+                                transition: 'opacity 0.15s',
+                                pointerEvents: hovered ? 'auto' : 'none',
+                            }}
+                        >
+                            Undo adoption
+                        </button>
+                    ) : (
                         <button
                             onClick={(e) => { e.stopPropagation(); onMarkAdopted(pet); }}
                             style={{
@@ -543,6 +559,19 @@ export default function ProfilePage() {
 
     const handleMarkAdopted = openAdoptDialog;
 
+    const handleUnadopt = async (petId) => {
+        try {
+            await axios.patch(`${API}/pets/${petId}/unadopt`, {}, { withCredentials: true });
+            toast.success('Adoption mark removed.');
+            setPets(prev => prev.map(p => p.id === petId
+                ? { ...p, is_adopted: false, adoption_status: 'available' }
+                : p
+            ));
+        } catch {
+            toast.error('Failed to undo adoption.');
+        }
+    };
+
     // ── Derived display values ────────────────────────────────────────────────
 
     // For own profile: prefer live currentUser for avatar/name (stays in sync with uploads)
@@ -553,7 +582,9 @@ export default function ProfilePage() {
     const createdAt     = isOwnProfile ? (currentUser?.createdAt || profileData?.createdAt) : profileData?.createdAt;
 
     const uploadsCount    = pets.length;
-    const foundCount      = pets.filter(p => p.is_adopted).length;
+    const activeUploads   = pets.filter(p => !p.is_adopted);
+    const foundHomePets   = pets.filter(p => p.is_adopted);
+    const foundCount      = foundHomePets.length;
     const successRate     = uploadsCount > 0 ? Math.round((foundCount / uploadsCount) * 100) : 0;
 
     // Activity feed — generated client-side from pets
@@ -565,10 +596,11 @@ export default function ProfilePage() {
 
     // Tab config
     const tabs = [
-        { key: 'uploads',  label: 'My uploads',    count: uploadsCount },
-        { key: 'activity', label: 'Activity',       count: 0 },
-        { key: 'adopted',  label: 'Adopted by me',  count: adoptedPets.length },
-        { key: 'saved',    label: 'Saved',           count: savedPets.length },
+        { key: 'uploads',    label: 'My uploads',    count: activeUploads.length },
+        { key: 'found_home', label: 'Found a home',  count: foundCount },
+        { key: 'activity',   label: 'Activity',      count: 0 },
+        { key: 'adopted',    label: 'Adopted by me', count: adoptedPets.length },
+        { key: 'saved',      label: 'Saved',          count: savedPets.length },
     ];
 
     if (!currentUser) return null;
@@ -916,16 +948,17 @@ export default function ProfilePage() {
                             <div style={{ fontFamily: serif, fontSize: 15, fontStyle: 'italic', color: '#B09880', padding: '32px 0' }}>
                                 Loading…
                             </div>
-                        ) : pets.length === 0 ? (
-                            <EmptyState text="No uploads yet." />
+                        ) : activeUploads.length === 0 ? (
+                            <EmptyState text="No active listings." note={foundCount > 0 ? `${foundCount} animal${foundCount !== 1 ? 's' : ''} found a home — see the Found a home tab.` : undefined} />
                         ) : (
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-                                {pets.map((pet) => (
+                                {activeUploads.map((pet) => (
                                     <UploadCard
                                         key={pet.id}
                                         pet={pet}
                                         isOwnProfile={isOwnProfile}
                                         onMarkAdopted={handleMarkAdopted}
+                                        onUnadopt={handleUnadopt}
                                         onEdit={(id) => navigate(`/pet/${id}/edit`)}
                                     />
                                 ))}
@@ -934,7 +967,30 @@ export default function ProfilePage() {
                     </div>
                 )}
 
-                {/* ── TAB 2: ACTIVITY ────────────────────────────────────── */}
+                {/* ── TAB 2: FOUND A HOME ────────────────────────────────── */}
+                {activeTab === 'found_home' && (
+                    <div>
+                        <SectionLabel>Animals that found a home</SectionLabel>
+                        {foundHomePets.length === 0 ? (
+                            <EmptyState text="No animals marked as adopted yet." />
+                        ) : (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+                                {foundHomePets.map((pet) => (
+                                    <UploadCard
+                                        key={pet.id}
+                                        pet={pet}
+                                        isOwnProfile={isOwnProfile}
+                                        onMarkAdopted={handleMarkAdopted}
+                                        onUnadopt={handleUnadopt}
+                                        onEdit={(id) => navigate(`/pet/${id}/edit`)}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* ── TAB 3: ACTIVITY ────────────────────────────────────── */}
                 {activeTab === 'activity' && (
                     <div>
                         {/* 3×2 stats grid */}
@@ -986,7 +1042,7 @@ export default function ProfilePage() {
                     </div>
                 )}
 
-                {/* ── TAB 3: ADOPTED BY ME ───────────────────────────────── */}
+                {/* ── TAB 4: ADOPTED BY ME ───────────────────────────────── */}
                 {activeTab === 'adopted' && (
                     <div>
                         <SectionLabel>Animals I adopted through Paws</SectionLabel>
@@ -1000,7 +1056,7 @@ export default function ProfilePage() {
                     </div>
                 )}
 
-                {/* ── TAB 4: SAVED ───────────────────────────────────────── */}
+                {/* ── TAB 5: SAVED ───────────────────────────────────────── */}
                 {activeTab === 'saved' && (
                     <div>
                         <SectionLabel>Saved for later</SectionLabel>

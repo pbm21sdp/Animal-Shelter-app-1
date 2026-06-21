@@ -206,12 +206,17 @@ export default function MessagesPage() {
             petData = r.data.pet || r.data;
         } catch { /* use fallback below */ }
         const params = new URLSearchParams({
-            name:    petData?.name    || activeConv.pet_name || '',
-            species: petData?.type    || '',
-            breed:   petData?.breed   || '',
-            color:   petData?.color   || '',
-            sex:     petData?.sex     || petData?.gender || '',
-            age:     petData?.age_category || '',
+            name:          petData?.name          || activeConv.pet_name || '',
+            species:       petData?.type          || '',
+            breed:         petData?.breed         || '',
+            color:         petData?.color         || '',
+            sex:           petData?.sex           || petData?.gender || '',
+            age:           petData?.age_category  || '',
+            size:          petData?.size          || '',
+            coat:          petData?.coat          || '',
+            health_status: petData?.health_status || '',
+            description:   petData?.description   || '',
+            location_city: petData?.location_city || '',
         });
         window.open(`${API}/ai/contract?${params.toString()}`, '_blank');
         setContractGenerating(false);
