@@ -439,7 +439,7 @@ export default function PetDetailPage() {
                                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
                                         {currentUser && pet.uploader_id === currentUser._id ? (
                                             <span style={{ fontFamily: sans, fontSize: '13px', color: '#7A5C44', fontStyle: 'italic' }}>You uploaded this animal</span>
-                                        ) : (
+                                        ) : !isAdopted && (
                                         <button
                                             onClick={() => setAskOpen(o => !o)}
                                             style={{ fontFamily: sans, fontSize: '13px', color: '#2D1F14', background: 'transparent', border: '1.5px solid rgba(45,31,20,0.2)', borderRadius: '100px', padding: '10px 20px', cursor: 'pointer', transition: 'border-color 0.15s' }}
@@ -469,7 +469,7 @@ export default function PetDetailPage() {
                                                 {adoptSending ? 'Starting…' : '🐾 Adopt'}
                                             </button>
                                         )}
-                                        {currentUser && pet.uploader_id !== currentUser._id && (
+                                        {currentUser && pet.uploader_id !== currentUser._id && !isAdopted && (
                                             <button
                                                 onClick={handleSaveToggle}
                                                 disabled={saveLoading}

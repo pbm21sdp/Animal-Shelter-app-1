@@ -90,10 +90,21 @@ export default function AnimalsPage() {
     const [sortBy,       setSortBy]       = useState('recent');
     const [searchQuery,  setSearchQuery]  = useState(searchParams.get('search') || '');
     const [savedPets,    setSavedPets]    = useState(new Set());
+    const [adoptedPets,  setAdoptedPets]  = useState([]);
+    const [adoptedLoaded, setAdoptedLoaded] = useState(false);
 
     useEffect(() => {
         getAllPets();
     }, [getAllPets]);
+
+    // Fetch adopted pets on demand when that filter is selected
+    useEffect(() => {
+        if (statusFilter !== 'adopted' || adoptedLoaded) return;
+        axios.get(`${API}/pets?showAll=true&adopted=true`)
+            .then(r => setAdoptedPets(r.data.pets || []))
+            .catch(() => {})
+            .finally(() => setAdoptedLoaded(true));
+    }, [statusFilter, adoptedLoaded]);
 
     useEffect(() => {
         const q = searchParams.get('search');
@@ -137,7 +148,9 @@ export default function AnimalsPage() {
     };
 
     // ── Filtering & sorting ───────────────────────────────────────────────────
-    const filtered = pets
+    const source = statusFilter === 'adopted' ? adoptedPets : pets;
+
+    const filtered = source
         .filter((p) => {
             const petType = (p.type || '').toLowerCase();
             const typeMatch =
@@ -150,7 +163,7 @@ export default function AnimalsPage() {
             const isAdoptedPet = p.is_adopted === true || as === 'adopted';
 
             const statusMatch =
-                statusFilter === 'adopted'    ? isAdoptedPet :
+                statusFilter === 'adopted'    ? true :
                 isAdoptedPet                  ? false :
                 statusFilter === 'all'        ? true :
                 statusFilter === 'urgent'     ? (hs.includes('urgent') || as === 'urgent' || p.is_urgent === true) :
@@ -319,7 +332,7 @@ export default function AnimalsPage() {
 
             {/* ── GRID ─────────────────────────────────────────────────── */}
             <div style={{ padding: '20px 48px 40px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', alignItems: 'start' }}>
-                {isLoading ? (
+                {(isLoading || (statusFilter === 'adopted' && !adoptedLoaded)) ? (
                     <div style={{ gridColumn: '1/-1', padding: '48px 0', textAlign: 'center', fontFamily: serif, fontSize: '18px', fontStyle: 'italic', color: '#B09880' }}>
                         Loading animals…
                     </div>
