@@ -10,8 +10,7 @@ const API = 'http://localhost:5000/api';
 const serif = "'Cormorant Garamond', serif";
 const sans  = "'DM Sans', sans-serif";
 
-// Heights cycle so masonry columns feel organic
-const HEIGHTS = [200, 130, 160];
+const PHOTO_HEIGHT = 180;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function getPrimaryPhotoUrl(photos) {
@@ -52,7 +51,7 @@ function Badge({ type }) {
 
 // ── Filter pill ───────────────────────────────────────────────────────────────
 function Pill({ label, active, onClick, urgent }) {
-    const base    = { fontFamily: sans, fontSize: '11px', padding: '5px 13px', borderRadius: '100px', cursor: 'pointer', border: '1px solid rgba(45,31,20,0.15)', color: '#7A5C44', background: 'transparent', transition: 'all 0.15s', whiteSpace: 'nowrap' };
+    const base    = { fontFamily: sans, fontSize: '11px', padding: '5px 13px', borderRadius: '100px', cursor: 'pointer', borderWidth: '1px', borderStyle: 'solid', borderColor: 'rgba(45,31,20,0.15)', color: '#7A5C44', background: 'transparent', transition: 'all 0.15s', whiteSpace: 'nowrap' };
     const urgDef  = { borderColor: 'rgba(192,74,74,0.3)', color: '#993C1D' };
     const actStyle = urgent ? { background: '#993C1D', color: '#FAF7F4', borderColor: '#993C1D' } : { background: '#2D1F14', color: '#FAF7F4', borderColor: '#2D1F14' };
     return (
@@ -76,14 +75,15 @@ function FilterLabel({ children }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function AnimalsPage() {
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
     const { pets, isLoading, getAllPets } = usePetStore();
     const { user: currentUser } = useAuthStore();
 
     const initialStatus = searchParams.get('status') || 'all';
 
-    const [typeFilter,   setTypeFilter]   = useState('all');
+    const [typeFilter,    setTypeFilter]    = useState('all');
+    const [otherSubtype,  setOtherSubtype]  = useState('');
     const [statusFilter, setStatusFilter] = useState(initialStatus);
     const [areaFilter,   setAreaFilter]   = useState('everywhere');
     const [sortBy,       setSortBy]       = useState('recent');
@@ -98,6 +98,13 @@ export default function AnimalsPage() {
         const q = searchParams.get('search');
         if (q !== null) setSearchQuery(q);
     }, [searchParams]);
+
+    const clearSearch = () => {
+        setSearchQuery('');
+        const p = new URLSearchParams(searchParams);
+        p.delete('search');
+        setSearchParams(p, { replace: true });
+    };
 
     useEffect(() => {
         if (!currentUser?._id) return;
@@ -131,7 +138,12 @@ export default function AnimalsPage() {
     // ── Filtering & sorting ───────────────────────────────────────────────────
     const filtered = pets
         .filter((p) => {
-            const typeMatch = typeFilter === 'all' || (p.type || '').toLowerCase() === typeFilter;
+            const petType = (p.type || '').toLowerCase();
+            const typeMatch =
+                typeFilter === 'all' ? true :
+                typeFilter === 'other'
+                    ? (!['dog', 'cat'].includes(petType) && (otherSubtype === '' || petType === otherSubtype))
+                    : petType === typeFilter;
             const hs = (p.health_status || '').toLowerCase();
             const as = (p.adoption_status || '').toLowerCase();
             const statusMatch =
@@ -141,7 +153,10 @@ export default function AnimalsPage() {
                 statusFilter === 'found'      ? (as === 'available' || hs.includes('found') || (p.type || '').toLowerCase().includes('found')) :
                 true;
             const q = searchQuery.trim().toLowerCase();
+            const qSingular = q.endsWith('s') && q.length > 3 ? q.slice(0, -1) : q;
             const searchMatch = !q
+                || petType === q
+                || petType === qSingular
                 || (p.name        || '').toLowerCase().includes(q)
                 || (p.description || '').toLowerCase().includes(q)
                 || (p.breed       || '').toLowerCase().includes(q);
@@ -211,10 +226,49 @@ export default function AnimalsPage() {
 
             {/* ── FILTER BAR ───────────────────────────────────────────── */}
             <div style={{ padding: '14px 48px', borderBottom: '1px solid rgba(45,31,20,0.08)', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', backgroundColor: '#FAF7F4' }}>
+                {searchQuery && (
+                    <span style={{
+                        fontFamily: sans, fontSize: '11px', color: '#2D1F14',
+                        background: 'rgba(45,31,20,0.08)', border: '1px solid rgba(45,31,20,0.2)',
+                        borderRadius: '100px', padding: '4px 10px',
+                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                    }}>
+                        Search: <strong>{searchQuery}</strong>
+                        <button onClick={clearSearch} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#7A5C44', fontSize: '14px', lineHeight: 1 }}>×</button>
+                    </span>
+                )}
+                {searchQuery && <Sep />}
                 <FilterLabel>Type</FilterLabel>
                 {typePills.map(({ label, value }) => (
-                    <Pill key={value} label={label} active={typeFilter === value} onClick={() => setTypeFilter(value)} />
+                    <Pill
+                        key={value}
+                        label={label}
+                        active={typeFilter === value}
+                        onClick={() => { setTypeFilter(value); setOtherSubtype(''); clearSearch(); }}
+                    />
                 ))}
+                {typeFilter === 'other' && (
+                    <>
+                        <Sep />
+                        <FilterLabel>Species</FilterLabel>
+                        {[
+                            { label: 'All',          value: ''           },
+                            { label: 'Birds',        value: 'bird'       },
+                            { label: 'Rabbits',      value: 'rabbit'     },
+                            { label: 'Fish',         value: 'fish'       },
+                            { label: 'Hamsters',     value: 'hamster'    },
+                            { label: 'Guinea pigs',  value: 'guinea pig' },
+                            { label: 'Reptiles',     value: 'reptile'    },
+                        ].map(({ label, value }) => (
+                            <Pill
+                                key={value || 'all-other'}
+                                label={label}
+                                active={otherSubtype === value}
+                                onClick={() => setOtherSubtype(value)}
+                            />
+                        ))}
+                    </>
+                )}
 
                 <Sep />
 
@@ -257,24 +311,23 @@ export default function AnimalsPage() {
                 </select>
             </div>
 
-            {/* ── MASONRY GRID ─────────────────────────────────────────── */}
-            <div style={{ padding: '20px 48px 40px', columnCount: 3, columnGap: '16px' }}>
+            {/* ── GRID ─────────────────────────────────────────────────── */}
+            <div style={{ padding: '20px 48px 40px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', alignItems: 'start' }}>
                 {isLoading ? (
-                    <div style={{ columnSpan: 'all', padding: '48px 0', textAlign: 'center', fontFamily: serif, fontSize: '18px', fontStyle: 'italic', color: '#B09880' }}>
+                    <div style={{ gridColumn: '1/-1', padding: '48px 0', textAlign: 'center', fontFamily: serif, fontSize: '18px', fontStyle: 'italic', color: '#B09880' }}>
                         Loading animals…
                     </div>
                 ) : filtered.length > 0 ? (
-                    filtered.map((pet, idx) => (
+                    filtered.map((pet) => (
                         <AnimalCard
                             key={pet.id}
                             pet={pet}
-                            height={HEIGHTS[idx % HEIGHTS.length]}
                             isSaved={savedPets.has(pet.id)}
                             onToggleSave={toggleSave}
                         />
                     ))
                 ) : (
-                    <div style={{ columnSpan: 'all', padding: '48px 0', textAlign: 'center', fontFamily: serif, fontSize: '18px', fontStyle: 'italic', color: '#B09880' }}>
+                    <div style={{ gridColumn: '1/-1', padding: '48px 0', textAlign: 'center', fontFamily: serif, fontSize: '18px', fontStyle: 'italic', color: '#B09880' }}>
                         No animals match the current filters.
                     </div>
                 )}
@@ -294,7 +347,7 @@ function getBadgeType(pet) {
 }
 
 // ── Animal card ───────────────────────────────────────────────────────────────
-function AnimalCard({ pet, height, isSaved, onToggleSave }) {
+function AnimalCard({ pet, isSaved, onToggleSave }) {
     const navigate = useNavigate();
     const [hovered, setHovered] = useState(false);
     const photoUrl = getPrimaryPhotoUrl(pet.photos);
@@ -310,19 +363,15 @@ function AnimalCard({ pet, height, isSaved, onToggleSave }) {
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
             style={{
-                breakInside: 'avoid',
-                marginBottom: '16px',
                 backgroundColor: '#fff',
                 border: '1px solid rgba(45,31,20,0.1)',
                 borderRadius: '3px',
-                overflow: 'hidden',
                 transform: hovered ? 'translateY(-2px)' : 'translateY(0)',
                 transition: 'transform 0.2s ease',
                 cursor: 'pointer',
-                willChange: 'transform',
             }}
         >
-            <div style={{ position: 'relative', height: `${height}px`, overflow: 'hidden', backgroundColor: '#F0E8E0' }}>
+            <div style={{ position: 'relative', height: `${PHOTO_HEIGHT}px`, overflow: 'hidden', backgroundColor: '#F0E8E0', borderRadius: '3px 3px 0 0' }}>
                 {photoUrl ? (
                     <img
                         src={photoUrl}

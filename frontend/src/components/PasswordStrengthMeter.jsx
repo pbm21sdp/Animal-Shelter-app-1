@@ -1,6 +1,6 @@
 const PasswordCriteria = ({ password }) => {
     const criteria = [
-        { label: "At least 6 characters", met: password.length >= 6 },
+        { label: "At least 12 characters", met: password.length >= 12 },
         { label: "Contains uppercase letter", met: /[A-Z]/.test(password) },
         { label: "Contains lowercase letter", met: /[a-z]/.test(password) },
         { label: "Contains a number", met: /\d/.test(password) },
@@ -40,7 +40,7 @@ const PasswordCriteria = ({ password }) => {
 const PasswordStrengthMeter = ({ password }) => {
     const getStrength = (pass) => {
         let strength = 0;
-        if (pass.length >= 6) strength++;
+        if (pass.length >= 12) strength++;
         if (pass.match(/[a-z]/) && pass.match(/[A-Z]/)) strength++;
         if (pass.match(/\d/)) strength++;
         if (pass.match(/[^a-zA-Z\d]/)) strength++;

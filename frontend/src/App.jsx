@@ -36,6 +36,7 @@ import AdoptionContractPage from './pages/AdoptionContractPage';
 import SafetyGuidePage from './pages/SafetyGuidePage';
 import NewPetGuidePage from './pages/NewPetGuidePage';
 import MessagesPage from './pages/MessagesPage';
+import DonationsPage from './pages/DonationsPage';
 
 // Protect routes that require authentication
 const ProtectedRoute = ({children}) => {
@@ -79,7 +80,7 @@ function App() {
     // Check if current route is an admin route
     const isAdminRoute = location.pathname.startsWith('/admin');
     // Auth pages manage their own background — no paws, no gradient
-    const isAuthRoute = ['/login', '/signup', '/verify-email', '/forgot-password'].includes(location.pathname)
+    const isAuthRoute = ['/login', '/signup', '/verify-email', '/forgot-password', '/donation-success', '/donations'].includes(location.pathname)
         || location.pathname.startsWith('/reset-password');
 
     return (
@@ -167,6 +168,11 @@ function App() {
                     </ProtectedRoute>
                 }
                 />
+                <Route path="/donations" element={
+                    <ProtectedRoute>
+                        <DonationsPage />
+                    </ProtectedRoute>
+                }/>
                 <Route path="/profile" element={
                     <ProtectedRoute>
                         <ProfilePage />

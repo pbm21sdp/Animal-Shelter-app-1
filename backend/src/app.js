@@ -19,6 +19,7 @@ import { authRoutes } from "./routes/auth/auth.routes.js"
 import adoptionRoutes from './routes/adoptions.routes.js';
 import petRoutes from './routes/pets.js';
 import donationRoutes from './routes/donations.routes.js';
+import { handleStripeWebhook } from './controllers/donation.controller.js';
 import userRoutes from './routes/user.routes.js';
 import messageRoutes from './routes/message.routes.js';
 import scheduledMeetingRoutes from './routes/scheduledMeeting.routes.js';
@@ -54,10 +55,10 @@ app.use(cors({
     credentials: true
 }));
 
-// 3. Special middleware for Stripe webhooks (BEFORE express.json())
-app.use('/api/donations/webhook',
+// 3. Stripe webhook — raw body BEFORE express.json(), direct route (no router indirection)
+app.post('/api/donations/webhook',
     express.raw({ type: 'application/json' }),
-    donationRoutes
+    handleStripeWebhook
 );
 
 // 4. Body parsers (BEFORE routes)
@@ -151,10 +152,51 @@ async function runConversationsMigration() {
     }
 }
 
+async function runDeletedAtMigration() {
+    try {
+        await pool.query(`
+            ALTER TABLE conversations
+              ADD COLUMN IF NOT EXISTS deleted_at_one TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+              ADD COLUMN IF NOT EXISTS deleted_at_two TIMESTAMP WITH TIME ZONE DEFAULT NULL
+        `);
+        console.log('deleted_at migration applied');
+    } catch (err) {
+        console.error('deleted_at migration error:', err.message);
+    }
+}
+
+async function runPetCoordsMigration() {
+    try {
+        await pool.query(`
+            ALTER TABLE pets
+              ADD COLUMN IF NOT EXISTS latitude  DECIMAL(10,8) DEFAULT NULL,
+              ADD COLUMN IF NOT EXISTS longitude DECIMAL(11,8) DEFAULT NULL
+        `);
+        console.log('pet coords migration applied');
+    } catch (err) {
+        console.error('pet coords migration error:', err.message);
+    }
+}
+
+async function runAdoptionRequestMigration() {
+    try {
+        await pool.query(`
+            ALTER TABLE conversations
+              ADD COLUMN IF NOT EXISTS is_adoption_request BOOLEAN DEFAULT FALSE
+        `);
+        console.log('adoption request migration applied');
+    } catch (err) {
+        console.error('adoption request migration error:', err.message);
+    }
+}
+
 async function start() {
     await connectPostgresDB();
     await connectMongoDB();
     await runConversationsMigration();
+    await runDeletedAtMigration();
+    await runPetCoordsMigration();
+    await runAdoptionRequestMigration();
     app.listen(PORT, () => {
         console.log(`Server running on port ${PORT}`);
     });

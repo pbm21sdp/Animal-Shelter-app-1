@@ -5,11 +5,11 @@ const donationSchema = new mongoose.Schema({
     user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: true
+        default: null
     },
     email: {
         type: String,
-        required: true
+        default: null
     },
     amount: {
         type: Number,
@@ -29,6 +29,15 @@ const donationSchema = new mongoose.Schema({
         type: String,
         enum: ['pending', 'completed', 'canceled', 'failed'],
         default: 'pending'
+    },
+    displayPreference: {
+        type: String,
+        enum: ['name', 'anonymous', 'hidden'],
+        default: 'name'
+    },
+    displayName: {
+        type: String,
+        default: null
     },
     createdAt: {
         type: Date,

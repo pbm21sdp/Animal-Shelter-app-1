@@ -39,9 +39,13 @@ export const PetModel = {
             }
 
             if (filters.type && filters.type !== 'any') {
-                query += ` AND p.type = $${paramCount}`;
-                values.push(filters.type);
-                paramCount++;
+                if (filters.type === 'other') {
+                    query += ` AND p.type NOT IN ('dog', 'cat')`;
+                } else {
+                    query += ` AND p.type = $${paramCount}`;
+                    values.push(filters.type);
+                    paramCount++;
+                }
             }
 
             if (filters.city) {
@@ -100,9 +104,13 @@ export const PetModel = {
 
             // Add type filter
             if (searchParams.type && searchParams.type !== 'any') {
-                query += ` AND LOWER(p.type) = LOWER($${paramCount})`;
-                values.push(searchParams.type);
-                paramCount++;
+                if (searchParams.type === 'other') {
+                    query += ` AND LOWER(p.type) NOT IN ('dog', 'cat')`;
+                } else {
+                    query += ` AND LOWER(p.type) = LOWER($${paramCount})`;
+                    values.push(searchParams.type);
+                    paramCount++;
+                }
             }
 
             // Handle radius and zipCode
@@ -256,7 +264,7 @@ export const PetModel = {
                 fee, description, health_status, story, location_address,
                 location_city, location_country, shelter_contact_email,
                 shelter_contact_phone, traits, photos, zip_code,
-                uploader_id // MongoDB user _id of the person creating this listing
+                uploader_id, latitude, longitude
             } = petData;
 
             // Insert pet
@@ -265,8 +273,8 @@ export const PetModel = {
                     name, type, breed, age_category, gender, size, color, coat,
                     fee, description, health_status, story, location_address,
                     location_city, location_country, shelter_contact_email,
-                    shelter_contact_phone, zip_code, uploader_id
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+                    shelter_contact_phone, zip_code, uploader_id, latitude, longitude
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
                     RETURNING *
             `;
 
@@ -274,7 +282,8 @@ export const PetModel = {
                 name, type, breed, age_category, gender, size, color, coat,
                 fee, description, health_status, story, location_address,
                 location_city, location_country, shelter_contact_email,
-                shelter_contact_phone, zip_code, uploader_id || null
+                shelter_contact_phone, zip_code, uploader_id || null,
+                latitude || null, longitude || null
             ];
 
             const petResult = await client.query(petQuery, petValues);

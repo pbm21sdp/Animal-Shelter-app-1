@@ -99,6 +99,7 @@ export default function PetDetailPage() {
     const [askMsg,         setAskMsg]         = useState('');
     const [askSent,        setAskSent]        = useState(false);
     const [askSending,     setAskSending]     = useState(false);
+    const [adoptSending,   setAdoptSending]   = useState(false);
     const [showAdoptForm,  setShowAdoptForm]  = useState(false);
     const [adoptSuccess,   setAdoptSuccess]   = useState(false);
     const [isSaved,        setIsSaved]        = useState(false);
@@ -176,6 +177,27 @@ export default function PetDetailPage() {
         }
     };
 
+    // ── Adopt ──────────────────────────────────────────────────────────────────
+    const handleAdopt = async () => {
+        if (adoptSending) return;
+        setAdoptSending(true);
+        try {
+            const res = await axios.post(`${API}/conversations`, {
+                pet_id:             pet.id,
+                recipient_id:       pet.uploader_id,
+                message:            `Hi! I'm interested in adopting ${pet.name}. I'd love to discuss more about the process.`,
+                is_adoption_request: true,
+            }, { withCredentials: true });
+            if (res.data.success) {
+                navigate(`/messages?conv=${res.data.conversation_id}`);
+            }
+        } catch {
+            // fail silently
+        } finally {
+            setAdoptSending(false);
+        }
+    };
+
     // ── Guards ─────────────────────────────────────────────────────────────────
     if (notFound) return <NotFoundPage />;
 
@@ -221,7 +243,7 @@ export default function PetDetailPage() {
     const cardRows = [
         { label: 'Type',     value: cap(pet.type) },
         { label: 'Status',   value: pet.health_status },
-        { label: 'Location', value: pet.location_city },
+        { label: 'Location', value: [pet.location_address, pet.location_city].filter(Boolean).join(', ') || pet.location_city },
         { label: 'Posted',   value: timeAgo(pet.created_at) },
         { label: 'Uploader', value: uploader?.name },
     ].filter(r => r.value);
@@ -263,7 +285,7 @@ export default function PetDetailPage() {
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', flexWrap: 'wrap', fontFamily: sans, fontSize: '12px', color: '#9A7A60' }}>
                         {pet.breed        && <><span style={{ fontStyle: 'italic' }}>{pet.breed}</span><Dot /></>}
                         {pet.type         && <><span>{cap(pet.type)}</span><Dot /></>}
-                        {pet.location_city && <><span>◎ {pet.location_city}</span><Dot /></>}
+                        {(pet.location_address || pet.location_city) && <><span>◎ {[pet.location_address, pet.location_city].filter(Boolean).join(', ')}</span><Dot /></>}
                         {pet.age_category && <><span>{pet.age_category}</span><Dot /></>}
                         {pet.created_at   && <span>{timeAgo(pet.created_at)}</span>}
                     </div>
@@ -423,6 +445,26 @@ export default function PetDetailPage() {
                                         >
                                             💬 Ask about {pet.name}
                                         </button>
+                                        {currentUser && pet.uploader_id !== currentUser._id && !isAdopted && (
+                                            <button
+                                                onClick={handleAdopt}
+                                                disabled={adoptSending}
+                                                style={{
+                                                    fontFamily: sans, fontSize: '13px',
+                                                    color: '#fff',
+                                                    background: '#2D1F14',
+                                                    border: '1.5px solid #2D1F14',
+                                                    borderRadius: '100px', padding: '10px 20px',
+                                                    cursor: adoptSending ? 'default' : 'pointer',
+                                                    opacity: adoptSending ? 0.6 : 1,
+                                                    transition: 'background 0.15s',
+                                                }}
+                                                onMouseEnter={e => { if (!adoptSending) e.currentTarget.style.background = '#C07A4A'; e.currentTarget.style.borderColor = '#C07A4A'; }}
+                                                onMouseLeave={e => { e.currentTarget.style.background = '#2D1F14'; e.currentTarget.style.borderColor = '#2D1F14'; }}
+                                            >
+                                                {adoptSending ? 'Starting…' : '🐾 Adopt'}
+                                            </button>
+                                        )}
                                         {currentUser && pet.uploader_id !== currentUser._id && (
                                             <button
                                                 onClick={handleSaveToggle}
@@ -538,10 +580,10 @@ export default function PetDetailPage() {
 
                             {/* Location / contact details */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-                                {pet.location_city && (
-                                    <div style={{ fontFamily: sans, fontSize: '12px', color: '#FAF7F4', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                        <span style={{ opacity: 0.5 }}>◎</span>
-                                        <span>{pet.location_city}</span>
+                                {(pet.location_address || pet.location_city) && (
+                                    <div style={{ fontFamily: sans, fontSize: '12px', color: '#FAF7F4', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                                        <span style={{ opacity: 0.5, flexShrink: 0 }}>◎</span>
+                                        <span>{[pet.location_address, pet.location_city].filter(Boolean).join(', ')}</span>
                                     </div>
                                 )}
                                 {uploader && (

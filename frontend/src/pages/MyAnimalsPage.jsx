@@ -122,12 +122,13 @@ function PetCard({ pet, onMarkAdopted, onDelete, onNavigate, onEdit }) {
             backgroundColor: '#fff',
             border: '1px solid rgba(45,31,20,0.1)',
             borderRadius: '3px',
-            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
         }}>
             {/* Photo */}
             <div
                 onClick={() => onNavigate(pet.id)}
-                style={{ height: '180px', overflow: 'hidden', backgroundColor: '#F0E8E0', cursor: 'pointer', position: 'relative' }}
+                style={{ height: '180px', overflow: 'hidden', backgroundColor: '#F0E8E0', cursor: 'pointer', position: 'relative', flexShrink: 0 }}
             >
                 {photoUrl
                     ? <img src={photoUrl} alt={pet.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', display: 'block' }} onError={e => { e.target.style.display = 'none'; }} />
@@ -136,7 +137,7 @@ function PetCard({ pet, onMarkAdopted, onDelete, onNavigate, onEdit }) {
             </div>
 
             {/* Info */}
-            <div style={{ padding: '10px 12px 6px' }}>
+            <div style={{ padding: '10px 12px 6px', flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
                     <span style={{ fontFamily: sans, fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '2px 7px', borderRadius: '2px', fontWeight: 600, background: badge.bg, color: badge.color, border: badge.border }}>
                         {badge.label}

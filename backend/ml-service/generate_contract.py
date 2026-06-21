@@ -13,7 +13,7 @@ from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
 
 
-def create_contract_pdf_v2(buffer):
+def create_contract_pdf_v2(buffer, animal_data=None):
     doc = SimpleDocTemplate(
         buffer,
         pagesize=A4,
@@ -172,25 +172,26 @@ def create_contract_pdf_v2(buffer):
     story.append(Spacer(1, 10))
     story.append(Paragraph('ANIMAL INFORMATION', section_style))
 
-    animal_data = [
-        ["Name", ""],
-        ["Species", ""],
-        ["Breed", ""],
-        ["Color", ""],
-        ["Sex", ""],
-        ["Age / Estimated Date of Birth", ""],
-        ["Size / Weight", ""],
-        ["Distinctive Features", ""],
-        ["Microchip Number", ""],
-        ["Passport / Health Booklet Number", ""],
-        ["Vaccination Status", ""],
-        ["Spayed / Neutered", ""],
-        ["Current Medications", ""],
-        ["Known Medical Conditions", ""],
-        ["Date of Transfer / Adoption", ""],
+    ad = animal_data or {}
+    animal_table_data = [
+        ["Name",                              ad.get('name', '')],
+        ["Species",                           ad.get('species', '')],
+        ["Breed",                             ad.get('breed', '')],
+        ["Color",                             ad.get('color', '')],
+        ["Sex",                               ad.get('sex', '')],
+        ["Age / Estimated Date of Birth",     ad.get('age', '')],
+        ["Size / Weight",                     ""],
+        ["Distinctive Features",              ""],
+        ["Microchip Number",                  ""],
+        ["Passport / Health Booklet Number",  ""],
+        ["Vaccination Status",                ""],
+        ["Spayed / Neutered",                 ""],
+        ["Current Medications",               ""],
+        ["Known Medical Conditions",          ""],
+        ["Date of Transfer / Adoption",       ""],
     ]
 
-    animal_table = Table(animal_data, colWidths=[7 * cm, 9 * cm])
+    animal_table = Table(animal_table_data, colWidths=[7 * cm, 9 * cm])
 
     animal_table.setStyle(
         TableStyle(

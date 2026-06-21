@@ -176,3 +176,60 @@ export const sendMessageReplyEmail = async (email, originalMessage, replyText) =
         throw new Error(`Error sending message reply email: ${error}`);
     }
 };
+
+export const sendDonationConfirmationEmail = async (email, amount, organizationName) => {
+    const recipient = [{ email }];
+    const org = organizationName || 'Paws Community Fund';
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#FAF7F4;font-family:'DM Sans',Arial,sans-serif;">
+  <table width="100%" cellspacing="0" cellpadding="0" style="background:#FAF7F4;padding:40px 0;">
+    <tr><td align="center">
+      <table width="480" cellspacing="0" cellpadding="0" style="background:#fff;border:1px solid rgba(45,31,20,0.1);border-radius:6px;overflow:hidden;">
+        <!-- Header -->
+        <tr><td style="background:#2D1F14;padding:28px 40px;">
+          <h1 style="margin:0;font-family:Georgia,serif;font-size:22px;color:#FAF7F4;font-weight:700;">Paws Animal Shelter</h1>
+        </td></tr>
+        <!-- Body -->
+        <tr><td style="padding:36px 40px;">
+          <div style="width:56px;height:56px;border-radius:50%;background:rgba(192,122,74,0.12);display:flex;align-items:center;justify-content:center;margin:0 auto 24px;">
+            <span style="font-size:28px;">🐾</span>
+          </div>
+          <h2 style="font-family:Georgia,serif;font-size:22px;color:#2D1F14;text-align:center;margin:0 0 12px;">Thank you for your donation!</h2>
+          <p style="color:#6B5144;font-size:15px;line-height:1.6;text-align:center;margin:0 0 28px;">
+            Your contribution to <strong>${org}</strong> helps animals find their forever homes.
+          </p>
+          <table width="100%" cellspacing="0" cellpadding="0" style="background:rgba(192,122,74,0.08);border-left:3px solid #C07A4A;border-radius:4px;margin-bottom:28px;">
+            <tr><td style="padding:18px 22px;">
+              <div style="font-family:Georgia,serif;font-size:26px;font-weight:700;color:#2D1F14;">${amount} €</div>
+              <div style="font-size:13px;color:#6B5144;margin-top:4px;">Donation amount</div>
+            </td></tr>
+          </table>
+          <p style="color:#6B5144;font-size:14px;line-height:1.6;margin:0;">
+            Your payment was processed securely through Stripe. No further action is required on your part.
+          </p>
+        </td></tr>
+        <!-- Footer -->
+        <tr><td style="padding:20px 40px;border-top:1px solid rgba(45,31,20,0.08);text-align:center;">
+          <p style="margin:0;font-size:12px;color:#A89080;">This is an automated message from Paws Animal Shelter. Please do not reply.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+    try {
+        await mailtrapClient.send({
+            from: sender,
+            to: recipient,
+            subject: `Donation confirmed – ${amount} € to ${org}`,
+            html,
+            category: 'Donation Confirmation',
+        });
+        console.log('Donation confirmation email sent to', email);
+    } catch (error) {
+        console.error('Error sending donation confirmation email:', error);
+    }
+};

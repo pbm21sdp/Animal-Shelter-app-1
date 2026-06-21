@@ -1,7 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Navbar from '../components/Navbar';
+import LocationPicker from '../components/LocationPicker';
 
 const API   = 'http://localhost:5000/api';
 const serif = "'Cormorant Garamond', serif";
@@ -9,7 +10,9 @@ const sans  = "'DM Sans', sans-serif";
 
 const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
-// ── Pill toggle (shared by both steps) ───────────────────────────────────────
+const sentenceCase = str => str ? str.charAt(0).toUpperCase() + str.slice(1).toLowerCase() : '';
+
+// ── Pill toggle (single-select) ───────────────────────────────────────────────
 function PillToggle({ options, value, onChange, large }) {
     return (
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -87,62 +90,85 @@ function StepIndicator({ step }) {
     );
 }
 
-// ── Question card ─────────────────────────────────────────────────────────────
-function QuestionCard({ label, children }) {
+// ── Section label (matches Step 2 pattern) ────────────────────────────────────
+function SectionLabel({ children }) {
     return (
         <div style={{
-            background: '#fff',
-            border: '1px solid rgba(45,31,20,0.1)',
-            borderRadius: '4px',
-            padding: '20px 24px',
+            fontFamily: sans, fontSize: '9px', textTransform: 'uppercase',
+            letterSpacing: '0.14em', color: '#C07A4A', fontWeight: 500,
             marginBottom: '14px',
         }}>
-            <div style={{
-                fontFamily: sans, fontSize: '13px', fontWeight: 500,
-                color: '#2D1F14', marginBottom: '10px',
-            }}>
-                {label}
-            </div>
             {children}
         </div>
     );
 }
 
+// ── Field label within a section ──────────────────────────────────────────────
+function FieldLabel({ children }) {
+    return (
+        <div style={{
+            fontFamily: sans, fontSize: '11px', fontWeight: 500,
+            color: '#2D1F14', marginBottom: '7px',
+        }}>
+            {children}
+        </div>
+    );
+}
+
+// ── Section divider ───────────────────────────────────────────────────────────
+function SectionDivider() {
+    return <div style={{ height: '1px', background: 'rgba(45,31,20,0.1)', margin: '24px 0' }} />;
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 export default function AddAnimalPage() {
     const navigate = useNavigate();
-    const fileInputRef    = useRef(null);
-    const descTextareaRef = useRef(null);
+    const fileInputRef     = useRef(null);
+    const descTextareaRef  = useRef(null);
+    const pageContainerRef = useRef(null);
 
     // ── Step state ────────────────────────────────────────────────────────────
     const [step, setStep] = useState(1);
 
+    useEffect(() => {
+        if (pageContainerRef.current) pageContainerRef.current.scrollTop = 0;
+    }, [step]);
+
     // ── Step 1 state ──────────────────────────────────────────────────────────
-    const [foundHow,       setFoundHow]       = useState('');
-    const [foundHowOther,  setFoundHowOther]  = useState('');
-    const [animalType,     setAnimalType]     = useState('');
+    const [foundHow,        setFoundHow]        = useState('');
+    const [foundHowOther,   setFoundHowOther]   = useState('');
+    const [animalType,      setAnimalType]      = useState('');
     const [animalTypeOther, setAnimalTypeOther] = useState('');
-    const [animalStatus, setAnimalStatus] = useState('');
-    const [hasMicrochip, setHasMicrochip] = useState('');
-    const [isVaccinated, setIsVaccinated] = useState('');
-    const [isNeutered,   setIsNeutered]   = useState('');
-    const [approxAge,    setApproxAge]    = useState('');
-    const [approxSize,   setApproxSize]   = useState('');
+    const [animalStatus,    setAnimalStatus]    = useState('');
+    const [hasMicrochip,    setHasMicrochip]    = useState('');
+    const [isVaccinated,    setIsVaccinated]    = useState('');
+    const [isNeutered,      setIsNeutered]      = useState('');
+    const [approxAge,       setApproxAge]       = useState('');
+    const [exactAge,        setExactAge]        = useState('');
+    const [approxSize,      setApproxSize]      = useState('');
+    const [exactWeight,     setExactWeight]     = useState('');
+    const [coatColors,      setCoatColors]      = useState([]);
+    const [coatColorOther,  setCoatColorOther]  = useState('');
+    const [coatType,        setCoatType]        = useState('');
+    const [breed,           setBreed]           = useState('');
 
     // ── Step 2 state ──────────────────────────────────────────────────────────
     const [headline,    setHeadline]    = useState('');
-    const [previews,    setPreviews]    = useState([]);   // { url, file }[]
+    const [previews,    setPreviews]    = useState([]);
     const [caption,     setCaption]     = useState('');
     const [status,      setStatus]      = useState('');
     const [description, setDescription] = useState('');
     const [descVersion, setDescVersion] = useState(0);
-    const [location,    setLocation]    = useState('');
+    const [locValue,    setLocValue]    = useState({ county: '', city: '', address: '', latitude: null, longitude: null });
     const [contact,     setContact]     = useState('');
+    const [clipSelected, setClipSelected] = useState({});
     const [agreed,      setAgreed]      = useState(false);
     const [errors,      setErrors]      = useState({});
     const [submitting,  setSubmitting]  = useState(false);
     const [submitError, setSubmitError] = useState('');
     const [publishedId, setPublishedId] = useState(null);
+
+    const [selectedTraits, setSelectedTraits] = useState([]);
 
     // ── AI generation state ───────────────────────────────────────────────────
     const [aiLoading,   setAiLoading]   = useState(false);
@@ -150,40 +176,25 @@ export default function AddAnimalPage() {
     const [aiError,     setAiError]     = useState('');
 
     // ── CLIP analysis state ───────────────────────────────────────────────────
-    const [clipLoading, setClipLoading] = useState(false);
-    const [clipResults, setClipResults] = useState(null);
-    const [clipError,   setClipError]   = useState('');
+    const [clipLoading,  setClipLoading]  = useState(false);
+    const [clipResults,  setClipResults]  = useState(null);
+    const [clipError,    setClipError]    = useState('');
+    const [clipApplied,  setClipApplied]  = useState(false);
+
+    // ── Derived: effective color list (replaces "Other" with free-text value) ──
+    const effectiveColors = [
+        ...coatColors.filter(c => c !== 'Other'),
+        ...(coatColors.includes('Other') && coatColorOther ? [coatColorOther] : []),
+    ];
 
     // ── Map step 1 answers → step 2 defaults when advancing ──────────────────
     const handleContinue = () => {
-        const actualFoundHow = foundHow === 'Other' ? foundHowOther : foundHow;
-        const actualType     = animalType === 'Other' ? animalTypeOther : animalType;
-
-        // Pre-populate status pill
         const statusMap = {
             'Vaccinated & healthy': 'Vaccinated',
             'Needs urgent care':    'Urgent',
             'Found / Stray':        'Found',
         };
         setStatus(statusMap[animalStatus] || '');
-
-        // Pre-populate clean readable description
-        const summaryParts = [];
-        if (actualFoundHow) summaryParts.push(`Found ${actualFoundHow.toLowerCase()}.`);
-        if (approxAge && approxAge !== 'Unknown') summaryParts.push(`Approximately ${approxAge.toLowerCase()} old.`);
-        if (approxSize && approxSize !== 'Unknown') summaryParts.push(`Size: ${approxSize}.`);
-
-        const healthParts = [];
-        if (isVaccinated && isVaccinated !== "Don't know") healthParts.push(`Vaccinated: ${isVaccinated.toLowerCase()}`);
-        if (isNeutered   && isNeutered   !== "Don't know") healthParts.push(`Neutered: ${isNeutered.toLowerCase()}`);
-        if (hasMicrochip && hasMicrochip !== "Don't know") healthParts.push(`Microchip: ${hasMicrochip.toLowerCase()}`);
-        if (healthParts.length > 0) summaryParts.push(healthParts.join(', ') + '.');
-
-        summaryParts.push("Please add more details about the animal's temperament and appearance.");
-        setDescription(summaryParts.join(' '));
-
-        console.log('Continuing to step 2 with:', { animalType, status: statusMap[animalStatus] });
-
         setStep(2);
     };
 
@@ -198,19 +209,23 @@ export default function AddAnimalPage() {
             const res = await axios.post(`${API}/ai/generate-description`, {
                 type:       actualType || animalType,
                 status:     animalStatus,
-                age:        approxAge,
-                size:       approxSize,
+                age:        exactAge || approxAge,
+                size:       exactWeight ? `${exactWeight}${approxSize ? ` (${approxSize})` : ''}` : approxSize,
                 vaccinated: isVaccinated,
                 neutered:   isNeutered,
                 microchip:  hasMicrochip,
                 foundHow:   actualFoundHow || foundHow,
+                breed:      breed || '',
+                color:      effectiveColors.join(', ') || '',
+                coat:       coatType || '',
+                city:       locValue.city || locValue.county || '',
+                traits:     selectedTraits,
             }, { withCredentials: true });
             setDescription(res.data.description || '');
             setDescVersion(v => v + 1);
             if (descTextareaRef.current) {
                 descTextareaRef.current.value = res.data.description || '';
             }
-            console.log('New description set:', res.data.description);
             setAiGenerated(true);
         } catch (err) {
             setAiError('AI unavailable — please write manually');
@@ -225,6 +240,7 @@ export default function AddAnimalPage() {
         if (!photo) return;
         setClipLoading(true);
         setClipError('');
+        setClipApplied(false);
         try {
             const canvas = document.createElement('canvas');
             const img = new window.Image();
@@ -237,7 +253,11 @@ export default function AddAnimalPage() {
 
             const res = await axios.post(`${API}/ai/analyse-image`, { image: base64 }, { withCredentials: true });
             if (res.data.success) {
-                setClipResults(res.data.summary);
+                const summary = res.data.summary || {};
+                setClipResults(summary);
+                const sel = {};
+                Object.entries(summary).forEach(([k, v]) => { if (v && k !== 'species_confidence') sel[k] = true; });
+                setClipSelected(sel);
             }
         } catch (err) {
             setClipError('Analysis unavailable — please fill in manually');
@@ -248,20 +268,17 @@ export default function AddAnimalPage() {
 
     const applyClipResults = () => {
         if (!clipResults) return;
-        if (clipResults.type) {
-            const typeMap = { dog: 'Dog', cat: 'Cat', other: 'Other' };
-            setAnimalType(typeMap[clipResults.type] || animalType);
+        if (clipSelected.type && clipResults.type) {
+            const typeMap = { dog: 'Dog', cat: 'Cat', rabbit: 'Rabbit', bird: 'Bird', fish: 'Fish', hamster: 'Hamster', 'guinea pig': 'Guinea pig', reptile: 'Reptile', other: 'Other' };
+            setAnimalType(typeMap[clipResults.type.toLowerCase()] || 'Other');
+            if (!typeMap[clipResults.type.toLowerCase()]) setAnimalTypeOther(sentenceCase(clipResults.type));
         }
-        if (clipResults.size) setApproxSize(clipResults.size);
-        if (clipResults.age)  setApproxAge(clipResults.age);
-        if (clipResults.breed || clipResults.color || clipResults.fur) {
-            const extras = [];
-            if (clipResults.breed) extras.push(`Appears to be ${clipResults.breed}.`);
-            if (clipResults.color) extras.push(`Coat: ${clipResults.color}.`);
-            if (clipResults.fur)   extras.push(`Fur length: ${clipResults.fur}.`);
-            setDescription(prev => (prev ? prev + ' ' : '') + extras.join(' '));
-            setDescVersion(v => v + 1);
-        }
+        if (clipSelected.size  && clipResults.size)  setApproxSize(clipResults.size);
+        if (clipSelected.age   && clipResults.age)   setApproxAge(clipResults.age);
+        if (clipSelected.breed && clipResults.breed) setBreed(sentenceCase(clipResults.breed));
+        if (clipSelected.color && clipResults.color) setCoatColors([sentenceCase(clipResults.color)]);
+        if (clipSelected.fur   && clipResults.fur)   setCoatType(sentenceCase(clipResults.fur));
+        setClipApplied(true);
     };
 
     // ── File handling ─────────────────────────────────────────────────────────
@@ -281,6 +298,11 @@ export default function AddAnimalPage() {
             URL.revokeObjectURL(prev[idx].url);
             return prev.filter((_, i) => i !== idx);
         });
+        if (idx === 0) {
+            setClipResults(null);
+            setClipError('');
+            setClipApplied(false);
+        }
     };
 
     // ── Validation ────────────────────────────────────────────────────────────
@@ -304,31 +326,33 @@ export default function AddAnimalPage() {
         setSubmitting(true);
 
         try {
-            const actualType = animalType === 'Other' ? animalTypeOther : animalType;
+            const actualType     = animalType === 'Other' ? animalTypeOther : animalType;
             const looksLikeEmail = contact.includes('@');
             const petPayload = {
                 name:                  headline.trim(),
                 type:                  actualType.toLowerCase(),
-                breed:                 '',
-                age_category:          approxAge || '',
+                breed:                 breed || '',
+                age_category:          exactAge || approxAge || '',
                 gender:                '',
-                size:                  approxSize || '',
-                color:                 '',
-                coat:                  '',
+                size:                  exactWeight ? `${approxSize ? `${approxSize} — ` : ''}${exactWeight}` : (approxSize || ''),
+                color:                 effectiveColors.join(', ') || '',
+                coat:                  coatType || '',
                 fee:                   0,
                 description:           description.trim(),
+                traits:                selectedTraits,
                 health_status:         status || '',
                 story:                 caption.trim(),
-                location_address:      location.trim(),
-                location_city:         location.trim(),
+                location_address:      locValue.address || '',
+                location_city:         locValue.city || locValue.county || '',
                 location_country:      '',
+                latitude:              locValue.latitude || null,
+                longitude:             locValue.longitude || null,
                 shelter_contact_email: looksLikeEmail ? contact.trim() : '',
                 shelter_contact_phone: !looksLikeEmail ? contact.trim() : '',
                 zip_code:              '',
             };
 
             const response = await axios.post(`${API}/pets`, petPayload, { withCredentials: true });
-            console.log('Created pet response:', response.data);
             const petId = response.data.pet?.id || response.data.id;
 
             for (const { file } of previews) {
@@ -342,7 +366,6 @@ export default function AddAnimalPage() {
 
             setPublishedId(petId);
         } catch (err) {
-            console.error('Submit error details:', err.response?.data, err.response?.status);
             setSubmitError(err.response?.data?.message || 'Something went wrong. Please try again.');
         } finally {
             setSubmitting(false);
@@ -381,18 +404,21 @@ export default function AddAnimalPage() {
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    // STEP 1 — QUICK QUESTIONS
+    // STEP 1 — QUICK QUESTIONS (sectioned layout)
     // ══════════════════════════════════════════════════════════════════════════
     if (step === 1) {
+        const COAT_COLOR_OPTIONS = ['Black', 'White', 'Brown', 'Tan / Fawn', 'Gray', 'Golden', 'Cream', 'Black & white', 'Brindle', 'Tricolor', 'Other'];
+        const COAT_TYPE_OPTIONS  = ['Short', 'Medium', 'Long', 'Curly', 'Wire-haired', 'Hairless', 'Unknown'];
+
         return (
-            <div style={{ position: 'fixed', inset: 0, zIndex: 10, display: 'flex', flexDirection: 'column', backgroundColor: '#FAF7F4', overflowY: 'auto' }}>
+            <div ref={pageContainerRef} style={{ position: 'fixed', inset: 0, zIndex: 10, display: 'flex', flexDirection: 'column', backgroundColor: '#FAF7F4', overflowY: 'auto' }}>
                 <Navbar />
                 <StepIndicator step={1} />
 
-                <div style={{ maxWidth: '600px', margin: '0 auto', padding: '36px 48px 80px', width: '100%', boxSizing: 'border-box' }}>
+                <div style={{ maxWidth: '640px', margin: '0 auto', padding: '36px 48px 80px', width: '100%', boxSizing: 'border-box' }}>
 
                     {/* Masthead */}
-                    <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                    <div style={{ textAlign: 'center', marginBottom: '36px' }}>
                         <div style={{ fontFamily: sans, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.14em', color: '#C07A4A', fontWeight: 500, marginBottom: '12px' }}>
                             The Paws Daily · New submission
                         </div>
@@ -404,88 +430,193 @@ export default function AddAnimalPage() {
                         </p>
                     </div>
 
-                    {/* Q1 */}
-                    <QuestionCard label="How did you find this animal?">
-                        <PillToggle
-                            large
-                            options={['Found on the street', 'Owner surrendered it', 'Rescued from danger', 'Other']}
-                            value={foundHow}
-                            onChange={setFoundHow}
-                        />
-                        {foundHow === 'Other' && (
+                    {/* ── SECTION 1: Whereabouts & situation ──────────────── */}
+                    <SectionLabel>Whereabouts &amp; situation</SectionLabel>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+                        <div>
+                            <FieldLabel>How did you find this animal?</FieldLabel>
+                            <PillToggle
+                                large
+                                options={['Found on the street', 'Owner surrendered it', 'Rescued from danger', 'Other']}
+                                value={foundHow}
+                                onChange={setFoundHow}
+                            />
+                            {foundHow === 'Other' && (
+                                <input
+                                    type="text"
+                                    placeholder="Please describe how you found this animal..."
+                                    value={foundHowOther}
+                                    onChange={e => setFoundHowOther(e.target.value)}
+                                    autoFocus
+                                    style={{ width: '100%', marginTop: '10px', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }}
+                                />
+                            )}
+                        </div>
+
+                        <div>
+                            <FieldLabel>Type of animal</FieldLabel>
+                            <PillToggle large options={['Dog', 'Cat', 'Rabbit', 'Bird', 'Fish', 'Hamster', 'Guinea pig', 'Reptile', 'Other']} value={animalType} onChange={setAnimalType} />
+                            {animalType === 'Other' && (
+                                <input
+                                    type="text"
+                                    placeholder="Please specify..."
+                                    value={animalTypeOther}
+                                    onChange={e => setAnimalTypeOther(e.target.value)}
+                                    autoFocus
+                                    style={{ width: '100%', marginTop: '10px', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }}
+                                />
+                            )}
+                        </div>
+
+                        <div>
+                            <FieldLabel>Current status</FieldLabel>
+                            <PillToggle
+                                large
+                                options={['Found / Stray', 'Needs urgent care', 'Vaccinated & healthy', 'Unknown']}
+                                value={animalStatus}
+                                onChange={setAnimalStatus}
+                            />
+                        </div>
+
+                    </div>
+
+                    <SectionDivider />
+
+                    {/* ── SECTION 2: Health ────────────────────────────────── */}
+                    <SectionLabel>Health</SectionLabel>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+                        <div>
+                            <FieldLabel>Microchip</FieldLabel>
+                            <PillToggle large options={['Yes', 'No', "Don't know"]} value={hasMicrochip} onChange={setHasMicrochip} />
+                        </div>
+
+                        <div>
+                            <FieldLabel>Neutered / spayed</FieldLabel>
+                            <PillToggle large options={['Yes', 'No', "Don't know"]} value={isNeutered} onChange={setIsNeutered} />
+                        </div>
+
+                        <div>
+                            <FieldLabel>Vaccinated</FieldLabel>
+                            <PillToggle large options={['Yes, fully', 'Partially', 'No', "Don't know"]} value={isVaccinated} onChange={setIsVaccinated} />
+                        </div>
+
+                    </div>
+
+                    <SectionDivider />
+
+                    {/* ── SECTION 3: Appearance ────────────────────────────── */}
+                    <SectionLabel>Appearance</SectionLabel>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+                        <div>
+                            <FieldLabel>Age</FieldLabel>
+                            <PillToggle
+                                large
+                                options={['Under 3 months', '3–12 months', '1–3 years', '3–7 years', 'Over 7 years', 'Unknown']}
+                                value={approxAge}
+                                onChange={v => { setApproxAge(v); if (v) setExactAge(''); }}
+                            />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '12px 0 0' }}>
+                                <div style={{ flex: 1, height: '1px', background: 'rgba(45,31,20,0.1)' }} />
+                                <span style={{ fontFamily: sans, fontSize: '10px', color: '#B09880', whiteSpace: 'nowrap' }}>or enter exact age</span>
+                                <div style={{ flex: 1, height: '1px', background: 'rgba(45,31,20,0.1)' }} />
+                            </div>
                             <input
                                 type="text"
-                                placeholder="Please describe how you found this animal..."
-                                value={foundHowOther}
-                                onChange={e => setFoundHowOther(e.target.value)}
-                                autoFocus
-                                style={{ width: '100%', marginTop: '10px', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none' }}
+                                placeholder="e.g. 2 years, 4 months"
+                                value={exactAge}
+                                onChange={e => { setExactAge(e.target.value); if (e.target.value) setApproxAge(''); }}
+                                style={{ width: '100%', marginTop: '8px', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }}
                             />
-                        )}
-                    </QuestionCard>
+                        </div>
 
-                    {/* Q2 */}
-                    <QuestionCard label="What type of animal is it?">
-                        <PillToggle large options={['Dog', 'Cat', 'Other']} value={animalType} onChange={setAnimalType} />
-                        {animalType === 'Other' && (
+                        <div>
+                            <FieldLabel>Size</FieldLabel>
+                            <PillToggle
+                                large
+                                options={['Very small (under 5kg)', 'Small (5–10kg)', 'Medium (10–25kg)', 'Large (over 25kg)', 'Unknown']}
+                                value={approxSize}
+                                onChange={setApproxSize}
+                            />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '12px 0 0' }}>
+                                <div style={{ flex: 1, height: '1px', background: 'rgba(45,31,20,0.1)' }} />
+                                <span style={{ fontFamily: sans, fontSize: '10px', color: '#B09880', whiteSpace: 'nowrap' }}>or enter exact weight</span>
+                                <div style={{ flex: 1, height: '1px', background: 'rgba(45,31,20,0.1)' }} />
+                            </div>
                             <input
                                 type="text"
-                                placeholder="Please specify the type of animal..."
-                                value={animalTypeOther}
-                                onChange={e => setAnimalTypeOther(e.target.value)}
-                                autoFocus
-                                style={{ width: '100%', marginTop: '10px', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none' }}
+                                placeholder="e.g. 14 kg"
+                                value={exactWeight}
+                                onChange={e => setExactWeight(e.target.value)}
+                                style={{ width: '100%', marginTop: '8px', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }}
                             />
-                        )}
-                    </QuestionCard>
+                        </div>
 
-                    {/* Q3 */}
-                    <QuestionCard label="What's the animal's current status?">
-                        <PillToggle
-                            large
-                            options={['Found / Stray', 'Needs urgent care', 'Vaccinated & healthy', 'Unknown']}
-                            value={animalStatus}
-                            onChange={setAnimalStatus}
-                        />
-                    </QuestionCard>
+                        <div>
+                            <FieldLabel>Coat color <span style={{ fontFamily: sans, fontSize: '10px', fontWeight: 400, color: '#B09880' }}>— select all that apply</span></FieldLabel>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                {COAT_COLOR_OPTIONS.map(c => {
+                                    const active = coatColors.includes(c);
+                                    return (
+                                        <button
+                                            key={c}
+                                            type="button"
+                                            onClick={() => setCoatColors(prev =>
+                                                prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]
+                                            )}
+                                            style={{
+                                                fontFamily: sans, fontSize: '12px', padding: '6px 16px',
+                                                borderRadius: '100px', cursor: 'pointer',
+                                                border: `1px solid ${active ? '#2D1F14' : 'rgba(45,31,20,0.15)'}`,
+                                                background: active ? '#2D1F14' : 'transparent',
+                                                color: active ? '#FAF7F4' : '#7A5C44',
+                                                transition: 'all 0.15s',
+                                            }}
+                                        >
+                                            {c}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            {coatColors.includes('Other') && (
+                                <input
+                                    type="text"
+                                    placeholder="Describe the coat color..."
+                                    value={coatColorOther}
+                                    onChange={e => setCoatColorOther(e.target.value)}
+                                    style={{ width: '100%', marginTop: '10px', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }}
+                                />
+                            )}
+                        </div>
 
-                    {/* Q4 */}
-                    <QuestionCard label="Does it have a microchip?">
-                        <PillToggle large options={["Yes", "No", "Don't know"]} value={hasMicrochip} onChange={setHasMicrochip} />
-                    </QuestionCard>
+                        <div>
+                            <FieldLabel>Coat type</FieldLabel>
+                            <PillToggle large options={COAT_TYPE_OPTIONS} value={coatType} onChange={setCoatType} />
+                        </div>
 
-                    {/* Q5 */}
-                    <QuestionCard label="Is it vaccinated?">
-                        <PillToggle large options={['Yes, fully', 'Partially', 'No', "Don't know"]} value={isVaccinated} onChange={setIsVaccinated} />
-                    </QuestionCard>
+                        <div>
+                            <FieldLabel>Breed (if known)</FieldLabel>
+                            <input
+                                type="text"
+                                placeholder="e.g. Labrador mix, unknown"
+                                value={breed}
+                                onChange={e => setBreed(e.target.value)}
+                                style={{ width: '100%', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }}
+                            />
+                        </div>
 
-                    {/* Q6 */}
-                    <QuestionCard label="Is it neutered/spayed?">
-                        <PillToggle large options={['Yes', 'No', "Don't know"]} value={isNeutered} onChange={setIsNeutered} />
-                    </QuestionCard>
+                    </div>
 
-                    {/* Q7 */}
-                    <QuestionCard label="Approximate age?">
-                        <PillToggle
-                            large
-                            options={['Under 3 months', '3–12 months', '1–3 years', '3–7 years', 'Over 7 years', 'Unknown']}
-                            value={approxAge}
-                            onChange={setApproxAge}
-                        />
-                    </QuestionCard>
+                    <SectionDivider />
 
-                    {/* Q8 */}
-                    <QuestionCard label="Approximate size?">
-                        <PillToggle
-                            large
-                            options={['Very small (under 5kg)', 'Small (5–10kg)', 'Medium (10–25kg)', 'Large (over 25kg)', 'Unknown']}
-                            value={approxSize}
-                            onChange={setApproxSize}
-                        />
-                    </QuestionCard>
+                    {/* ── SECTION 4: Location ──────────────────────────────── */}
+                    <SectionLabel>Location</SectionLabel>
+                    <LocationPicker value={locValue} onChange={setLocValue} />
 
                     {/* Continue button */}
-                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: '24px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: '32px' }}>
                         <button
                             type="button"
                             disabled={!animalType}
@@ -515,10 +646,8 @@ export default function AddAnimalPage() {
     const leadPhoto   = previews[0] || null;
     const extraPhotos = previews.slice(1);
 
-    console.log('RENDER - description value:', description.substring(0, 50));
-
     return (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 10, display: 'flex', flexDirection: 'column', backgroundColor: '#FAF7F4', overflowY: 'auto' }}>
+        <div ref={pageContainerRef} style={{ position: 'fixed', inset: 0, zIndex: 10, display: 'flex', flexDirection: 'column', backgroundColor: '#FAF7F4', overflowY: 'auto' }}>
             <Navbar />
             <StepIndicator step={2} />
 
@@ -558,21 +687,8 @@ export default function AddAnimalPage() {
                         <div style={{ fontFamily: sans, fontSize: '11px', color: '#C07A4A', marginBottom: '8px' }}>{errors.headline}</div>
                     )}
 
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontFamily: sans, fontSize: '12px', color: '#B09880', flexWrap: 'wrap' }}>
-                        <span>Found by you ·</span>
-                        <input
-                            type="text"
-                            placeholder="add location"
-                            value={location}
-                            onChange={(e) => setLocation(e.target.value)}
-                            style={{
-                                fontFamily: sans, fontSize: '12px', color: '#7A5C44',
-                                border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)',
-                                background: 'none', outline: 'none',
-                                width: '120px', textAlign: 'center',
-                            }}
-                        />
-                        <span>· {today}</span>
+                    <div style={{ fontFamily: sans, fontSize: '12px', color: '#B09880' }}>
+                        Found by you{(locValue.city || locValue.county) ? ` in ${locValue.city || locValue.county}` : ''} · {today}
                     </div>
 
                     <div style={{ borderBottom: '3px double rgba(45,31,20,0.15)', marginTop: '20px' }} />
@@ -609,7 +725,7 @@ export default function AddAnimalPage() {
                                 style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '11px', color: '#7A5C44', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.12)', background: 'none', outline: 'none', width: '100%', boxSizing: 'border-box', padding: '6px 0', marginTop: '6px' }}
                             />
 
-                            {/* CLIP analyse button */}
+                            {/* CLIP analyse — always shown when there is a lead photo */}
                             <button
                                 type="button"
                                 onClick={handleClipAnalyse}
@@ -627,23 +743,66 @@ export default function AddAnimalPage() {
                                 <div style={{ fontFamily: sans, fontSize: '11px', color: '#993C1D', marginTop: '6px' }}>{clipError}</div>
                             )}
                             {clipResults && (
-                                <div style={{ marginTop: '10px', background: 'rgba(192,122,74,0.05)', border: '1px solid rgba(192,122,74,0.15)', borderRadius: '4px', padding: '12px 16px' }}>
-                                    <div style={{ fontFamily: sans, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#C07A4A', marginBottom: '8px' }}>
-                                        AI detected · feel free to correct
+                                <div style={{ marginTop: '10px', background: 'rgba(192,122,74,0.05)', border: '1px solid rgba(192,122,74,0.15)', borderRadius: '6px', padding: '14px 16px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                        <div style={{ fontFamily: sans, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#C07A4A', fontWeight: 500 }}>
+                                            AI detected · tap to select
+                                        </div>
+                                        {clipApplied && (
+                                            <div style={{ fontFamily: sans, fontSize: '10px', color: '#0F6E56', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                ✓ Applied to your listing
+                                            </div>
+                                        )}
                                     </div>
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                                        {Object.entries(clipResults).map(([key, val]) => val && key !== 'species_confidence' ? (
-                                            <span key={key} style={{ fontFamily: sans, fontSize: '11px', background: '#fff', border: '1px solid rgba(45,31,20,0.12)', borderRadius: '100px', padding: '3px 10px', color: '#5C4030' }}>
-                                                {key}: {val}
-                                            </span>
-                                        ) : null)}
+                                    <div style={{ fontFamily: sans, fontSize: '10px', color: '#9A7A60', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <span>⚠️</span> Results may not always be accurate — review before applying.
                                     </div>
+
+                                    {/* Horizontal tile grid */}
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
+                                        {[
+                                            { key: 'breed', label: 'Breed' },
+                                            { key: 'color', label: 'Color' },
+                                            { key: 'fur',   label: 'Coat'  },
+                                            { key: 'age',   label: 'Age'   },
+                                            { key: 'size',  label: 'Size'  },
+                                            { key: 'type',  label: 'Type'  },
+                                        ].map(({ key, label }) => {
+                                            const val = clipResults[key];
+                                            if (!val) return null;
+                                            const active = !!clipSelected[key];
+                                            return (
+                                                <button
+                                                    key={key}
+                                                    type="button"
+                                                    onClick={() => { setClipSelected(prev => ({ ...prev, [key]: !prev[key] })); setClipApplied(false); }}
+                                                    style={{
+                                                        display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+                                                        gap: '3px', padding: '8px 12px',
+                                                        borderRadius: '6px', cursor: 'pointer',
+                                                        border: `1.5px solid ${active ? '#2D1F14' : 'rgba(45,31,20,0.15)'}`,
+                                                        background: active ? '#2D1F14' : '#fff',
+                                                        transition: 'all 0.15s',
+                                                        textAlign: 'left',
+                                                    }}
+                                                >
+                                                    <span style={{ fontFamily: sans, fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 600, color: active ? 'rgba(250,247,244,0.55)' : '#C07A4A' }}>
+                                                        {label}
+                                                    </span>
+                                                    <span style={{ fontFamily: sans, fontSize: '12px', fontWeight: 500, color: active ? '#FAF7F4' : '#2D1F14' }}>
+                                                        {sentenceCase(val)}
+                                                    </span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+
                                     <button
                                         type="button"
                                         onClick={applyClipResults}
-                                        style={{ marginTop: '10px', fontFamily: sans, fontSize: '11px', background: '#2D1F14', color: '#FAF7F4', border: 'none', borderRadius: '100px', padding: '6px 14px', cursor: 'pointer' }}
+                                        style={{ fontFamily: sans, fontSize: '11px', fontWeight: 500, background: '#2D1F14', color: '#FAF7F4', border: 'none', borderRadius: '100px', padding: '6px 16px', cursor: 'pointer' }}
                                     >
-                                        Apply to form →
+                                        Apply selected →
                                     </button>
                                 </div>
                             )}
@@ -687,13 +846,61 @@ export default function AddAnimalPage() {
                         </div>
                     )}
 
-                    <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={(e) => handleFiles(e.target.files)} />
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        style={{ display: 'none' }}
+                        onChange={(e) => { handleFiles(e.target.files); e.target.value = ''; }}
+                    />
                     {errors.photos && <div style={{ fontFamily: sans, fontSize: '11px', color: '#C07A4A', marginTop: '5px', textAlign: 'center' }}>{errors.photos}</div>}
                 </div>
 
+                {/* ── PERSONALITY TRAITS ──────────────────────────────── */}
+                {(() => {
+                    const TRAITS = [
+                        'Friendly', 'Playful', 'Calm', 'Affectionate', 'Gentle',
+                        'Energetic', 'Curious', 'Loyal', 'Sociable', 'Independent',
+                        'Shy', 'Good with kids', 'Good with dogs', 'Good with cats', 'House-trained',
+                    ];
+                    const toggle = (t) => setSelectedTraits(prev =>
+                        prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]
+                    );
+                    return (
+                        <div style={{ marginTop: '28px' }}>
+                            <div style={{ fontFamily: sans, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.14em', color: '#C07A4A', fontWeight: 500, marginBottom: '10px' }}>
+                                Personality traits <span style={{ color: '#B09880', textTransform: 'none', letterSpacing: 0, fontWeight: 400 }}>— optional, used by AI</span>
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px' }}>
+                                {TRAITS.map(t => {
+                                    const active = selectedTraits.includes(t);
+                                    return (
+                                        <button
+                                            key={t}
+                                            type="button"
+                                            onClick={() => toggle(t)}
+                                            style={{
+                                                fontFamily: sans, fontSize: '12px', fontWeight: active ? 500 : 400,
+                                                padding: '5px 13px', borderRadius: '100px',
+                                                border: `1.5px solid ${active ? '#C07A4A' : 'rgba(45,31,20,0.18)'}`,
+                                                background: active ? '#C07A4A' : 'transparent',
+                                                color: active ? '#FAF7F4' : '#7A5C44',
+                                                cursor: 'pointer',
+                                                transition: 'background 0.13s, border-color 0.13s, color 0.13s',
+                                            }}
+                                        >
+                                            {t}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    );
+                })()}
+
                 {/* ── DESCRIPTION ─────────────────────────────────────── */}
                 <div style={{ marginTop: '24px' }}>
-                    {/* Label row with AI button */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
                         <span style={{ fontFamily: sans, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.14em', color: '#C07A4A', fontWeight: 500 }}>
                             Description
@@ -728,7 +935,7 @@ export default function AddAnimalPage() {
                     <textarea
                         key={descVersion}
                         ref={descTextareaRef}
-                        placeholder="Describe this animal — where found, behavior, age, markings..."
+                        placeholder="Tell this animal's story here, talk about its personality, behaviour, and how it was found…"
                         value={description}
                         onChange={(e) => { setDescription(e.target.value); if (aiGenerated) setAiGenerated(false); }}
                         style={{
@@ -745,7 +952,7 @@ export default function AddAnimalPage() {
                 {/* ── DETAILS ROW ─────────────────────────────────────── */}
                 <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' }}>
                     <span style={{ fontFamily: sans, fontSize: '9px', color: '#B09880', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Type:</span>
-                    <PillToggle options={['Dog', 'Cat', 'Other']} value={animalType} onChange={setAnimalType} />
+                    <PillToggle options={['Dog', 'Cat', 'Rabbit', 'Bird', 'Fish', 'Hamster', 'Guinea pig', 'Reptile', 'Other']} value={animalType} onChange={setAnimalType} />
                     {errors.animalType && <span style={{ fontFamily: sans, fontSize: '11px', color: '#C07A4A' }}>{errors.animalType}</span>}
 
                     <span style={{ color: '#D4C4B8', fontSize: '14px' }}>·</span>
@@ -758,11 +965,14 @@ export default function AddAnimalPage() {
                 {(() => {
                     const step1Summary = [
                         foundHow && foundHow !== 'Other' ? { label: 'Found', value: foundHow } : foundHowOther ? { label: 'Found', value: foundHowOther } : null,
-                        approxAge && approxAge !== 'Unknown' ? { label: 'Age', value: approxAge } : null,
-                        approxSize && approxSize !== 'Unknown' ? { label: 'Size', value: approxSize } : null,
+                        (exactAge || (approxAge && approxAge !== 'Unknown')) ? { label: 'Age', value: exactAge || approxAge } : null,
+                        (exactWeight || (approxSize && approxSize !== 'Unknown')) ? { label: 'Size', value: exactWeight ? `${exactWeight}${approxSize ? ` · ${approxSize}` : ''}` : approxSize } : null,
                         isVaccinated && isVaccinated !== "Don't know" ? { label: 'Vaccinated', value: isVaccinated } : null,
                         isNeutered && isNeutered !== "Don't know" ? { label: 'Neutered', value: isNeutered } : null,
                         hasMicrochip && hasMicrochip !== "Don't know" ? { label: 'Microchip', value: hasMicrochip } : null,
+                        breed ? { label: 'Breed', value: breed } : null,
+                        effectiveColors.length > 0 ? { label: 'Color', value: effectiveColors.join(', ') } : null,
+                        coatType ? { label: 'Coat', value: coatType } : null,
                     ].filter(Boolean);
                     return step1Summary.length > 0 ? (
                         <div style={{ marginTop: '12px', display: 'flex', flexWrap: 'wrap', gap: '6px', justifyContent: 'center' }}>
@@ -775,7 +985,7 @@ export default function AddAnimalPage() {
                                     color: '#5C4030', display: 'inline-flex', alignItems: 'center', gap: '4px',
                                 }}>
                                     <span style={{ color: '#B09880', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
-                                    {value}
+                                    {sentenceCase(value)}
                                 </span>
                             ))}
                         </div>

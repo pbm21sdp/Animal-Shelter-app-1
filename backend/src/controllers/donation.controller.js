@@ -2,6 +2,7 @@
 import stripe from '../config/stripe/stripe.js';
 import { Donation } from '../models/donation.model.js';
 import { User } from '../models/user.model.js';
+import { sendDonationConfirmationEmail } from '../config/mailtrap/emails.js';
 
 // Create a checkout session
 export const createCheckoutSession = async (req, res) => {
@@ -120,6 +121,8 @@ export const expireOldSessions = async (userId) => {
 
 // Handle Stripe webhook events
 export const handleStripeWebhook = async (req, res) => {
+    console.log('[Webhook] received', req.method, req.headers['stripe-signature'] ? 'sig=OK' : 'NO-SIG', 'body type:', typeof req.body, Buffer.isBuffer(req.body) ? `Buffer(${req.body.length})` : 'NOT a Buffer');
+
     const sig = req.headers['stripe-signature'];
     let event;
 
@@ -130,9 +133,11 @@ export const handleStripeWebhook = async (req, res) => {
             process.env.STRIPE_WEBHOOK_SECRET
         );
     } catch (err) {
-        console.error(`Webhook signature verification failed:`, err);
+        console.error('[Webhook] signature verification FAILED:', err.message);
         return res.status(400).send(`Webhook Error: ${err.message}`);
     }
+
+    console.log('[Webhook] event type:', event.type);
 
     // Handle the checkout.session.completed event
     if (event.type === 'checkout.session.completed') {
@@ -147,7 +152,26 @@ export const handleStripeWebhook = async (req, res) => {
                 donation.paymentIntentId = session.payment_intent;
                 await donation.save();
 
-                console.log(`Donation completed for user: ${donation.email}`);
+                const recipientEmail = donation.email
+                    || session.customer_email
+                    || session.customer_details?.email;
+
+                console.log('[Webhook] checkout.session.completed', {
+                    sessionId: session.id,
+                    donationEmail: donation.email,
+                    sessionCustomerEmail: session.customer_email,
+                    customerDetailsEmail: session.customer_details?.email,
+                    recipientEmail,
+                });
+
+                if (recipientEmail) {
+                    const orgName = session.metadata?.organizationName;
+                    await sendDonationConfirmationEmail(recipientEmail, donation.amount, orgName);
+                } else {
+                    console.warn('[Webhook] No recipient email found — confirmation email skipped.');
+                }
+            } else {
+                console.warn('[Webhook] No donation record found for session', session.id);
             }
         } catch (error) {
             console.error('Error updating donation status:', error);
@@ -504,13 +528,104 @@ export const deleteDonation = async (req, res) => {
 };
 
 // ─── POST /api/donations/create-session ──────────────────────────────────────
-// TODO: implement Stripe checkout session when STRIPE_SECRET_KEY is added to .env
 export const createDonationSession = async (req, res) => {
-    const { amount, currency, organizationName } = req.body;
-    res.status(200).json({
-        message: 'Stripe not yet configured',
-        placeholder: true,
-        amount,
-        organization: organizationName,
-    });
+    try {
+        const { amount, organizationName } = req.body;
+        const userId = req.userId;
+
+        const amountInCents = Math.round(parseFloat(amount) * 100);
+        if (!amountInCents || amountInCents < 50) {
+            return res.status(400).json({ success: false, message: 'Minimum donation is €0.50' });
+        }
+
+        const user = userId ? await User.findById(userId).select('email') : null;
+        const orgName = organizationName || 'Paws Community Fund';
+
+        await expireOldSessions(userId);
+
+        const session = await stripe.checkout.sessions.create({
+            payment_method_types: ['card'],
+            line_items: [{
+                price_data: {
+                    currency: 'eur',
+                    product_data: { name: `Donation to ${orgName}` },
+                    unit_amount: amountInCents,
+                },
+                quantity: 1,
+            }],
+            mode: 'payment',
+            customer_email: user?.email || undefined,
+            success_url: `${process.env.CLIENT_URL}/donation-success?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${process.env.CLIENT_URL}/about`,
+            expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
+            metadata: { userId: userId?.toString() || 'anonymous', organizationName: orgName },
+        });
+
+        await Donation.create({
+            user: userId || null,
+            email: user?.email || null,
+            amount: amountInCents / 100,
+            currency: 'eur',
+            status: 'pending',
+            stripeSessionId: session.id,
+        });
+
+        res.status(200).json({ success: true, url: session.url, sessionId: session.id });
+    } catch (error) {
+        console.error('Error creating donation session:', error);
+        res.status(500).json({ success: false, message: 'Failed to create checkout session', error: error.message });
+    }
+};
+
+// ─── GET /api/donations/public/stats ─────────────────────────────────────────
+export const getPublicDonationStats = async (req, res) => {
+    try {
+        const completed = await Donation.find({ status: 'completed' })
+            .populate('user', 'name')
+            .sort({ createdAt: -1 });
+
+        const totalRaised = completed.reduce((sum, d) => sum + (d.amount || 0), 0);
+
+        const donors = completed
+            .filter(d => d.displayPreference !== 'hidden')
+            .map(d => {
+                let displayName;
+                if (d.displayPreference === 'anonymous') {
+                    displayName = 'Anonymous';
+                } else {
+                    displayName = d.displayName
+                        || d.user?.name
+                        || (d.email ? d.email.split('@')[0] : null)
+                        || 'Anonymous';
+                }
+                return { displayName, amount: d.amount, createdAt: d.createdAt };
+            });
+
+        res.status(200).json({ success: true, totalRaised, donorCount: completed.length, donors });
+    } catch (error) {
+        console.error('Error fetching public donation stats:', error);
+        res.status(500).json({ success: false, message: 'Error fetching donation stats' });
+    }
+};
+
+// ─── PATCH /api/donations/session/:sessionId/preference ──────────────────────
+export const updateDisplayPreference = async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        const { displayPreference, displayName } = req.body;
+
+        const donation = await Donation.findOne({ stripeSessionId: sessionId });
+        if (!donation) {
+            return res.status(404).json({ success: false, message: 'Donation not found' });
+        }
+
+        if (displayPreference) donation.displayPreference = displayPreference;
+        if (displayName !== undefined) donation.displayName = displayName?.trim() || null;
+        await donation.save();
+
+        res.status(200).json({ success: true });
+    } catch (error) {
+        console.error('Error updating display preference:', error);
+        res.status(500).json({ success: false, message: 'Error updating preference' });
+    }
 };

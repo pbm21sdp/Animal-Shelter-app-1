@@ -46,7 +46,7 @@ function getInitial(name) {
     return name?.trim().charAt(0).toUpperCase() || '?';
 }
 
-const IMG_H = [180, 140, 110];
+const PHOTO_H = 180;
 
 // ── Small reusable pieces ──────────────────────────────────────────────────────
 
@@ -137,12 +137,11 @@ function StatusBadge({ pet }) {
     );
 }
 
-// ── Upload card (masonry tile) ─────────────────────────────────────────────────
+// ── Upload card ────────────────────────────────────────────────────────────────
 
-function UploadCard({ pet, index, isOwnProfile, onMarkAdopted, onEdit }) {
+function UploadCard({ pet, isOwnProfile, onMarkAdopted, onEdit }) {
     const navigate = useNavigate();
     const [hovered, setHovered] = useState(false);
-    const imgH  = IMG_H[index % 3];
     const photo = photoUrl(pet.primary_photo_id);
 
     return (
@@ -151,16 +150,15 @@ function UploadCard({ pet, index, isOwnProfile, onMarkAdopted, onEdit }) {
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
             style={{
-                breakInside: 'avoid', marginBottom: 14,
                 background: '#fff', border: '1px solid rgba(45,31,20,0.1)',
-                borderRadius: 3, overflow: 'hidden', cursor: 'pointer',
+                borderRadius: 3, cursor: 'pointer',
                 transform: hovered ? 'translateY(-2px)' : 'translateY(0)',
-                transition: 'transform 0.2s ease', position: 'relative',
-                willChange: 'transform',
+                transition: 'transform 0.2s ease',
+                display: 'flex', flexDirection: 'column',
             }}
         >
             {/* Image */}
-            <div style={{ position: 'relative', height: imgH, background: '#F0EAE3', overflow: 'hidden' }}>
+            <div style={{ position: 'relative', height: PHOTO_H, background: '#F0EAE3', overflow: 'hidden', borderRadius: '3px 3px 0 0', flexShrink: 0 }}>
                 {photo ? (
                     <img
                         src={photo} alt={pet.name}
@@ -190,7 +188,7 @@ function UploadCard({ pet, index, isOwnProfile, onMarkAdopted, onEdit }) {
             </div>
 
             {/* Body */}
-            <div style={{ padding: '8px 10px 10px' }}>
+            <div style={{ padding: '8px 10px 6px', flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                     <StatusBadge pet={pet} />
                     <span style={{ fontFamily: sans, fontSize: 9, color: '#B09880' }}>
@@ -211,40 +209,43 @@ function UploadCard({ pet, index, isOwnProfile, onMarkAdopted, onEdit }) {
                         {pet.location_city}
                     </div>
                 )}
-
-                {/* Mark as adopted — own profile, not yet adopted, on hover */}
-                {isOwnProfile && !pet.is_adopted && hovered && (
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onMarkAdopted(pet.id); }}
-                        style={{
-                            marginTop: 8, width: '100%', fontFamily: sans, fontSize: 10,
-                            fontWeight: 500, padding: '5px 0', borderRadius: 2,
-                            border: '1px solid rgba(29,158,117,0.4)',
-                            color: '#0F6E56', background: 'rgba(29,158,117,0.06)',
-                            cursor: 'pointer',
-                        }}
-                    >
-                        Mark as adopted
-                    </button>
-                )}
             </div>
 
-            {/* Edit listing bar — own profile, on hover */}
-            {isOwnProfile && hovered && (
-                <div
-                    onClick={(e) => { e.stopPropagation(); onEdit(pet.id); }}
-                    style={{
-                        background: 'rgba(250,247,244,0.96)',
-                        color: '#C07A4A',
-                        fontFamily: sans, fontSize: 10, fontWeight: 500,
-                        borderTop: '1px solid rgba(45,31,20,0.08)',
-                        width: '100%', textAlign: 'center',
-                        padding: '7px', cursor: 'pointer',
-                        opacity: hovered ? 1 : 0,
-                        transition: 'opacity 0.2s',
-                    }}
-                >
-                    Edit listing →
+            {/* Actions — space always reserved, shown on hover via opacity */}
+            {isOwnProfile && (
+                <div style={{ padding: '0 10px 10px', display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    {!pet.is_adopted && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onMarkAdopted(pet.id); }}
+                            style={{
+                                width: '100%', fontFamily: sans, fontSize: 10,
+                                fontWeight: 500, padding: '5px 0', borderRadius: 2,
+                                border: '1px solid rgba(29,158,117,0.4)',
+                                color: '#0F6E56', background: 'rgba(29,158,117,0.06)',
+                                cursor: 'pointer',
+                                opacity: hovered ? 1 : 0,
+                                transition: 'opacity 0.15s',
+                                pointerEvents: hovered ? 'auto' : 'none',
+                            }}
+                        >
+                            Mark as adopted
+                        </button>
+                    )}
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onEdit(pet.id); }}
+                        style={{
+                            width: '100%', fontFamily: sans, fontSize: 10,
+                            fontWeight: 500, padding: '5px 0', borderRadius: 2,
+                            border: '1px solid rgba(192,122,74,0.3)',
+                            color: '#C07A4A', background: 'transparent',
+                            cursor: 'pointer',
+                            opacity: hovered ? 1 : 0,
+                            transition: 'opacity 0.15s',
+                            pointerEvents: hovered ? 'auto' : 'none',
+                        }}
+                    >
+                        Edit listing →
+                    </button>
                 </div>
             )}
         </div>
@@ -327,7 +328,7 @@ function StatCell({ value, label, trend }) {
 export default function ProfilePage() {
     const { userId }  = useParams();
     const navigate    = useNavigate();
-    const { user: currentUser, updateProfile, uploadAvatar } = useAuthStore();
+    const { user: currentUser, updateProfile, uploadAvatar, syncProfile } = useAuthStore();
 
     const isOwnProfile = !userId || userId === currentUser?._id;
     const profileId    = userId   || currentUser?._id;
@@ -340,6 +341,10 @@ export default function ProfilePage() {
     const [activeTab,     setActiveTab]     = useState('uploads');
     const [isEditingBio,  setIsEditingBio]  = useState(false);
     const [bioValue,      setBioValue]      = useState('');
+    const [isEditingInfo, setIsEditingInfo] = useState(false);
+    const [nameValue,     setNameValue]     = useState('');
+    const [cityValue,     setCityValue]     = useState('');
+    const [infoSaving,    setInfoSaving]    = useState(false);
     const [isLoading,     setIsLoading]     = useState(true);
     const [bioSaving,     setBioSaving]     = useState(false);
     const [avatarKey,     setAvatarKey]     = useState(Date.now());
@@ -425,6 +430,32 @@ export default function ProfilePage() {
     const cancelBio = () => {
         setBioValue(profileData?.bio || currentUser?.bio || '');
         setIsEditingBio(false);
+    };
+
+    // ── Info (name + city) save ───────────────────────────────────────────────
+
+    const saveInfo = async () => {
+        const trimmedName = nameValue.trim();
+        const trimmedCity = cityValue.trim() || null;
+        if (!trimmedName) { toast.error('Name cannot be empty.'); return; }
+        setInfoSaving(true);
+        try {
+            await axios.patch(`${API}/users/me`, { name: trimmedName, city: trimmedCity }, { withCredentials: true });
+            setProfileData(prev => ({ ...prev, name: trimmedName, city: trimmedCity }));
+            syncProfile({ name: trimmedName, city: trimmedCity });
+            setIsEditingInfo(false);
+            toast.success('Profile updated!');
+        } catch {
+            toast.error('Failed to update profile.');
+        } finally {
+            setInfoSaving(false);
+        }
+    };
+
+    const cancelInfo = () => {
+        setNameValue(displayName);
+        setCityValue(displayCity || '');
+        setIsEditingInfo(false);
     };
 
     // ── Avatar upload ────────────────────────────────────────────────────────
@@ -522,193 +553,271 @@ export default function ProfilePage() {
 
                 {/* ── PROFILE HEADER ───────────────────────────────────────── */}
                 <div style={{
-                    display: 'grid', gridTemplateColumns: 'auto 1fr auto',
-                    gap: 28, alignItems: 'start',
                     padding: '24px 0 28px',
                     borderBottom: '1px solid rgba(45,31,20,0.12)',
                 }}>
 
-                    {/* LEFT — Avatar */}
-                    <div style={{ position: 'relative', flexShrink: 0 }}>
-                        <div style={{
-                            width: 88, height: 88, borderRadius: '50%',
-                            background: 'linear-gradient(135deg, #E8C5A0, #C07A4A)',
-                            overflow: 'hidden', display: 'flex',
-                            alignItems: 'center', justifyContent: 'center',
-                        }}>
-                            {resolveAvatar(displayAvatar) ? (
-                                <img
-                                    key={avatarKey}
-                                    src={resolveAvatar(displayAvatar) + '?t=' + avatarKey}
-                                    alt={displayName}
-                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                    onError={(e) => { e.target.style.display = 'none'; }}
-                                />
-                            ) : (
-                                <span style={{
-                                    fontFamily: serif, fontSize: 32, fontWeight: 700,
-                                    color: '#fff', lineHeight: 1,
-                                }}>
-                                    {getInitial(displayName)}
-                                </span>
+                    {/* Top row: Avatar + Name/meta/bio */}
+                    <div style={{
+                        display: 'grid', gridTemplateColumns: 'auto 1fr',
+                        gap: 28, alignItems: 'start',
+                        marginBottom: 20,
+                    }}>
+
+                        {/* LEFT — Avatar */}
+                        <div style={{ position: 'relative', flexShrink: 0 }}>
+                            <div style={{
+                                width: 88, height: 88, borderRadius: '50%',
+                                background: 'linear-gradient(135deg, #E8C5A0, #C07A4A)',
+                                overflow: 'hidden', display: 'flex',
+                                alignItems: 'center', justifyContent: 'center',
+                            }}>
+                                {resolveAvatar(displayAvatar) ? (
+                                    <img
+                                        key={avatarKey}
+                                        src={resolveAvatar(displayAvatar) + '?t=' + avatarKey}
+                                        alt={displayName}
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                        onError={(e) => { e.target.style.display = 'none'; }}
+                                    />
+                                ) : (
+                                    <span style={{
+                                        fontFamily: serif, fontSize: 32, fontWeight: 700,
+                                        color: '#fff', lineHeight: 1,
+                                    }}>
+                                        {getInitial(displayName)}
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* Pencil edit button — own profile only */}
+                            {isOwnProfile && (
+                                <>
+                                    <button
+                                        title="Change photo"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        style={{
+                                            position: 'absolute', bottom: 2, right: 2,
+                                            width: 22, height: 22, borderRadius: '50%',
+                                            background: '#2D1F14',
+                                            border: '2px solid #FAF7F4',
+                                            cursor: 'pointer', color: '#FAF7F4',
+                                            display: 'flex', alignItems: 'center',
+                                            justifyContent: 'center', fontSize: 11, lineHeight: 1,
+                                            padding: 0,
+                                        }}
+                                    >
+                                        ✎
+                                    </button>
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        style={{ display: 'none' }}
+                                        onChange={handleAvatarChange}
+                                    />
+                                </>
                             )}
                         </div>
 
-                        {/* Pencil edit button — own profile only */}
-                        {isOwnProfile && (
-                            <>
-                                <button
-                                    title="Change photo"
-                                    onClick={() => fileInputRef.current?.click()}
-                                    style={{
-                                        position: 'absolute', bottom: 2, right: 2,
-                                        width: 22, height: 22, borderRadius: '50%',
-                                        background: '#2D1F14',
-                                        border: '2px solid #FAF7F4',
-                                        cursor: 'pointer', color: '#FAF7F4',
-                                        display: 'flex', alignItems: 'center',
-                                        justifyContent: 'center', fontSize: 11, lineHeight: 1,
-                                        padding: 0,
-                                    }}
-                                >
-                                    ✎
-                                </button>
+                        {/* CENTER — Name, meta, bio */}
+                        <div style={{ minWidth: 0 }}>
+                            {/* Name */}
+                            {isEditingInfo ? (
                                 <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    accept="image/*"
-                                    style={{ display: 'none' }}
-                                    onChange={handleAvatarChange}
-                                />
-                            </>
-                        )}
-                    </div>
-
-                    {/* CENTER — Name, meta, bio */}
-                    <div style={{ minWidth: 0 }}>
-                        <div style={{
-                            fontFamily: serif, fontSize: 32, fontWeight: 700,
-                            color: '#2D1F14', lineHeight: 1, marginBottom: 8,
-                        }}>
-                            {isLoading ? '…' : displayName}
-                        </div>
-
-                        {/* Meta row */}
-                        <div style={{
-                            display: 'flex', alignItems: 'center', gap: 8,
-                            flexWrap: 'wrap', marginBottom: 10,
-                            fontFamily: sans, fontSize: 11, color: '#7A5C44',
-                        }}>
-                            {displayCity && <><Dot /><span>{displayCity}</span></>}
-                            <Dot />
-                            <span>Member since {fmtMemberSince(createdAt)}</span>
-                            <Dot />
-                            <span>{uploadsCount} upload{uploadsCount !== 1 ? 's' : ''}</span>
-                        </div>
-
-                        {/* Bio */}
-                        {isEditingBio ? (
-                            <div>
-                                <textarea
-                                    value={bioValue}
-                                    onChange={(e) => setBioValue(e.target.value)}
-                                    rows={3}
+                                    value={nameValue}
+                                    onChange={(e) => setNameValue(e.target.value)}
                                     autoFocus
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Escape') cancelBio();
-                                    }}
+                                    onKeyDown={(e) => { if (e.key === 'Escape') cancelInfo(); }}
                                     style={{
-                                        fontFamily: serif, fontSize: 13, fontStyle: 'italic',
-                                        color: '#5C4030', lineHeight: 1.7,
-                                        width: '100%', maxWidth: 480, background: 'transparent',
-                                        border: 'none',
-                                        borderBottom: '1px solid rgba(45,31,20,0.2)',
-                                        outline: 'none', resize: 'none', padding: '2px 0',
+                                        fontFamily: serif, fontSize: 32, fontWeight: 700,
+                                        color: '#2D1F14', lineHeight: 1, marginBottom: 8,
+                                        background: 'transparent', border: 'none',
+                                        borderBottom: '2px solid rgba(45,31,20,0.25)',
+                                        outline: 'none', width: '100%', padding: '0 0 2px',
                                         display: 'block',
                                     }}
                                 />
-                                <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
-                                    <button
-                                        onClick={saveBio}
-                                        disabled={bioSaving}
-                                        style={{
-                                            fontFamily: sans, fontSize: 10, fontWeight: 500,
-                                            padding: '4px 12px', borderRadius: 2,
-                                            background: '#C07A4A', color: '#FAF7F4',
-                                            border: 'none', cursor: 'pointer',
-                                        }}
-                                    >
-                                        {bioSaving ? 'Saving…' : 'Save'}
-                                    </button>
-                                    <button
-                                        onClick={cancelBio}
-                                        style={{
-                                            fontFamily: sans, fontSize: 10,
-                                            padding: '4px 12px', borderRadius: 2,
-                                            background: 'transparent', color: '#7A5C44',
-                                            border: '1px solid rgba(45,31,20,0.2)', cursor: 'pointer',
-                                        }}
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </div>
-                        ) : (
-                            <>
+                            ) : (
                                 <div style={{
-                                    fontFamily: serif, fontSize: 13, fontStyle: 'italic',
-                                    color: displayBio ? '#5C4030' : '#B09880',
-                                    maxWidth: 480, lineHeight: 1.7,
+                                    fontFamily: serif, fontSize: 32, fontWeight: 700,
+                                    color: '#2D1F14', lineHeight: 1, marginBottom: 8,
                                 }}>
-                                    {displayBio || 'No bio yet.'}
+                                    {isLoading ? '…' : displayName}
                                 </div>
-                                {isOwnProfile && (
-                                    <button
-                                        onClick={() => { setBioValue(displayBio || ''); setIsEditingBio(true); }}
+                            )}
+
+                            {/* Meta row */}
+                            <div style={{
+                                display: 'flex', alignItems: 'center', gap: 8,
+                                flexWrap: 'wrap', marginBottom: 10,
+                                fontFamily: sans, fontSize: 11, color: '#7A5C44',
+                            }}>
+                                {isEditingInfo ? (
+                                    <input
+                                        value={cityValue}
+                                        onChange={(e) => setCityValue(e.target.value)}
+                                        placeholder="City (optional)"
+                                        onKeyDown={(e) => { if (e.key === 'Escape') cancelInfo(); }}
                                         style={{
-                                            fontFamily: sans, fontSize: 10,
-                                            color: '#C07A4A', background: 'none',
-                                            border: 'none', cursor: 'pointer',
-                                            padding: '4px 0 0', display: 'block',
+                                            fontFamily: sans, fontSize: 11, color: '#7A5C44',
+                                            background: 'transparent', border: 'none',
+                                            borderBottom: '1px solid rgba(45,31,20,0.2)',
+                                            outline: 'none', padding: '1px 0', width: 130,
                                         }}
-                                    >
-                                        Edit bio →
-                                    </button>
+                                    />
+                                ) : (
+                                    displayCity && <><Dot /><span>{displayCity}</span></>
                                 )}
-                            </>
-                        )}
+                                <Dot />
+                                <span>Member since {fmtMemberSince(createdAt)}</span>
+                                <Dot />
+                                <span>{uploadsCount} upload{uploadsCount !== 1 ? 's' : ''}</span>
+                            </div>
+
+                            {/* Bio */}
+                            {isEditingBio ? (
+                                <div>
+                                    <textarea
+                                        value={bioValue}
+                                        onChange={(e) => setBioValue(e.target.value)}
+                                        rows={3}
+                                        autoFocus
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Escape') cancelBio();
+                                        }}
+                                        style={{
+                                            fontFamily: serif, fontSize: 13, fontStyle: 'italic',
+                                            color: '#5C4030', lineHeight: 1.7,
+                                            width: '100%', maxWidth: 480, background: 'transparent',
+                                            border: 'none',
+                                            borderBottom: '1px solid rgba(45,31,20,0.2)',
+                                            outline: 'none', resize: 'none', padding: '2px 0',
+                                            display: 'block',
+                                        }}
+                                    />
+                                    <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+                                        <button
+                                            onClick={saveBio}
+                                            disabled={bioSaving}
+                                            style={{
+                                                fontFamily: sans, fontSize: 10, fontWeight: 500,
+                                                padding: '4px 12px', borderRadius: 2,
+                                                background: '#C07A4A', color: '#FAF7F4',
+                                                border: 'none', cursor: 'pointer',
+                                            }}
+                                        >
+                                            {bioSaving ? 'Saving…' : 'Save'}
+                                        </button>
+                                        <button
+                                            onClick={cancelBio}
+                                            style={{
+                                                fontFamily: sans, fontSize: 10,
+                                                padding: '4px 12px', borderRadius: 2,
+                                                background: 'transparent', color: '#7A5C44',
+                                                border: '1px solid rgba(45,31,20,0.2)', cursor: 'pointer',
+                                            }}
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    <div style={{
+                                        fontFamily: serif, fontSize: 13, fontStyle: 'italic',
+                                        color: displayBio ? '#5C4030' : '#B09880',
+                                        maxWidth: 480, lineHeight: 1.7,
+                                    }}>
+                                        {displayBio || 'No bio yet.'}
+                                    </div>
+                                    {isOwnProfile && (
+                                        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 6 }}>
+                                            {!isEditingInfo && (
+                                                <button
+                                                    onClick={() => { setBioValue(displayBio || ''); setIsEditingBio(true); }}
+                                                    style={{
+                                                        fontFamily: sans, fontSize: 10,
+                                                        color: '#C07A4A', background: 'none',
+                                                        border: 'none', cursor: 'pointer', padding: 0,
+                                                    }}
+                                                >
+                                                    Edit bio →
+                                                </button>
+                                            )}
+                                            {!isEditingInfo && (
+                                                <button
+                                                    onClick={() => { setNameValue(displayName); setCityValue(displayCity || ''); setIsEditingInfo(true); }}
+                                                    style={{
+                                                        fontFamily: sans, fontSize: 10,
+                                                        color: '#C07A4A', background: 'none',
+                                                        border: 'none', cursor: 'pointer', padding: 0,
+                                                    }}
+                                                >
+                                                    Edit name & city →
+                                                </button>
+                                            )}
+                                            {isEditingInfo && (
+                                                <div style={{ display: 'flex', gap: 10 }}>
+                                                    <button
+                                                        onClick={saveInfo}
+                                                        disabled={infoSaving}
+                                                        style={{
+                                                            fontFamily: sans, fontSize: 10, fontWeight: 500,
+                                                            padding: '4px 12px', borderRadius: 2,
+                                                            background: '#C07A4A', color: '#FAF7F4',
+                                                            border: 'none', cursor: 'pointer',
+                                                        }}
+                                                    >
+                                                        {infoSaving ? 'Saving…' : 'Save'}
+                                                    </button>
+                                                    <button
+                                                        onClick={cancelInfo}
+                                                        style={{
+                                                            fontFamily: sans, fontSize: 10,
+                                                            padding: '4px 12px', borderRadius: 2,
+                                                            background: 'transparent', color: '#7A5C44',
+                                                            border: '1px solid rgba(45,31,20,0.2)', cursor: 'pointer',
+                                                        }}
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
                     </div>
 
-                    {/* RIGHT — Trust card */}
+                    {/* Bottom: Horizontal trust bar */}
                     <div style={{
                         background: '#2D1F14', borderRadius: 4,
-                        padding: '16px 20px', minWidth: 180, flexShrink: 0,
+                        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
                     }}>
-                        <div style={{
-                            fontFamily: sans, fontSize: 9, textTransform: 'uppercase',
-                            letterSpacing: '0.12em', color: 'rgba(250,247,244,0.45)',
-                            marginBottom: 10,
-                        }}>
-                            Uploader trust
-                        </div>
                         {[
                             { label: 'Uploads',      value: uploadsCount,        color: '#FAF7F4' },
                             { label: 'Found homes',  value: foundCount,          color: '#5DCAA5' },
                             { label: 'Success rate', value: `${successRate}%`,   color: '#5DCAA5' },
                             { label: 'Avg response', value: '< 2h',              color: '#FAF7F4' },
-                        ].map(({ label, value, color }) => (
+                        ].map(({ label, value, color }, i, arr) => (
                             <div key={label} style={{
-                                display: 'flex', justifyContent: 'space-between',
-                                alignItems: 'baseline', marginBottom: 8,
+                                padding: '14px 20px',
+                                borderRight: i < arr.length - 1 ? '1px solid rgba(250,247,244,0.08)' : 'none',
                             }}>
-                                <span style={{ fontFamily: sans, fontSize: 11, color: 'rgba(250,247,244,0.6)' }}>
-                                    {label}
-                                </span>
-                                <span style={{
-                                    fontFamily: serif, fontSize: 18, fontWeight: 700, color,
+                                <div style={{
+                                    fontFamily: serif, fontSize: 22, fontWeight: 700,
+                                    color, lineHeight: 1.1, marginBottom: 3,
                                 }}>
                                     {value}
-                                </span>
+                                </div>
+                                <div style={{
+                                    fontFamily: sans, fontSize: 9, textTransform: 'uppercase',
+                                    letterSpacing: '0.1em', color: 'rgba(250,247,244,0.5)',
+                                }}>
+                                    {label}
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -754,12 +863,11 @@ export default function ProfilePage() {
                         ) : pets.length === 0 ? (
                             <EmptyState text="No uploads yet." />
                         ) : (
-                            <div style={{ columnCount: 3, columnGap: 14 }}>
-                                {pets.map((pet, i) => (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+                                {pets.map((pet) => (
                                     <UploadCard
                                         key={pet.id}
                                         pet={pet}
-                                        index={i}
                                         isOwnProfile={isOwnProfile}
                                         onMarkAdopted={handleMarkAdopted}
                                         onEdit={(id) => navigate(`/pet/${id}/edit`)}
@@ -843,22 +951,20 @@ export default function ProfilePage() {
                         {savedPets.length === 0 ? (
                             <EmptyState text="No saved animals yet." note="Tap the bookmark on any animal listing to save it." />
                         ) : (
-                            <div style={{ columnCount: 3, columnGap: 14 }}>
-                                {savedPets.map((pet, i) => {
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+                                {savedPets.map((pet) => {
                                     const photo = photoUrl(pet.primary_photo_id);
-                                    const imgH  = IMG_H[i % 3];
                                     return (
                                         <div
                                             key={pet.id}
                                             onClick={() => navigate(`/pet/${pet.id}`)}
                                             style={{
-                                                breakInside: 'avoid', marginBottom: 14,
                                                 background: '#fff', border: '1px solid rgba(45,31,20,0.1)',
-                                                borderRadius: 3, overflow: 'hidden', cursor: 'pointer',
+                                                borderRadius: 3, cursor: 'pointer',
                                                 position: 'relative',
                                             }}
                                         >
-                                            <div style={{ height: imgH, background: '#F0EAE3', overflow: 'hidden' }}>
+                                            <div style={{ height: PHOTO_H, background: '#F0EAE3', overflow: 'hidden', borderRadius: '3px 3px 0 0' }}>
                                                 {photo ? (
                                                     <img
                                                         src={photo} alt={pet.name}

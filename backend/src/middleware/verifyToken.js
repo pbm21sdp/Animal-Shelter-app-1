@@ -1,5 +1,20 @@
 import jwt from "jsonwebtoken";
 
+// Attaches userId if a valid token is present, but never blocks the request.
+export const optionalVerifyToken = (req, res, next) => {
+    const token = req.cookies.token;
+    if (token) {
+        try {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            if (decoded) {
+                req.userId = decoded.userId;
+                req.isAdmin = decoded.isAdmin || false;
+            }
+        } catch { /* ignore invalid / expired tokens */ }
+    }
+    next();
+};
+
 export const verifyToken = (req, res, next) => {
 
     const token = req.cookies.token;
