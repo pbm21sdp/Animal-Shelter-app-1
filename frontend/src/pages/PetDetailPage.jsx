@@ -594,16 +594,18 @@ export default function PetDetailPage() {
                                         <span>{[pet.location_address, pet.location_city].filter(Boolean).join(', ')}</span>
                                     </div>
                                 )}
-                                {uploader && (
-                                    <div style={{ fontFamily: sans, fontSize: '12px', color: 'rgba(250,247,244,0.7)', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                        <span style={{ opacity: 0.5 }}>📅</span>
-                                        <span>Available for meetings</span>
+                                {pet.shelter_contact_email && (
+                                    <div style={{ fontFamily: sans, fontSize: '12px', color: '#FAF7F4', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                        <span style={{ opacity: 0.5 }}>✉</span>
+                                        <span>{pet.shelter_contact_email}</span>
                                     </div>
                                 )}
-                                <div style={{ fontFamily: sans, fontSize: '12px', color: 'rgba(250,247,244,0.5)', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                    <span>✉</span>
-                                    <span>Via Paws messaging</span>
-                                </div>
+                                {pet.shelter_contact_phone && (
+                                    <div style={{ fontFamily: sans, fontSize: '12px', color: '#FAF7F4', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                        <span style={{ opacity: 0.5 }}>☎</span>
+                                        <span>{pet.shelter_contact_phone}</span>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Divider */}
