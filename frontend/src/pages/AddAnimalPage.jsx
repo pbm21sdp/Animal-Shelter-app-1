@@ -123,9 +123,11 @@ function SectionDivider() {
 // ── Main component ────────────────────────────────────────────────────────────
 export default function AddAnimalPage() {
     const navigate = useNavigate();
-    const fileInputRef     = useRef(null);
-    const descTextareaRef  = useRef(null);
-    const pageContainerRef = useRef(null);
+    const fileInputRef          = useRef(null);
+    const descTextareaRef       = useRef(null);
+    const pageContainerRef      = useRef(null);
+    const leadPhotoContainerRef = useRef(null);
+    const dragStateRef          = useRef(null);
 
     // ── Step state ────────────────────────────────────────────────────────────
     const [step, setStep] = useState(1);
@@ -133,6 +135,47 @@ export default function AddAnimalPage() {
     useEffect(() => {
         if (pageContainerRef.current) pageContainerRef.current.scrollTop = 0;
     }, [step]);
+
+    // ── Drag-to-reposition for lead photo ─────────────────────────────────────
+    useEffect(() => {
+        const onMove = (e) => {
+            if (!dragStateRef.current) return;
+            const { startX, startY, startFocalX, startFocalY, w, h } = dragStateRef.current;
+            setLeadFocalPoint({
+                x: Math.max(0, Math.min(100, startFocalX - ((e.clientX - startX) / w) * 100)),
+                y: Math.max(0, Math.min(100, startFocalY - ((e.clientY - startY) / h) * 100)),
+            });
+        };
+        const onUp = () => { dragStateRef.current = null; };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+        return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    }, []);
+
+    const handlePhotoMouseDown = (e) => {
+        e.preventDefault();
+        const rect = leadPhotoContainerRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        dragStateRef.current = { startX: e.clientX, startY: e.clientY, startFocalX: leadFocalPoint.x, startFocalY: leadFocalPoint.y, w: rect.width, h: rect.height };
+    };
+
+    // Crop lead photo to 4:3 at the chosen focal point before uploading
+    const cropToFocalPoint = (file, fx, fy) => new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const TW = 1200, TH = 900;
+            const ar = img.width / img.height, tar = TW / TH;
+            let sx, sy, sw, sh;
+            if (ar > tar) { sh = img.height; sw = sh * tar; sx = (img.width - sw) * (fx / 100); sy = 0; }
+            else          { sw = img.width;  sh = sw / tar; sx = 0; sy = (img.height - sh) * (fy / 100); }
+            const c = document.createElement('canvas');
+            c.width = TW; c.height = TH;
+            c.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, TW, TH);
+            c.toBlob(blob => resolve(new File([blob], file.name, { type: 'image/jpeg' })), 'image/jpeg', 0.92);
+            URL.revokeObjectURL(img.src);
+        };
+        img.src = URL.createObjectURL(file);
+    });
 
     // ── Step 1 state ──────────────────────────────────────────────────────────
     const [foundHow,        setFoundHow]        = useState('');
@@ -153,9 +196,10 @@ export default function AddAnimalPage() {
     const [breed,           setBreed]           = useState('');
 
     // ── Step 2 state ──────────────────────────────────────────────────────────
-    const [headline,    setHeadline]    = useState('');
-    const [previews,    setPreviews]    = useState([]);
-    const [caption,     setCaption]     = useState('');
+    const [headline,        setHeadline]        = useState('');
+    const [previews,        setPreviews]        = useState([]);
+    const [caption,         setCaption]         = useState('');
+    const [leadFocalPoint,  setLeadFocalPoint]  = useState({ x: 50, y: 50 });
     const [status,      setStatus]      = useState('');
     const [description, setDescription] = useState('');
     const [descVersion, setDescVersion] = useState(0);
@@ -302,6 +346,7 @@ export default function AddAnimalPage() {
             setClipResults(null);
             setClipError('');
             setClipApplied(false);
+            setLeadFocalPoint({ x: 50, y: 50 });
         }
     };
 
@@ -357,9 +402,12 @@ export default function AddAnimalPage() {
             const response = await axios.post(`${API}/pets`, petPayload, { withCredentials: true });
             const petId = response.data.pet?.id || response.data.id;
 
-            for (const { file } of previews) {
+            for (let i = 0; i < previews.length; i++) {
+                const fileToUpload = i === 0
+                    ? await cropToFocalPoint(previews[i].file, leadFocalPoint.x, leadFocalPoint.y)
+                    : previews[i].file;
                 const form = new FormData();
-                form.append('photo', file);
+                form.append('photo', fileToUpload);
                 await axios.post(`http://localhost:5000/api/pets/${petId}/photos`, form, {
                     headers: { 'Content-Type': 'multipart/form-data' },
                     withCredentials: true,
@@ -704,12 +752,20 @@ export default function AddAnimalPage() {
 
                     {leadPhoto ? (
                         <>
-                            <div style={{ position: 'relative' }}>
+                            <div
+                                ref={leadPhotoContainerRef}
+                                style={{ position: 'relative', borderRadius: '2px', overflow: 'hidden', cursor: 'grab', userSelect: 'none' }}
+                                onMouseDown={handlePhotoMouseDown}
+                            >
                                 <img
                                     src={leadPhoto.url}
                                     alt="Lead"
-                                    style={{ width: '100%', height: '300px', objectFit: 'cover', borderRadius: '2px', display: 'block' }}
+                                    draggable={false}
+                                    style={{ width: '100%', height: '300px', objectFit: 'cover', objectPosition: `${leadFocalPoint.x}% ${leadFocalPoint.y}%`, borderRadius: '2px', display: 'block', pointerEvents: 'none' }}
                                 />
+                                <div style={{ position: 'absolute', bottom: '8px', left: '50%', transform: 'translateX(-50%)', fontFamily: sans, fontSize: '10px', color: 'rgba(250,247,244,0.85)', background: 'rgba(45,31,20,0.45)', padding: '3px 10px', borderRadius: '100px', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
+                                    Drag to reposition
+                                </div>
                                 <button
                                     type="button"
                                     onClick={() => removePreview(0)}
