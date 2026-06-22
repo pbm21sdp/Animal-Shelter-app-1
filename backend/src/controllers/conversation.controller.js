@@ -67,6 +67,7 @@ export const getConversations = async (req, res) => {
         const result = await pool.query(
             `SELECT c.id, c.pet_id, c.is_adoption_request, c.participant_one, c.participant_two, c.updated_at,
                 p.name AS pet_name, p.location_city, p.uploader_id AS pet_uploader_id,
+                p.is_adopted AS pet_is_adopted,
                 pp.id AS pet_photo_id,
                 (SELECT content FROM conversation_messages
                  WHERE conversation_id=c.id AND (cutoff.ts IS NULL OR created_at > cutoff.ts)
@@ -222,6 +223,21 @@ export const deleteConversation = async (req, res) => {
         res.json({ success: true });
     } catch (err) {
         console.error('deleteConversation error:', err);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+export const getReceivedCount = async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT COUNT(*) as count FROM conversation_messages cm
+             JOIN conversations c ON c.id=cm.conversation_id
+             WHERE (c.participant_one=$1 OR c.participant_two=$1)
+               AND cm.sender_id!=$1`,
+            [req.userId]
+        );
+        res.json({ success: true, count: parseInt(result.rows[0].count) || 0 });
+    } catch (err) {
         res.status(500).json({ success: false, message: 'Server error' });
     }
 };

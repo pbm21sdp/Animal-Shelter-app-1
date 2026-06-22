@@ -510,6 +510,7 @@ export const PetModel = {
                 SET is_adopted = TRUE,
                     adopted_at = NOW(),
                     adopted_by = $2,
+                    adoption_status = 'adopted',
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = $1
                 RETURNING *
@@ -527,7 +528,11 @@ export const PetModel = {
         try {
             const query = `
                 UPDATE pets
-                SET is_adopted = FALSE, adopted_at = NULL, updated_at = CURRENT_TIMESTAMP
+                SET is_adopted = FALSE,
+                    adopted_at = NULL,
+                    adopted_by = NULL,
+                    adoption_status = 'available',
+                    updated_at = CURRENT_TIMESTAMP
                 WHERE id = $1
                 RETURNING *
             `;

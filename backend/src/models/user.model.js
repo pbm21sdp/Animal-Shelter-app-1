@@ -40,6 +40,11 @@ const userSchema = new mongoose.Schema({
         default: null,
         maxlength: 100,
     },
+    contactAvailability: {
+        days: { type: [String], default: [] },
+        from: { type: String, default: '' },
+        to:   { type: String, default: '' },
+    },
     resetPasswordToken: String,
     resetPasswordExpiresAt: Date,
     verificationToken: String,

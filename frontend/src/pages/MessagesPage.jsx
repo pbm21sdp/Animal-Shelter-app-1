@@ -71,6 +71,14 @@ export default function MessagesPage() {
     const [contractGenerating, setContractGenerating] = useState(false);
     const messagesEndRef = useRef(null);
 
+    // Adopt dialog state
+    const [adoptDialog, setAdoptDialog]         = useState(null);
+    const [adopterSearch, setAdopterSearch]     = useState('');
+    const [adopterResults, setAdopterResults]   = useState([]);
+    const [selectedAdopter, setSelectedAdopter] = useState(null);
+    const [adopterLoading, setAdopterLoading]   = useState(false);
+    const [adoptConfirming, setAdoptConfirming] = useState(false);
+
     const activeConv = conversations.find(c => c.id === activeConvId) || null;
 
     useEffect(() => {
@@ -134,6 +142,61 @@ export default function MessagesPage() {
         }
     };
 
+    // ── Adopt dialog ─────────────────────────────────────────────────────────
+    useEffect(() => {
+        if (!adopterSearch.trim() || adopterSearch.length < 2) { setAdopterResults([]); return; }
+        setAdopterLoading(true);
+        const t = setTimeout(() => {
+            axios.get(`${API}/users/search?q=${encodeURIComponent(adopterSearch)}`, { withCredentials: true })
+                .then(r => setAdopterResults(r.data.users || []))
+                .catch(() => setAdopterResults([]))
+                .finally(() => setAdopterLoading(false));
+        }, 300);
+        return () => clearTimeout(t);
+    }, [adopterSearch]);
+
+    const openAdoptDialog = () => {
+        if (!activeConv?.pet_id) return;
+        setAdoptDialog({ id: activeConv.pet_id, name: activeConv.pet_name });
+        if (activeConv.other_user?.name) {
+            // Normalize other_user: backend returns `id` but dialog expects `_id`
+            const ou = activeConv.other_user;
+            setSelectedAdopter({ ...ou, _id: ou._id || ou.id });
+            setAdopterSearch(ou.name);
+        } else {
+            setAdopterSearch('');
+        }
+        setAdopterResults([]);
+    };
+
+    const closeAdoptDialog = () => {
+        if (adoptConfirming) return;
+        setAdoptDialog(null);
+        setAdopterSearch('');
+        setAdopterResults([]);
+        setSelectedAdopter(null);
+    };
+
+    const confirmMarkAdopted = async (adoptedById) => {
+        if (!adoptDialog) return;
+        setAdoptConfirming(true);
+        try {
+            await axios.patch(
+                `${API}/pets/${adoptDialog.id}/adopt`,
+                { adoptedById: adoptedById || null },
+                { withCredentials: true }
+            );
+            setConversations(prev => prev.map(c =>
+                c.id === activeConvId ? { ...c, pet_is_adopted: true } : c
+            ));
+            closeAdoptDialog();
+        } catch {
+            // ignore — backend returns error if already adopted
+        } finally {
+            setAdoptConfirming(false);
+        }
+    };
+
     const handleGenerateContract = async () => {
         if (!activeConv?.pet_id || contractGenerating) return;
         setContractGenerating(true);
@@ -143,12 +206,17 @@ export default function MessagesPage() {
             petData = r.data.pet || r.data;
         } catch { /* use fallback below */ }
         const params = new URLSearchParams({
-            name:    petData?.name    || activeConv.pet_name || '',
-            species: petData?.type    || '',
-            breed:   petData?.breed   || '',
-            color:   petData?.color   || '',
-            sex:     petData?.sex     || petData?.gender || '',
-            age:     petData?.age_category || '',
+            name:          petData?.name          || activeConv.pet_name || '',
+            species:       petData?.type          || '',
+            breed:         petData?.breed         || '',
+            color:         petData?.color         || '',
+            sex:           petData?.sex           || petData?.gender || '',
+            age:           petData?.age_category  || '',
+            size:          petData?.size          || '',
+            coat:          petData?.coat          || '',
+            health_status: petData?.health_status || '',
+            description:   petData?.description   || '',
+            location_city: petData?.location_city || '',
         });
         window.open(`${API}/ai/contract?${params.toString()}`, '_blank');
         setContractGenerating(false);
@@ -287,26 +355,52 @@ export default function MessagesPage() {
                                     )}
                                 </div>
                                 {activeConv?.is_adoption_request && user?._id === activeConv?.pet_uploader_id && (
-                                    <button
-                                        onClick={handleGenerateContract}
-                                        disabled={contractGenerating}
-                                        style={{
-                                            marginLeft: 'auto',
-                                            fontFamily: sans, fontSize: '12px', fontWeight: 500,
-                                            color: '#FAF7F4',
-                                            background: '#2D1F14',
-                                            border: 'none', borderRadius: '4px',
-                                            padding: '8px 14px',
-                                            cursor: contractGenerating ? 'default' : 'pointer',
-                                            opacity: contractGenerating ? 0.6 : 1,
-                                            transition: 'background 0.15s',
-                                            flexShrink: 0,
-                                        }}
-                                        onMouseEnter={e => { if (!contractGenerating) e.currentTarget.style.background = '#C07A4A'; }}
-                                        onMouseLeave={e => { e.currentTarget.style.background = '#2D1F14'; }}
-                                    >
-                                        {contractGenerating ? 'Generating…' : '📄 Generate Contract'}
-                                    </button>
+                                    <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                                        {!activeConv.pet_is_adopted && (
+                                            <button
+                                                onClick={openAdoptDialog}
+                                                style={{
+                                                    fontFamily: sans, fontSize: '12px', fontWeight: 500,
+                                                    color: '#0F6E56',
+                                                    background: 'rgba(15,110,86,0.1)',
+                                                    border: '1px solid rgba(15,110,86,0.3)',
+                                                    borderRadius: '4px',
+                                                    padding: '8px 14px',
+                                                    cursor: 'pointer',
+                                                    transition: 'background 0.15s',
+                                                    flexShrink: 0,
+                                                }}
+                                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(15,110,86,0.18)'; }}
+                                                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(15,110,86,0.1)'; }}
+                                            >
+                                                ✓ Mark as adopted
+                                            </button>
+                                        )}
+                                        {activeConv.pet_is_adopted && (
+                                            <span style={{ fontFamily: sans, fontSize: '11px', color: '#0F6E56', background: 'rgba(15,110,86,0.08)', border: '1px solid rgba(15,110,86,0.2)', borderRadius: '4px', padding: '8px 12px' }}>
+                                                ✓ Adopted
+                                            </span>
+                                        )}
+                                        <button
+                                            onClick={handleGenerateContract}
+                                            disabled={contractGenerating}
+                                            style={{
+                                                fontFamily: sans, fontSize: '12px', fontWeight: 500,
+                                                color: '#FAF7F4',
+                                                background: '#2D1F14',
+                                                border: 'none', borderRadius: '4px',
+                                                padding: '8px 14px',
+                                                cursor: contractGenerating ? 'default' : 'pointer',
+                                                opacity: contractGenerating ? 0.6 : 1,
+                                                transition: 'background 0.15s',
+                                                flexShrink: 0,
+                                            }}
+                                            onMouseEnter={e => { if (!contractGenerating) e.currentTarget.style.background = '#C07A4A'; }}
+                                            onMouseLeave={e => { e.currentTarget.style.background = '#2D1F14'; }}
+                                        >
+                                            {contractGenerating ? 'Generating…' : '📄 Generate Contract'}
+                                        </button>
+                                    </div>
                                 )}
                                 <button
                                     onClick={() => setActiveConvId(null)}
@@ -423,6 +517,92 @@ export default function MessagesPage() {
                     )}
                 </div>
             </div>
+
+        {/* ── Adopter selection dialog ──────────────────────────────────────── */}
+        {adoptDialog && (
+            <div
+                style={{ position: 'fixed', inset: 0, background: 'rgba(45,31,20,0.6)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
+                onClick={closeAdoptDialog}
+            >
+                <div
+                    style={{ background: '#FAF7F4', borderRadius: '6px', padding: '32px', maxWidth: '480px', width: '100%' }}
+                    onClick={e => e.stopPropagation()}
+                >
+                    <div style={{ fontFamily: serif, fontSize: '22px', fontWeight: 700, color: '#2D1F14', marginBottom: '6px' }}>
+                        Who adopted {adoptDialog.name}?
+                    </div>
+                    <div style={{ fontFamily: sans, fontSize: '13px', color: '#7A5C44', marginBottom: '20px', lineHeight: 1.5 }}>
+                        Search for the person who adopted this animal, or skip if they're not on Paws.
+                    </div>
+
+                    <input
+                        type="text"
+                        placeholder="Search by name or email…"
+                        value={adopterSearch}
+                        autoFocus
+                        onChange={e => { setAdopterSearch(e.target.value); setSelectedAdopter(null); }}
+                        style={{ width: '100%', boxSizing: 'border-box', fontFamily: sans, fontSize: '13px', padding: '10px 12px', border: '1px solid rgba(45,31,20,0.2)', borderRadius: '3px', outline: 'none', background: '#fff', color: '#2D1F14' }}
+                    />
+
+                    {adopterLoading && (
+                        <div style={{ fontFamily: sans, fontSize: '12px', color: '#B09880', padding: '8px 0' }}>Searching…</div>
+                    )}
+
+                    {adopterResults.length > 0 && !selectedAdopter && (
+                        <div style={{ marginTop: '6px', border: '1px solid rgba(45,31,20,0.15)', borderRadius: '3px', overflow: 'hidden' }}>
+                            {adopterResults.map(u => (
+                                <button
+                                    key={u._id}
+                                    onClick={() => { setSelectedAdopter(u); setAdopterSearch(u.name); setAdopterResults([]); }}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 12px', background: '#fff', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.08)', cursor: 'pointer', textAlign: 'left' }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = '#F5EFE8'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
+                                >
+                                    {u.avatar && (
+                                        <img src={u.avatar.startsWith('http') ? u.avatar : `http://localhost:5000${u.avatar}`} alt="" style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} onError={e => { e.target.style.display = 'none'; }} />
+                                    )}
+                                    <div>
+                                        <div style={{ fontFamily: sans, fontSize: '13px', fontWeight: 500, color: '#2D1F14' }}>{u.name}</div>
+                                        <div style={{ fontFamily: sans, fontSize: '11px', color: '#9A7A60' }}>{u.email}</div>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    {selectedAdopter && (
+                        <div style={{ marginTop: '8px', padding: '10px 12px', background: 'rgba(15,110,86,0.07)', border: '1px solid rgba(15,110,86,0.2)', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span style={{ fontFamily: sans, fontSize: '13px', color: '#0F6E56' }}>✓ {selectedAdopter.name}</span>
+                            <button onClick={() => { setSelectedAdopter(null); setAdopterSearch(''); }} style={{ fontFamily: sans, fontSize: '11px', color: '#993C1D', background: 'none', border: 'none', cursor: 'pointer' }}>Change</button>
+                        </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '20px' }}>
+                        <button
+                            onClick={() => confirmMarkAdopted(null)}
+                            disabled={adoptConfirming}
+                            style={{ flex: 1, fontFamily: sans, fontSize: '12px', padding: '10px 8px', border: '1px solid rgba(45,31,20,0.2)', borderRadius: '3px', background: 'transparent', color: '#7A5C44', cursor: adoptConfirming ? 'default' : 'pointer', opacity: adoptConfirming ? 0.5 : 1 }}
+                        >
+                            Skip — not on Paws
+                        </button>
+                        <button
+                            onClick={() => confirmMarkAdopted(selectedAdopter?._id || null)}
+                            disabled={adoptConfirming}
+                            style={{ flex: 1, fontFamily: sans, fontSize: '12px', padding: '10px 8px', border: 'none', borderRadius: '3px', background: '#0F6E56', color: '#fff', cursor: adoptConfirming ? 'default' : 'pointer', opacity: adoptConfirming ? 0.6 : 1 }}
+                        >
+                            {adoptConfirming ? 'Saving…' : selectedAdopter ? `Confirm — ${selectedAdopter.name}` : 'Confirm'}
+                        </button>
+                        <button
+                            onClick={closeAdoptDialog}
+                            disabled={adoptConfirming}
+                            style={{ fontFamily: sans, fontSize: '12px', padding: '10px 14px', border: '1px solid rgba(153,60,29,0.3)', borderRadius: '3px', background: 'transparent', color: '#993C1D', cursor: adoptConfirming ? 'default' : 'pointer' }}
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
         </div>
     );
 }

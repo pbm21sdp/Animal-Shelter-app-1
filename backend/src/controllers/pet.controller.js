@@ -101,14 +101,21 @@ export const getPetById = async (req, res) => {
             });
         }
 
-        // If pet is not available (adopted or pending), check access
+        // If pet is not available, check access
         if (pet.adoption_status !== 'available') {
-            // Admin users can always access
+            // Admin can always access
             if (req.isAdmin) {
-                return res.status(200).json({
-                    success: true,
-                    pet
-                });
+                return res.status(200).json({ success: true, pet });
+            }
+
+            // Adopted pets are visible to everyone — they're public happy endings
+            if (pet.is_adopted || pet.adoption_status === 'adopted') {
+                return res.status(200).json({ success: true, pet });
+            }
+
+            // Uploader can always view their own listing
+            if (req.userId && pet.uploader_id === req.userId) {
+                return res.status(200).json({ success: true, pet });
             }
 
             // Check if logged-in user has an adoption for this pet
@@ -119,13 +126,8 @@ export const getPetById = async (req, res) => {
                         petId: parseInt(req.params.id),
                         status: { $in: ['pending', 'in_review', 'approved'] }
                     });
-
-                    // If user has an adoption for this pet, allow access
                     if (adoption) {
-                        return res.status(200).json({
-                            success: true,
-                            pet
-                        });
+                        return res.status(200).json({ success: true, pet });
                     }
                 } catch (error) {
                     console.error('Error checking user adoptions:', error);
@@ -264,7 +266,8 @@ export const adoptPet = async (req, res) => {
             return res.status(403).json({ success: false, message: 'Forbidden — only the uploader or an admin can mark this animal as adopted' });
         }
 
-        const updated = await PetModel.adoptPet(id, req.userId);
+        const { adoptedById } = req.body;
+        const updated = await PetModel.adoptPet(id, adoptedById || null);
         res.status(200).json({ success: true, message: 'Pet marked as adopted', pet: updated });
     } catch (error) {
         console.error('Error in adoptPet:', error);

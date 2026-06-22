@@ -20,6 +20,7 @@ import {
     getUserSavedPets,
     savePet,
     unsavePet,
+    searchUsers,
 } from '../controllers/user.controller.js';
 
 const router = express.Router();
@@ -39,6 +40,9 @@ router.post('/avatar', verifyToken, (req, res, next) => {
 
 // ── PATCH /me — update bio / city / name (must be before /:id routes) ────────
 router.patch('/me', verifyToken, updateMe);
+
+// ── User search (must be before /:id routes) ─────────────────────────────────
+router.get('/search', verifyToken, searchUsers);
 
 // ── Saved animals — /me routes before /:id ───────────────────────────────────
 router.post('/me/saved/:petId',   verifyToken, savePet);

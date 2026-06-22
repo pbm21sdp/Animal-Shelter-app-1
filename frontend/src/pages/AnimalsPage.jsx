@@ -40,6 +40,7 @@ function Badge({ type }) {
         Found:      { background: '#2D1F14', color: '#FAF7F4', border: 'none' },
         Urgent:     { background: '#993C1D', color: '#FAF7F4', border: 'none' },
         Vaccinated: { background: 'rgba(29,158,117,0.12)', color: '#0F6E56', border: '1px solid rgba(29,158,117,0.2)' },
+        Adopted:    { background: 'rgba(15,110,86,0.12)', color: '#0F6E56', border: '1px solid rgba(15,110,86,0.2)' },
     };
     const s = styles[type] || { background: 'rgba(45,31,20,0.08)', color: '#7A5C44', border: '1px solid rgba(45,31,20,0.12)' };
     return (
@@ -89,10 +90,21 @@ export default function AnimalsPage() {
     const [sortBy,       setSortBy]       = useState('recent');
     const [searchQuery,  setSearchQuery]  = useState(searchParams.get('search') || '');
     const [savedPets,    setSavedPets]    = useState(new Set());
+    const [adoptedPets,  setAdoptedPets]  = useState([]);
+    const [adoptedLoaded, setAdoptedLoaded] = useState(false);
 
     useEffect(() => {
         getAllPets();
     }, [getAllPets]);
+
+    // Fetch adopted pets on demand when that filter is selected
+    useEffect(() => {
+        if (statusFilter !== 'adopted' || adoptedLoaded) return;
+        axios.get(`${API}/pets?showAll=true&adopted=true`)
+            .then(r => setAdoptedPets(r.data.pets || []))
+            .catch(() => {})
+            .finally(() => setAdoptedLoaded(true));
+    }, [statusFilter, adoptedLoaded]);
 
     useEffect(() => {
         const q = searchParams.get('search');
@@ -136,7 +148,9 @@ export default function AnimalsPage() {
     };
 
     // ── Filtering & sorting ───────────────────────────────────────────────────
-    const filtered = pets
+    const source = statusFilter === 'adopted' ? adoptedPets : pets;
+
+    const filtered = source
         .filter((p) => {
             const petType = (p.type || '').toLowerCase();
             const typeMatch =
@@ -146,7 +160,11 @@ export default function AnimalsPage() {
                     : petType === typeFilter;
             const hs = (p.health_status || '').toLowerCase();
             const as = (p.adoption_status || '').toLowerCase();
+            const isAdoptedPet = p.is_adopted === true || as === 'adopted';
+
             const statusMatch =
+                statusFilter === 'adopted'    ? true :
+                isAdoptedPet                  ? false :
                 statusFilter === 'all'        ? true :
                 statusFilter === 'urgent'     ? (hs.includes('urgent') || as === 'urgent' || p.is_urgent === true) :
                 statusFilter === 'vaccinated' ? hs.includes('vacc') :
@@ -199,6 +217,7 @@ export default function AnimalsPage() {
         { label: 'Urgent',     value: 'urgent',     urgent: true  },
         { label: 'Vaccinated', value: 'vaccinated', urgent: false },
         { label: 'Found',      value: 'found',      urgent: false },
+        { label: 'Adopted',    value: 'adopted',    urgent: false },
     ];
 
     const areaPills = [
@@ -313,7 +332,7 @@ export default function AnimalsPage() {
 
             {/* ── GRID ─────────────────────────────────────────────────── */}
             <div style={{ padding: '20px 48px 40px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', alignItems: 'start' }}>
-                {isLoading ? (
+                {(isLoading || (statusFilter === 'adopted' && !adoptedLoaded)) ? (
                     <div style={{ gridColumn: '1/-1', padding: '48px 0', textAlign: 'center', fontFamily: serif, fontSize: '18px', fontStyle: 'italic', color: '#B09880' }}>
                         Loading animals…
                     </div>
@@ -338,11 +357,11 @@ export default function AnimalsPage() {
 
 // ── Badge type helper ─────────────────────────────────────────────────────────
 function getBadgeType(pet) {
-    const hs = (pet.health_status || '').toLowerCase();
     const as = (pet.adoption_status || '').toLowerCase();
+    if (as === 'adopted' || pet.is_adopted) return 'Adopted';
+    const hs = (pet.health_status || '').toLowerCase();
     if (hs.includes('urgent')) return 'Urgent';
     if (hs.includes('vacc')) return 'Vaccinated';
-    if (as === 'adopted' || pet.is_adopted) return 'Adopted';
     return 'Found';
 }
 

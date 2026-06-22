@@ -314,7 +314,7 @@ export const getPublicUserProfile = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid user ID' });
         }
 
-        const user = await User.findById(id).select('name avatar bio city createdAt');
+        const user = await User.findById(id).select('name avatar bio city contactAvailability createdAt');
         if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
         // Aggregate pet stats from PostgreSQL
@@ -336,15 +336,16 @@ export const getPublicUserProfile = async (req, res) => {
         res.status(200).json({
             success: true,
             profile: {
-                id:            user._id,
-                name:          user.name,
-                avatar:        user.avatar,
-                bio:           user.bio,
-                city:          user.city,
-                createdAt:     user.createdAt,
-                uploads_count: uploadsCount,
-                adopted_count: adoptedCount,
-                success_rate:  successRate,
+                id:                  user._id,
+                name:                user.name,
+                avatar:              user.avatar,
+                bio:                 user.bio,
+                city:                user.city,
+                contactAvailability: user.contactAvailability,
+                createdAt:           user.createdAt,
+                uploads_count:       uploadsCount,
+                adopted_count:       adoptedCount,
+                success_rate:        successRate,
             },
         });
     } catch (error) {
@@ -356,7 +357,7 @@ export const getPublicUserProfile = async (req, res) => {
 // PATCH /api/users/me — update bio, city, name for the authenticated user
 export const updateMe = async (req, res) => {
     try {
-        const { bio, city, name } = req.body;
+        const { bio, city, name, contactAvailability } = req.body;
 
         const user = await User.findById(req.userId);
         if (!user) return res.status(404).json({ success: false, message: 'User not found' });
@@ -364,6 +365,7 @@ export const updateMe = async (req, res) => {
         if (bio  !== undefined) user.bio  = bio;
         if (city !== undefined) user.city = city;
         if (name !== undefined) user.name = name;
+        if (contactAvailability !== undefined) user.contactAvailability = contactAvailability;
 
         await user.save();
 
@@ -371,10 +373,11 @@ export const updateMe = async (req, res) => {
             success: true,
             message: 'Profile updated',
             user: {
-                id:   user._id,
-                name: user.name,
-                bio:  user.bio,
-                city: user.city,
+                id:                  user._id,
+                name:                user.name,
+                bio:                 user.bio,
+                city:                user.city,
+                contactAvailability: user.contactAvailability,
             },
         });
     } catch (error) {
@@ -488,6 +491,29 @@ export const unsavePet = async (req, res) => {
         res.status(200).json({ success: true, message: 'Pet unsaved' });
     } catch (error) {
         console.error('Error in unsavePet:', error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+// GET /api/users/search?q= — search users by name or email
+export const searchUsers = async (req, res) => {
+    try {
+        const q = (req.query.q || '').trim();
+        if (q.length < 2) return res.json({ success: true, users: [] });
+
+        const users = await User.find({
+            $or: [
+                { name: { $regex: q, $options: 'i' } },
+                { email: { $regex: q, $options: 'i' } },
+            ],
+            isVerified: true,
+        })
+            .select('name email avatar')
+            .limit(8);
+
+        res.json({ success: true, users });
+    } catch (error) {
+        console.error('Error in searchUsers:', error);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 };

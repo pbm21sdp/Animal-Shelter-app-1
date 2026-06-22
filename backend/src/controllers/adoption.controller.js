@@ -347,6 +347,10 @@ export const updateAdoptionStatus = async (req, res) => {
         // This is where the PetModel.updateAdoptionStatus method is called
         await PetModel.updateAdoptionStatus(adoption.petId, petStatus);
 
+        if (status === 'approved') {
+            await PetModel.adoptPet(adoption.petId, adoption.user.toString());
+        }
+
         res.status(200).json({
             success: true,
             message: 'Adoption status updated successfully',

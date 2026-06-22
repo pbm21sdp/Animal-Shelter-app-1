@@ -173,21 +173,45 @@ def create_contract_pdf_v2(buffer, animal_data=None):
     story.append(Paragraph('ANIMAL INFORMATION', section_style))
 
     ad = animal_data or {}
+
+    def tc(val):
+        return val.strip().title() if val and val.strip() else ''
+
+    def cap_sentence(val):
+        """Capitalize sentences. Never add a trailing period — leave existing punctuation intact."""
+        if not val or not val.strip():
+            return ''
+        sentences = [s.strip().capitalize() for s in val.replace(';', '.').split('.') if s.strip()]
+        return '. '.join(sentences)
+
+    raw_health = ad.get('health_status', '').strip()
+    raw_size   = ad.get('size', '').strip()
+    raw_coat   = ad.get('coat', '').strip()
+    raw_desc   = ad.get('description', '').strip()
+
+    vacc_lower = raw_health.lower()
+    vacc_status = 'Vaccinated' if 'vaccin' in vacc_lower else ''
+
+    coat_label = tc(raw_coat) + ' coat' if raw_coat else ''
+
+    skip_tags = {'found', 'urgent', 'vaccinated', ''}
+    health_note = cap_sentence(raw_health) if raw_health.lower() not in skip_tags else ''
+
     animal_table_data = [
-        ["Name",                              ad.get('name', '')],
-        ["Species",                           ad.get('species', '')],
-        ["Breed",                             ad.get('breed', '')],
-        ["Color",                             ad.get('color', '')],
-        ["Sex",                               ad.get('sex', '')],
-        ["Age / Estimated Date of Birth",     ad.get('age', '')],
-        ["Size / Weight",                     ""],
-        ["Distinctive Features",              ""],
+        ["Name",                              tc(ad.get('name', ''))],
+        ["Species",                           tc(ad.get('species', ''))],
+        ["Breed",                             tc(ad.get('breed', ''))],
+        ["Color",                             tc(ad.get('color', ''))],
+        ["Sex",                               tc(ad.get('sex', ''))],
+        ["Age / Estimated Date of Birth",     cap_sentence(ad.get('age', ''))],
+        ["Size / Weight",                     cap_sentence(raw_size)],
+        ["Distinctive Features",              coat_label],
         ["Microchip Number",                  ""],
         ["Passport / Health Booklet Number",  ""],
-        ["Vaccination Status",                ""],
+        ["Vaccination Status",                vacc_status],
         ["Spayed / Neutered",                 ""],
         ["Current Medications",               ""],
-        ["Known Medical Conditions",          ""],
+        ["Known Medical Conditions",          health_note],
         ["Date of Transfer / Adoption",       ""],
     ]
 
@@ -209,6 +233,28 @@ def create_contract_pdf_v2(buffer, animal_data=None):
     )
 
     story.append(animal_table)
+
+    # DESCRIPTION — rendered as a full-width paragraph so long text wraps properly
+    if raw_desc:
+        desc_label_style = ParagraphStyle(
+            "DescLabel",
+            fontSize=9.5,
+            fontName="Helvetica-Bold",
+            textColor=dark_brown,
+            spaceBefore=10,
+            spaceAfter=4,
+        )
+        desc_text_style = ParagraphStyle(
+            "DescText",
+            fontSize=9.5,
+            fontName="Helvetica",
+            textColor=colors.black,
+            leading=14,
+            spaceAfter=6,
+            alignment=TA_JUSTIFY,
+        )
+        story.append(Paragraph("Notes / Description", desc_label_style))
+        story.append(Paragraph(cap_sentence(raw_desc), desc_text_style))
 
     # TERMS & CONDITIONS
     story.append(Spacer(1, 14))

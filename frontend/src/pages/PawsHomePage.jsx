@@ -67,7 +67,7 @@ export default function PawsHomepage() {
     const [fading, setFading]     = useState(false);
     const [hovering, setHovering] = useState(false);
     const timerRef = useRef(null);
-    const [stats, setStats] = useState({ total_uploaded: 0, found_home: 0, urgent_cases: 0 });
+    const [stats, setStats] = useState({ total_uploaded: 0, found_home: 0, urgent_cases: 0, available_count: 0 });
     const [recentPets, setRecentPets] = useState([]);
     const [rightColumnPets, setRightColumnPets] = useState([]);
     const [donationStats, setDonationStats] = useState({ totalRaised: 0, donorCount: 0, donors: [] });
@@ -256,18 +256,18 @@ export default function PawsHomepage() {
 
                 {/* Col 3 */}
                 <div style={{ padding: '14px 0', textAlign: 'center' }}>
-                    <div style={{ fontFamily: serif, fontSize: '32px', fontWeight: 700, color: C.espresso, lineHeight: 1 }}>{stats.urgent_cases}</div>
+                    <div style={{ fontFamily: serif, fontSize: '32px', fontWeight: 700, color: C.espresso, lineHeight: 1 }}>{stats.available_count ?? stats.urgent_cases}</div>
                     <div style={{
                         fontFamily: sans, fontSize: '11px', color: C.muted, marginTop: '5px',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                     }}>
-                        Animals near you
+                        Waiting for a home
                     </div>
                     <div style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', marginTop: '3px',
                     }}>
                         <span style={liveDot} />
-                        <span style={{ fontFamily: sans, fontSize: '9px', color: C.lightMuted }}>Live · near you</span>
+                        <span style={{ fontFamily: sans, fontSize: '9px', color: C.lightMuted }}>Available now</span>
                     </div>
                 </div>
             </div>

@@ -139,7 +139,7 @@ function StatusBadge({ pet }) {
 
 // ── Upload card ────────────────────────────────────────────────────────────────
 
-function UploadCard({ pet, isOwnProfile, onMarkAdopted, onEdit }) {
+function UploadCard({ pet, isOwnProfile, onMarkAdopted, onUnadopt, onEdit }) {
     const navigate = useNavigate();
     const [hovered, setHovered] = useState(false);
     const photo = photoUrl(pet.primary_photo_id);
@@ -211,12 +211,28 @@ function UploadCard({ pet, isOwnProfile, onMarkAdopted, onEdit }) {
                 )}
             </div>
 
-            {/* Actions — space always reserved, shown on hover via opacity */}
+            {/* Actions — shown on hover */}
             {isOwnProfile && (
                 <div style={{ padding: '0 10px 10px', display: 'flex', flexDirection: 'column', gap: 5 }}>
-                    {!pet.is_adopted && (
+                    {pet.is_adopted ? (
                         <button
-                            onClick={(e) => { e.stopPropagation(); onMarkAdopted(pet.id); }}
+                            onClick={(e) => { e.stopPropagation(); onUnadopt(pet.id); }}
+                            style={{
+                                width: '100%', fontFamily: sans, fontSize: 10,
+                                fontWeight: 500, padding: '5px 0', borderRadius: 2,
+                                border: '1px solid rgba(192,122,74,0.35)',
+                                color: '#8B4E28', background: 'rgba(192,122,74,0.06)',
+                                cursor: 'pointer',
+                                opacity: hovered ? 1 : 0,
+                                transition: 'opacity 0.15s',
+                                pointerEvents: hovered ? 'auto' : 'none',
+                            }}
+                        >
+                            Undo adoption
+                        </button>
+                    ) : (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onMarkAdopted(pet); }}
                             style={{
                                 width: '100%', fontFamily: sans, fontSize: 10,
                                 fontWeight: 500, padding: '5px 0', borderRadius: 2,
@@ -336,8 +352,9 @@ export default function ProfilePage() {
     // ── State ────────────────────────────────────────────────────────────────
     const [profileData,   setProfileData]   = useState(null);
     const [pets,          setPets]          = useState([]);
-    const [adoptedPets,   setAdoptedPets]   = useState([]);
-    const [savedPets,    setSavedPets]    = useState([]);
+    const [adoptedPets,      setAdoptedPets]      = useState([]);
+    const [savedPets,        setSavedPets]        = useState([]);
+    const [receivedMsgCount, setReceivedMsgCount] = useState(null);
     const [activeTab,     setActiveTab]     = useState('uploads');
     const [isEditingBio,  setIsEditingBio]  = useState(false);
     const [bioValue,      setBioValue]      = useState('');
@@ -345,10 +362,23 @@ export default function ProfilePage() {
     const [nameValue,     setNameValue]     = useState('');
     const [cityValue,     setCityValue]     = useState('');
     const [infoSaving,    setInfoSaving]    = useState(false);
-    const [isLoading,     setIsLoading]     = useState(true);
-    const [bioSaving,     setBioSaving]     = useState(false);
+    const [isLoading,      setIsLoading]      = useState(true);
+    const [bioSaving,      setBioSaving]      = useState(false);
+    const [isEditingAvail, setIsEditingAvail] = useState(false);
+    const [availDays,      setAvailDays]      = useState([]);
+    const [availFrom,      setAvailFrom]      = useState('');
+    const [availTo,        setAvailTo]        = useState('');
+    const [availSaving,    setAvailSaving]    = useState(false);
     const [avatarKey,     setAvatarKey]     = useState(Date.now());
     const fileInputRef = useRef(null);
+
+    // Adopt dialog state
+    const [adoptDialog, setAdoptDialog]         = useState(null);
+    const [adopterSearch, setAdopterSearch]     = useState('');
+    const [adopterResults, setAdopterResults]   = useState([]);
+    const [selectedAdopter, setSelectedAdopter] = useState(null);
+    const [adopterLoading, setAdopterLoading]   = useState(false);
+    const [adoptConfirming, setAdoptConfirming] = useState(false);
 
     // ── Fetchers ─────────────────────────────────────────────────────────────
 
@@ -405,12 +435,19 @@ export default function ProfilePage() {
     }, [fetchProfile, fetchPets]);
 
     useEffect(() => {
-        if (activeTab === 'adopted') fetchAdopted();
+        if (activeTab === 'adopted' || activeTab === 'activity') fetchAdopted();
     }, [activeTab, fetchAdopted]);
 
     useEffect(() => {
-        if (activeTab === 'saved') fetchSaved();
+        if (activeTab === 'saved' || activeTab === 'activity') fetchSaved();
     }, [activeTab, fetchSaved]);
+
+    useEffect(() => {
+        if (activeTab !== 'activity' || receivedMsgCount !== null) return;
+        axios.get('http://localhost:5000/api/conversations/received-count', { withCredentials: true })
+            .then(res => setReceivedMsgCount(res.data.count ?? 0))
+            .catch(() => setReceivedMsgCount(0));
+    }, [activeTab, receivedMsgCount]);
 
     // ── Bio save ─────────────────────────────────────────────────────────────
 
@@ -458,6 +495,36 @@ export default function ProfilePage() {
         setIsEditingInfo(false);
     };
 
+    // ── Contact availability ──────────────────────────────────────────────────
+
+    const openAvailEdit = () => {
+        const a = profileData?.contactAvailability ?? currentUser?.contactAvailability;
+        setAvailDays(a?.days?.length ? [...a.days] : []);
+        setAvailFrom(a?.from || '');
+        setAvailTo(a?.to   || '');
+        setIsEditingAvail(true);
+    };
+
+    const cancelAvailEdit = () => setIsEditingAvail(false);
+
+    const saveAvailability = async () => {
+        setAvailSaving(true);
+        try {
+            await axios.patch(
+                `${API}/users/me`,
+                { contactAvailability: { days: availDays, from: availFrom, to: availTo } },
+                { withCredentials: true }
+            );
+            setProfileData(prev => ({ ...prev, contactAvailability: { days: availDays, from: availFrom, to: availTo } }));
+            setIsEditingAvail(false);
+            toast.success('Availability updated!');
+        } catch {
+            toast.error('Failed to save availability.');
+        } finally {
+            setAvailSaving(false);
+        }
+    };
+
     // ── Avatar upload ────────────────────────────────────────────────────────
 
     const handleAvatarChange = async (e) => {
@@ -476,14 +543,67 @@ export default function ProfilePage() {
         e.target.value = '';
     };
 
-    // ── Mark as adopted ──────────────────────────────────────────────────────
+    // ── Mark as adopted (dialog) ─────────────────────────────────────────────
 
-    const handleMarkAdopted = async (petId) => {
+    useEffect(() => {
+        if (!adopterSearch.trim() || adopterSearch.length < 2) { setAdopterResults([]); return; }
+        setAdopterLoading(true);
+        const t = setTimeout(() => {
+            axios.get(`${API}/users/search?q=${encodeURIComponent(adopterSearch)}`, { withCredentials: true })
+                .then(r => setAdopterResults(r.data.users || []))
+                .catch(() => setAdopterResults([]))
+                .finally(() => setAdopterLoading(false));
+        }, 300);
+        return () => clearTimeout(t);
+    }, [adopterSearch]);
+
+    const openAdoptDialog = (pet) => {
+        setAdoptDialog(pet);
+        setAdopterSearch('');
+        setAdopterResults([]);
+        setSelectedAdopter(null);
+    };
+
+    const closeAdoptDialog = () => {
+        if (adoptConfirming) return;
+        setAdoptDialog(null);
+        setAdopterSearch('');
+        setAdopterResults([]);
+        setSelectedAdopter(null);
+    };
+
+    const confirmMarkAdopted = async (adoptedById) => {
+        if (!adoptDialog) return;
+        setAdoptConfirming(true);
         try {
-            await axios.patch(`${API}/pets/${petId}/adopt`, {}, { withCredentials: true });
-            setPets(prev => prev.map(p => p.id === petId ? { ...p, is_adopted: true } : p));
+            await axios.patch(
+                `${API}/pets/${adoptDialog.id}/adopt`,
+                { adoptedById: adoptedById || null },
+                { withCredentials: true }
+            );
+            toast.success('Marked as adopted!');
+            setPets(prev => prev.map(p => p.id === adoptDialog.id ? { ...p, is_adopted: true } : p));
+            closeAdoptDialog();
         } catch (err) {
             console.error('Mark adopted failed:', err);
+            toast.error('Failed to update.');
+        } finally {
+            setAdoptConfirming(false);
+        }
+    };
+
+    const handleMarkAdopted = openAdoptDialog;
+
+    const handleUnadopt = async (petId) => {
+        try {
+            await axios.patch(`${API}/pets/${petId}/unadopt`, {}, { withCredentials: true });
+            toast.success('Adoption mark removed.');
+            setPets(prev => prev.map(p => p.id === petId
+                ? { ...p, is_adopted: false, adoption_status: 'available' }
+                : p
+            ));
+        } catch {
+            toast.error('Failed to undo adoption.');
         }
     };
 
@@ -492,12 +612,15 @@ export default function ProfilePage() {
     // For own profile: prefer live currentUser for avatar/name (stays in sync with uploads)
     const displayName   = isOwnProfile ? (currentUser?.name   || profileData?.name   || '…') : (profileData?.name   || '…');
     const displayAvatar = isOwnProfile ? (currentUser?.avatar || profileData?.avatar)         : profileData?.avatar;
-    const displayBio    = profileData?.bio ?? (isOwnProfile ? currentUser?.bio : null);
+    const displayBio    = profileData?.bio  ?? (isOwnProfile ? currentUser?.bio  : null);
     const displayCity   = profileData?.city ?? (isOwnProfile ? currentUser?.city : null);
+    const displayAvail  = profileData?.contactAvailability ?? (isOwnProfile ? currentUser?.contactAvailability : null);
     const createdAt     = isOwnProfile ? (currentUser?.createdAt || profileData?.createdAt) : profileData?.createdAt;
 
     const uploadsCount    = pets.length;
-    const foundCount      = pets.filter(p => p.is_adopted).length;
+    const activeUploads   = pets.filter(p => !p.is_adopted);
+    const foundHomePets   = pets.filter(p => p.is_adopted);
+    const foundCount      = foundHomePets.length;
     const successRate     = uploadsCount > 0 ? Math.round((foundCount / uploadsCount) * 100) : 0;
 
     // Activity feed — generated client-side from pets
@@ -509,10 +632,11 @@ export default function ProfilePage() {
 
     // Tab config
     const tabs = [
-        { key: 'uploads',  label: 'My uploads',    count: uploadsCount },
-        { key: 'activity', label: 'Activity',       count: 0 },
-        { key: 'adopted',  label: 'Adopted by me',  count: adoptedPets.length },
-        { key: 'saved',    label: 'Saved',           count: savedPets.length },
+        { key: 'uploads',    label: 'My uploads',    count: activeUploads.length },
+        { key: 'found_home', label: 'Found a home',  count: foundCount },
+        { key: 'activity',   label: 'Activity',      count: 0 },
+        { key: 'adopted',    label: 'Adopted by me', count: adoptedPets.length },
+        { key: 'saved',      label: 'Saved',          count: savedPets.length },
     ];
 
     if (!currentUser) return null;
@@ -731,16 +855,90 @@ export default function ProfilePage() {
                                     }}>
                                         {displayBio || 'No bio yet.'}
                                     </div>
-                                    {isOwnProfile && (
-                                        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 6 }}>
+
+                                    {/* ── Contact availability ─────────────────── */}
+                                    {isEditingAvail ? (
+                                        <div style={{ marginTop: 12 }}>
+                                            <div style={{ fontFamily: sans, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#C07A4A', marginBottom: 8 }}>
+                                                Available days
+                                            </div>
+                                            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 12 }}>
+                                                {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => {
+                                                    const on = availDays.includes(d);
+                                                    return (
+                                                        <button
+                                                            key={d}
+                                                            onClick={() => setAvailDays(prev => on ? prev.filter(x => x !== d) : [...prev, d])}
+                                                            style={{
+                                                                fontFamily: sans, fontSize: 10, fontWeight: 500,
+                                                                padding: '4px 10px', borderRadius: 2, cursor: 'pointer',
+                                                                border: '1px solid rgba(192,122,74,0.45)',
+                                                                background: on ? '#C07A4A' : 'transparent',
+                                                                color: on ? '#FAF7F4' : '#7A5C44',
+                                                                transition: 'background 0.12s, color 0.12s',
+                                                            }}
+                                                        >
+                                                            {d}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                            <div style={{ fontFamily: sans, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#C07A4A', marginBottom: 8 }}>
+                                                Hours
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                                                <input
+                                                    type="time"
+                                                    value={availFrom}
+                                                    onChange={e => setAvailFrom(e.target.value)}
+                                                    style={{ fontFamily: sans, fontSize: 12, padding: '4px 8px', border: '1px solid rgba(45,31,20,0.2)', borderRadius: 2, background: '#fff', color: '#2D1F14', outline: 'none' }}
+                                                />
+                                                <span style={{ fontFamily: sans, fontSize: 12, color: '#7A5C44' }}>–</span>
+                                                <input
+                                                    type="time"
+                                                    value={availTo}
+                                                    onChange={e => setAvailTo(e.target.value)}
+                                                    style={{ fontFamily: sans, fontSize: 12, padding: '4px 8px', border: '1px solid rgba(45,31,20,0.2)', borderRadius: 2, background: '#fff', color: '#2D1F14', outline: 'none' }}
+                                                />
+                                            </div>
+                                            <div style={{ display: 'flex', gap: 10 }}>
+                                                <button
+                                                    onClick={saveAvailability}
+                                                    disabled={availSaving}
+                                                    style={{ fontFamily: sans, fontSize: 10, fontWeight: 500, padding: '4px 12px', borderRadius: 2, background: '#C07A4A', color: '#FAF7F4', border: 'none', cursor: 'pointer' }}
+                                                >
+                                                    {availSaving ? 'Saving…' : 'Save'}
+                                                </button>
+                                                <button
+                                                    onClick={cancelAvailEdit}
+                                                    style={{ fontFamily: sans, fontSize: 10, padding: '4px 12px', borderRadius: 2, background: 'transparent', color: '#7A5C44', border: '1px solid rgba(45,31,20,0.2)', cursor: 'pointer' }}
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        displayAvail?.days?.length > 0 && (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                                                <span style={{ fontFamily: sans, fontSize: 10, color: '#9A7A60' }}>✦</span>
+                                                <span style={{ fontFamily: sans, fontSize: 11, color: '#5C4030' }}>
+                                                    {displayAvail.days.join(', ')}
+                                                    {(displayAvail.from || displayAvail.to) && (
+                                                        <span style={{ color: '#9A7A60' }}>
+                                                            {' · '}{displayAvail.from || '?'} – {displayAvail.to || '?'}
+                                                        </span>
+                                                    )}
+                                                </span>
+                                            </div>
+                                        )
+                                    )}
+
+                                    {isOwnProfile && !isEditingAvail && (
+                                        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 8 }}>
                                             {!isEditingInfo && (
                                                 <button
                                                     onClick={() => { setBioValue(displayBio || ''); setIsEditingBio(true); }}
-                                                    style={{
-                                                        fontFamily: sans, fontSize: 10,
-                                                        color: '#C07A4A', background: 'none',
-                                                        border: 'none', cursor: 'pointer', padding: 0,
-                                                    }}
+                                                    style={{ fontFamily: sans, fontSize: 10, color: '#C07A4A', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                                                 >
                                                     Edit bio →
                                                 </button>
@@ -748,13 +946,17 @@ export default function ProfilePage() {
                                             {!isEditingInfo && (
                                                 <button
                                                     onClick={() => { setNameValue(displayName); setCityValue(displayCity || ''); setIsEditingInfo(true); }}
-                                                    style={{
-                                                        fontFamily: sans, fontSize: 10,
-                                                        color: '#C07A4A', background: 'none',
-                                                        border: 'none', cursor: 'pointer', padding: 0,
-                                                    }}
+                                                    style={{ fontFamily: sans, fontSize: 10, color: '#C07A4A', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                                                 >
                                                     Edit name & city →
+                                                </button>
+                                            )}
+                                            {!isEditingInfo && (
+                                                <button
+                                                    onClick={openAvailEdit}
+                                                    style={{ fontFamily: sans, fontSize: 10, color: '#C07A4A', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                                                >
+                                                    Edit availability →
                                                 </button>
                                             )}
                                             {isEditingInfo && (
@@ -762,23 +964,13 @@ export default function ProfilePage() {
                                                     <button
                                                         onClick={saveInfo}
                                                         disabled={infoSaving}
-                                                        style={{
-                                                            fontFamily: sans, fontSize: 10, fontWeight: 500,
-                                                            padding: '4px 12px', borderRadius: 2,
-                                                            background: '#C07A4A', color: '#FAF7F4',
-                                                            border: 'none', cursor: 'pointer',
-                                                        }}
+                                                        style={{ fontFamily: sans, fontSize: 10, fontWeight: 500, padding: '4px 12px', borderRadius: 2, background: '#C07A4A', color: '#FAF7F4', border: 'none', cursor: 'pointer' }}
                                                     >
                                                         {infoSaving ? 'Saving…' : 'Save'}
                                                     </button>
                                                     <button
                                                         onClick={cancelInfo}
-                                                        style={{
-                                                            fontFamily: sans, fontSize: 10,
-                                                            padding: '4px 12px', borderRadius: 2,
-                                                            background: 'transparent', color: '#7A5C44',
-                                                            border: '1px solid rgba(45,31,20,0.2)', cursor: 'pointer',
-                                                        }}
+                                                        style={{ fontFamily: sans, fontSize: 10, padding: '4px 12px', borderRadius: 2, background: 'transparent', color: '#7A5C44', border: '1px solid rgba(45,31,20,0.2)', cursor: 'pointer' }}
                                                     >
                                                         Cancel
                                                     </button>
@@ -860,16 +1052,17 @@ export default function ProfilePage() {
                             <div style={{ fontFamily: serif, fontSize: 15, fontStyle: 'italic', color: '#B09880', padding: '32px 0' }}>
                                 Loading…
                             </div>
-                        ) : pets.length === 0 ? (
-                            <EmptyState text="No uploads yet." />
+                        ) : activeUploads.length === 0 ? (
+                            <EmptyState text="No active listings." note={foundCount > 0 ? `${foundCount} animal${foundCount !== 1 ? 's' : ''} found a home — see the Found a home tab.` : undefined} />
                         ) : (
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-                                {pets.map((pet) => (
+                                {activeUploads.map((pet) => (
                                     <UploadCard
                                         key={pet.id}
                                         pet={pet}
                                         isOwnProfile={isOwnProfile}
                                         onMarkAdopted={handleMarkAdopted}
+                                        onUnadopt={handleUnadopt}
                                         onEdit={(id) => navigate(`/pet/${id}/edit`)}
                                     />
                                 ))}
@@ -878,7 +1071,30 @@ export default function ProfilePage() {
                     </div>
                 )}
 
-                {/* ── TAB 2: ACTIVITY ────────────────────────────────────── */}
+                {/* ── TAB 2: FOUND A HOME ────────────────────────────────── */}
+                {activeTab === 'found_home' && (
+                    <div>
+                        <SectionLabel>Animals that found a home</SectionLabel>
+                        {foundHomePets.length === 0 ? (
+                            <EmptyState text="No animals marked as adopted yet." />
+                        ) : (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+                                {foundHomePets.map((pet) => (
+                                    <UploadCard
+                                        key={pet.id}
+                                        pet={pet}
+                                        isOwnProfile={isOwnProfile}
+                                        onMarkAdopted={handleMarkAdopted}
+                                        onUnadopt={handleUnadopt}
+                                        onEdit={(id) => navigate(`/pet/${id}/edit`)}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* ── TAB 3: ACTIVITY ────────────────────────────────────── */}
                 {activeTab === 'activity' && (
                     <div>
                         {/* 3×2 stats grid */}
@@ -890,9 +1106,9 @@ export default function ProfilePage() {
                         }}>
                             <StatCell value={uploadsCount}            label="Animals uploaded" />
                             <StatCell value={foundCount}              label="Found a home"       trend={foundCount > 0 ? `↑ ${foundCount} total` : null} />
-                            <StatCell value="—"                       label="Messages received (soon)" />
-                            <StatCell value={adoptedPets.length || '—'} label="Adopted personally" />
-                            <StatCell value={savedPets.length  || '—'} label="Saved for later" />
+                            <StatCell value={receivedMsgCount ?? '—'} label="Messages received" />
+                            <StatCell value={adoptedPets.length} label="Adopted personally" />
+                            <StatCell value={savedPets.length}   label="Saved for later" />
                             <StatCell value={fmtMemberFor(createdAt)} label="Member for" />
                         </div>
 
@@ -930,7 +1146,7 @@ export default function ProfilePage() {
                     </div>
                 )}
 
-                {/* ── TAB 3: ADOPTED BY ME ───────────────────────────────── */}
+                {/* ── TAB 4: ADOPTED BY ME ───────────────────────────────── */}
                 {activeTab === 'adopted' && (
                     <div>
                         <SectionLabel>Animals I adopted through Paws</SectionLabel>
@@ -944,7 +1160,7 @@ export default function ProfilePage() {
                     </div>
                 )}
 
-                {/* ── TAB 4: SAVED ───────────────────────────────────────── */}
+                {/* ── TAB 5: SAVED ───────────────────────────────────────── */}
                 {activeTab === 'saved' && (
                     <div>
                         <SectionLabel>Saved for later</SectionLabel>
@@ -1015,6 +1231,92 @@ export default function ProfilePage() {
                 )}
 
             </div>
+
+            {/* ── Adopter selection dialog ─────────────────────────────────────── */}
+            {adoptDialog && (
+            <div
+                style={{ position: 'fixed', inset: 0, background: 'rgba(45,31,20,0.6)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
+                onClick={closeAdoptDialog}
+            >
+                <div
+                    style={{ background: '#FAF7F4', borderRadius: '6px', padding: '32px', maxWidth: '480px', width: '100%', position: 'relative' }}
+                    onClick={e => e.stopPropagation()}
+                >
+                    <div style={{ fontFamily: serif, fontSize: '22px', fontWeight: 700, color: '#2D1F14', marginBottom: '6px' }}>
+                        Who adopted {adoptDialog.name}?
+                    </div>
+                    <div style={{ fontFamily: sans, fontSize: '13px', color: '#7A5C44', marginBottom: '20px', lineHeight: 1.5 }}>
+                        Search for the person who adopted this animal on Paws, or skip if they're not on the platform.
+                    </div>
+
+                    <input
+                        type="text"
+                        placeholder="Search by name or email…"
+                        value={adopterSearch}
+                        autoFocus
+                        onChange={e => { setAdopterSearch(e.target.value); setSelectedAdopter(null); }}
+                        style={{ width: '100%', boxSizing: 'border-box', fontFamily: sans, fontSize: '13px', padding: '10px 12px', border: '1px solid rgba(45,31,20,0.2)', borderRadius: '3px', outline: 'none', background: '#fff', color: '#2D1F14' }}
+                    />
+
+                    {adopterLoading && (
+                        <div style={{ fontFamily: sans, fontSize: '12px', color: '#B09880', padding: '8px 0' }}>Searching…</div>
+                    )}
+
+                    {adopterResults.length > 0 && !selectedAdopter && (
+                        <div style={{ marginTop: '6px', border: '1px solid rgba(45,31,20,0.15)', borderRadius: '3px', overflow: 'hidden' }}>
+                            {adopterResults.map(u => (
+                                <button
+                                    key={u._id}
+                                    onClick={() => { setSelectedAdopter(u); setAdopterSearch(u.name); setAdopterResults([]); }}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 12px', background: '#fff', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.08)', cursor: 'pointer', textAlign: 'left' }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = '#F5EFE8'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
+                                >
+                                    {u.avatar && (
+                                        <img src={u.avatar.startsWith('http') ? u.avatar : `http://localhost:5000${u.avatar}`} alt="" style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} onError={e => { e.target.style.display = 'none'; }} />
+                                    )}
+                                    <div>
+                                        <div style={{ fontFamily: sans, fontSize: '13px', fontWeight: 500, color: '#2D1F14' }}>{u.name}</div>
+                                        <div style={{ fontFamily: sans, fontSize: '11px', color: '#9A7A60' }}>{u.email}</div>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    {selectedAdopter && (
+                        <div style={{ marginTop: '8px', padding: '10px 12px', background: 'rgba(15,110,86,0.07)', border: '1px solid rgba(15,110,86,0.2)', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span style={{ fontFamily: sans, fontSize: '13px', color: '#0F6E56' }}>✓ {selectedAdopter.name}</span>
+                            <button onClick={() => { setSelectedAdopter(null); setAdopterSearch(''); }} style={{ fontFamily: sans, fontSize: '11px', color: '#993C1D', background: 'none', border: 'none', cursor: 'pointer' }}>Change</button>
+                        </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '20px' }}>
+                        <button
+                            onClick={() => confirmMarkAdopted(null)}
+                            disabled={adoptConfirming}
+                            style={{ flex: 1, fontFamily: sans, fontSize: '12px', padding: '10px 8px', border: '1px solid rgba(45,31,20,0.2)', borderRadius: '3px', background: 'transparent', color: '#7A5C44', cursor: adoptConfirming ? 'default' : 'pointer', opacity: adoptConfirming ? 0.5 : 1 }}
+                        >
+                            Skip — not on Paws
+                        </button>
+                        <button
+                            onClick={() => confirmMarkAdopted(selectedAdopter?._id || null)}
+                            disabled={adoptConfirming}
+                            style={{ flex: 1, fontFamily: sans, fontSize: '12px', padding: '10px 8px', border: 'none', borderRadius: '3px', background: '#0F6E56', color: '#fff', cursor: adoptConfirming ? 'default' : 'pointer', opacity: adoptConfirming ? 0.6 : 1 }}
+                        >
+                            {adoptConfirming ? 'Saving…' : selectedAdopter ? `Confirm — ${selectedAdopter.name}` : 'Confirm'}
+                        </button>
+                        <button
+                            onClick={closeAdoptDialog}
+                            disabled={adoptConfirming}
+                            style={{ fontFamily: sans, fontSize: '12px', padding: '10px 14px', border: '1px solid rgba(153,60,29,0.3)', borderRadius: '3px', background: 'transparent', color: '#993C1D', cursor: adoptConfirming ? 'default' : 'pointer' }}
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+            )}
         </div>
     );
 }
