@@ -30,25 +30,25 @@ print(f"Output: {MODEL_OUTPUT_DIR}")
 # ── Label maps for each category ──────────────────────────────
 CATEGORY_LABELS = {
     "1_species": ["a photo of a cat", "a photo of a dog", "a photo of a puppy", "a photo of a kitten", "a photo of a rabbit", "a photo of a guinea pig", "a photo of a hamster"],
-    "2_dog_breed": ["a golden retriever", "a german shepherd", "a labrador retriever", "a siberian husky", "a beagle", "a chihuahua", "a mixed breed dog"],
-    "3_cat_breed": ["a persian cat", "a siamese cat", "a maine coon cat", "a tabby cat", "a domestic shorthair cat", "a mixed breed cat"],
+    "2_dog_breed": ["a golden retriever", "a german shepherd", "a labrador retriever", "a siberian husky", "a beagle", "a chihuahua", "a mixed breed dog", "a boxer dog", "an english cocker spaniel", "a havanese dog", "a maltese dog", "a newfoundland dog", "a yorkshire terrier"],
+    "3_cat_breed": ["a persian cat", "a siamese cat", "a maine coon cat", "a tabby cat", "a domestic shorthair cat", "a mixed breed cat", "a bengal cat", "a birman cat", "a bombay cat", "a british shorthair cat", "a ragdoll cat", "a russian blue cat", "a sphynx cat"],
     "4_color": ["a brown animal", "a white animal", "a black animal", "a gray animal", "an orange animal", "a golden animal", "a black and white animal", "a multicolored animal"],
     "5_size": ["a very small animal under 5kg", "a small animal 5 to 10kg", "a medium sized animal", "a large animal over 25kg"],
     "6_age": ["a newborn baby animal under 3 months", "a young animal 3 to 12 months", "a young adult animal 1 to 3 years", "a mature adult animal 3 to 7 years", "a senior animal over 7 years"],
     "7_fur_length": ["a short haired animal", "a medium haired animal", "a long haired animal", "a hairless animal"],
-    "8_fur_pattern": ["a solid colored animal", "a tabby striped animal", "a spotted animal", "a calico animal", "a tuxedo black and white animal", "a bicolor animal"],
+    "8_fur_pattern": ["a solid colored animal", "a tabby striped animal", "a spotted animal", "a calico animal", "a tuxedo black and white animal", "a bicolor animal", "a tricolor animal"],
 }
 
 # Map folder names to label indices
 FOLDER_TO_LABEL = {
     "1_species": {"cat": 0, "dog": 1, "puppy": 2, "kitten": 3, "rabbit": 4, "guinea_pig": 5, "hamster": 6},
-    "2_dog_breed": {"golden_retriever": 0, "german_shepherd": 1, "labrador": 2, "husky": 3, "beagle": 4, "chihuahua": 5, "mixed_breed_dog": 6},
-    "3_cat_breed": {"persian": 0, "siamese": 1, "maine_coon": 2, "tabby": 3, "domestic_shorthair": 4, "mixed_breed_cat": 5},
+    "2_dog_breed": {"golden_retriever": 0, "german_shepherd": 1, "labrador": 2, "husky": 3, "beagle": 4, "chihuahua": 5, "mixed_breed_dog": 6, "boxer": 7, "english_cocker_spaniel": 8, "havanese": 9, "maltese": 10, "newfoundland": 11, "yorkshire_terrier": 12},
+    "3_cat_breed": {"persian": 0, "siamese": 1, "maine_coon": 2, "tabby": 3, "domestic_shorthair": 4, "mixed_breed_cat": 5, "bengal": 6, "birman": 7, "bombay": 8, "british_shorthair": 9, "ragdoll": 10, "russian_blue": 11, "sphynx": 12},
     "4_color": {"brown": 0, "white": 1, "black": 2, "gray": 3, "orange": 4, "golden": 5, "black_and_white": 6, "multicolor": 7},
     "5_size": {"very_small": 0, "small": 1, "medium": 2, "large": 3},
     "6_age": {"baby_under_3months": 0, "young_3_12months": 1, "adult_1_3years": 2, "mature_3_7years": 3, "senior_over_7years": 4},
     "7_fur_length": {"short_hair": 0, "medium_hair": 1, "long_hair": 2, "hairless": 3},
-    "8_fur_pattern": {"solid": 0, "tabby_striped": 1, "spotted": 2, "calico": 3, "tuxedo": 4, "bicolor": 5},
+    "8_fur_pattern": {"solid": 0, "tabby_striped": 1, "spotted": 2, "calico": 3, "tuxedo": 4, "bicolor": 5, "tricolor": 6},
 }
 
 
