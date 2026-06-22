@@ -328,6 +328,7 @@ export default function AddAnimalPage() {
         try {
             const actualType     = animalType === 'Other' ? animalTypeOther : animalType;
             const looksLikeEmail = contact.includes('@');
+            const actualFoundHow = foundHow === 'Other' ? foundHowOther : foundHow;
             const petPayload = {
                 name:                  headline.trim(),
                 type:                  actualType.toLowerCase(),
@@ -350,6 +351,7 @@ export default function AddAnimalPage() {
                 shelter_contact_email: looksLikeEmail ? contact.trim() : '',
                 shelter_contact_phone: !looksLikeEmail ? contact.trim() : '',
                 zip_code:              '',
+                found_how:             actualFoundHow || '',
             };
 
             const response = await axios.post(`${API}/pets`, petPayload, { withCredentials: true });
@@ -435,10 +437,10 @@ export default function AddAnimalPage() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
                         <div>
-                            <FieldLabel>How did you find this animal?</FieldLabel>
+                            <FieldLabel>What's this animal's situation?</FieldLabel>
                             <PillToggle
                                 large
-                                options={['Found on the street', 'Appears to be lost', 'Owner surrendered it', 'Rescued from danger', 'Other']}
+                                options={['Found on the street', 'Appears to be lost', 'Went missing', 'Owner surrendered it', 'Rescued from danger', 'Other']}
                                 value={foundHow}
                                 onChange={setFoundHow}
                             />

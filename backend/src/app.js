@@ -190,6 +190,15 @@ async function runAdoptionRequestMigration() {
     }
 }
 
+async function runFoundHowMigration() {
+    try {
+        await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS found_how VARCHAR(120) DEFAULT NULL`);
+        console.log('found_how migration applied');
+    } catch (err) {
+        console.error('found_how migration error:', err.message);
+    }
+}
+
 async function start() {
     await connectPostgresDB();
     await connectMongoDB();
@@ -197,6 +206,7 @@ async function start() {
     await runDeletedAtMigration();
     await runPetCoordsMigration();
     await runAdoptionRequestMigration();
+    await runFoundHowMigration();
     app.listen(PORT, () => {
         console.log(`Server running on port ${PORT}`);
     });

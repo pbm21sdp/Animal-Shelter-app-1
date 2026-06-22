@@ -405,6 +405,12 @@ class AnimalDescriptionGenerator:
                     "A {size} {type} was spotted near {city} and appears to belong to someone. They are safe and being cared for while we search for their owner.",
                     "This {type} was found near {city} and does not appear to be a stray — their condition and behaviour suggest they have a home and a family looking for them.",
                 ],
+                'owner_missing': [
+                    "This is our beloved {size} {type}, who went missing near {city}. We are heartbroken and doing everything we can to find them.",
+                    "Our {size} {type} has gone missing near {city} and we desperately need your help finding them.",
+                    "We are searching for our {type}, last seen near {city}. If you have spotted them, please reach out — every lead matters.",
+                    "Our {type} disappeared near {city} and has not come home. We miss them deeply and are asking for your help.",
+                ],
                 'owner_surrender': [
                     "Through no fault of their own, this {size} {type} needs a new family to call their own.",
                     "This {type} is looking for a new home after their previous family could no longer care for them.",
@@ -454,6 +460,12 @@ class AnimalDescriptionGenerator:
                 "If this is your pet or you have any information about their owner, please contact us through Paws right away — every lead helps.",
                 "This animal is safe and being looked after. If you recognise them, reach out through Paws immediately so we can reunite them with their family.",
                 "Recognise this face? Please reach out through Paws — the sooner we can find their owner, the better.",
+            ],
+            'closing_owner_missing': [
+                "If you have spotted our pet or have any information about their whereabouts, please contact us through Paws immediately — we are waiting anxiously.",
+                "Have you seen this animal near {city}? Please don't hesitate to reach out through Paws — any sighting, however small, could bring them home.",
+                "Every tip counts. If you've spotted this {type} or know where they might be, please contact the owner through Paws as soon as possible.",
+                "Time is of the essence. If you have seen this animal, please reach out through Paws right away — their family is waiting.",
             ]
         }
 
@@ -494,7 +506,9 @@ class AnimalDescriptionGenerator:
         random.seed(int(time.time() * 1000) % 10000)
 
         found_key = 'default'
-        if 'lost' in found_how.lower() or 'appear' in found_how.lower():
+        if 'missing' in found_how.lower():
+            found_key = 'owner_missing'
+        elif 'lost' in found_how.lower() or 'appear' in found_how.lower():
             found_key = 'lost'
         elif 'street' in found_how.lower() or 'stray' in found_how.lower():
             found_key = 'found_street'
@@ -609,14 +623,20 @@ class AnimalDescriptionGenerator:
                 'A full health check is in progress with the help of local volunteers.',
             ]))
 
-        if found_key != 'lost' and status == 'Needs urgent care':
+        if found_key not in ('lost', 'owner_missing') and status == 'Needs urgent care':
             parts.append(random.choice([
                 'This animal needs urgent care and a loving home as soon as possible — please reach out today.',
                 'Time is important here — this animal needs care urgently. If you can help, please get in touch.',
             ]))
 
-        closing_key = 'closing_lost' if found_key == 'lost' else 'closing'
-        parts.append(random.choice(self.templates[closing_key]))
+        if found_key == 'lost':
+            closing_key = 'closing_lost'
+        elif found_key == 'owner_missing':
+            closing_key = 'closing_owner_missing'
+        else:
+            closing_key = 'closing'
+        closing_tpl = random.choice(self.templates[closing_key])
+        parts.append(closing_tpl.format(type=animal_type, city=city_label))
 
         description = ' '.join(parts)
         urgency = self.calculate_urgency_score(data)
