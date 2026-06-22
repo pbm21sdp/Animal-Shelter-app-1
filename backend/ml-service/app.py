@@ -399,6 +399,12 @@ class AnimalDescriptionGenerator:
                     "Spotted alone near {city}, this gentle {type} needs someone to give them a fresh start.",
                     "Rescued from the streets of {city}, this {type} has shown incredible resilience and warmth.",
                 ],
+                'lost': [
+                    "This {size} {type} was found near {city} and appears to be lost — well-kept and clearly used to human care, they are likely missing their family.",
+                    "Found near {city}, this {type} seems to be a lost pet rather than a stray — calm, friendly, and showing signs of being someone's beloved companion.",
+                    "A {size} {type} was spotted near {city} and appears to belong to someone. They are safe and being cared for while we search for their owner.",
+                    "This {type} was found near {city} and does not appear to be a stray — their condition and behaviour suggest they have a home and a family looking for them.",
+                ],
                 'owner_surrender': [
                     "Through no fault of their own, this {size} {type} needs a new family to call their own.",
                     "This {type} is looking for a new home after their previous family could no longer care for them.",
@@ -442,6 +448,12 @@ class AnimalDescriptionGenerator:
                 "Interested in giving them a forever home? Contact the uploader through Paws today.",
                 "Could you be the family they have been waiting for? Reach out through Paws.",
                 "Every animal deserves a front page — and a loving home. Contact us today.",
+            ],
+            'closing_lost': [
+                "Do you recognise this animal? If you are their owner or know who they belong to, please get in touch through Paws as soon as possible.",
+                "If this is your pet or you have any information about their owner, please contact us through Paws right away — every lead helps.",
+                "This animal is safe and being looked after. If you recognise them, reach out through Paws immediately so we can reunite them with their family.",
+                "Recognise this face? Please reach out through Paws — the sooner we can find their owner, the better.",
             ]
         }
 
@@ -482,7 +494,9 @@ class AnimalDescriptionGenerator:
         random.seed(int(time.time() * 1000) % 10000)
 
         found_key = 'default'
-        if 'street' in found_how.lower() or 'stray' in found_how.lower():
+        if 'lost' in found_how.lower() or 'appear' in found_how.lower():
+            found_key = 'lost'
+        elif 'street' in found_how.lower() or 'stray' in found_how.lower():
             found_key = 'found_street'
         elif 'surrender' in found_how.lower() or 'owner' in found_how.lower():
             found_key = 'owner_surrender'
@@ -595,13 +609,14 @@ class AnimalDescriptionGenerator:
                 'A full health check is in progress with the help of local volunteers.',
             ]))
 
-        if status == 'Needs urgent care':
+        if found_key != 'lost' and status == 'Needs urgent care':
             parts.append(random.choice([
                 'This animal needs urgent care and a loving home as soon as possible — please reach out today.',
                 'Time is important here — this animal needs care urgently. If you can help, please get in touch.',
             ]))
 
-        parts.append(random.choice(self.templates['closing']))
+        closing_key = 'closing_lost' if found_key == 'lost' else 'closing'
+        parts.append(random.choice(self.templates[closing_key]))
 
         description = ' '.join(parts)
         urgency = self.calculate_urgency_score(data)

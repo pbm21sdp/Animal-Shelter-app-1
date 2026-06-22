@@ -438,7 +438,7 @@ export default function AddAnimalPage() {
                             <FieldLabel>How did you find this animal?</FieldLabel>
                             <PillToggle
                                 large
-                                options={['Found on the street', 'Owner surrendered it', 'Rescued from danger', 'Other']}
+                                options={['Found on the street', 'Appears to be lost', 'Owner surrendered it', 'Rescued from danger', 'Other']}
                                 value={foundHow}
                                 onChange={setFoundHow}
                             />
