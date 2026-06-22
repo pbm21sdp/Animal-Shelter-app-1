@@ -143,6 +143,7 @@ dist
 
 backend/ml-service/venv/
 backend/ml-service/models/
+backend/ml-service/dataset/
 backend/.env.backup
 backend/db/migrations/
 backend/ml-service/__pycache__/
