@@ -437,7 +437,7 @@ export default function EditAnimalPage() {
                 <form onSubmit={handleSubmit} style={{ maxWidth: '680px', margin: '0 auto', padding: '36px 48px 80px', width: '100%', boxSizing: 'border-box' }}>
 
                     {/* Back */}
-                    <button type="button" onClick={() => navigate(returnTo || `/pet/${id}`)}
+                    <button type="button" onClick={() => navigate(-1)}
                         style={{ fontFamily: sans, fontSize: '11px', color: '#9A7A60', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: '24px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                         onMouseEnter={e => { e.currentTarget.style.color = '#C07A4A'; }}
                         onMouseLeave={e => { e.currentTarget.style.color = '#9A7A60'; }}
