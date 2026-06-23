@@ -456,6 +456,120 @@ export default function EditAnimalPage() {
                         />
                     </div>
 
+                    {/* ── WHEREABOUTS & SITUATION ─────────────────────────── */}
+                    <SectionLabel>Whereabouts &amp; situation</SectionLabel>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
+
+                        <div>
+                            <FieldLabel>What's this animal's situation?</FieldLabel>
+                            <PillToggle large options={FOUND_HOW_OPTIONS} value={foundHow} onChange={setFoundHow} />
+                            {foundHow === 'Other' && (
+                                <input type="text" placeholder="Please describe…" value={foundHowOther} onChange={e => setFoundHowOther(e.target.value)} autoFocus
+                                    style={{ width: '100%', marginTop: '10px', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }} />
+                            )}
+                        </div>
+
+                        <div>
+                            <FieldLabel>Current status</FieldLabel>
+                            <PillToggle large options={ANIMAL_STATUS_OPTIONS} value={animalStatus} onChange={setAnimalStatus} />
+                        </div>
+
+                    </div>
+
+                    <SectionDivider />
+
+                    {/* ── HEALTH ──────────────────────────────────────────── */}
+                    <SectionLabel>Health</SectionLabel>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
+                        <div>
+                            <FieldLabel>Microchip</FieldLabel>
+                            <PillToggle large options={['Yes', 'No', "Don't know"]} value={hasMicrochip} onChange={setHasMicrochip} />
+                        </div>
+                        <div>
+                            <FieldLabel>Neutered / spayed</FieldLabel>
+                            <PillToggle large options={['Yes', 'No', "Don't know"]} value={isNeutered} onChange={setIsNeutered} />
+                        </div>
+                        <div>
+                            <FieldLabel>Vaccinated</FieldLabel>
+                            <PillToggle large options={['Yes, fully', 'Partially', 'No', "Don't know"]} value={isVaccinated} onChange={setIsVaccinated} />
+                        </div>
+                    </div>
+
+                    <SectionDivider />
+
+                    {/* ── APPEARANCE ──────────────────────────────────────── */}
+                    <SectionLabel>Appearance</SectionLabel>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
+
+                        <div>
+                            <FieldLabel>Age</FieldLabel>
+                            <PillToggle large options={AGE_OPTIONS} value={approxAge}
+                                onChange={v => { setApproxAge(v); if (v) setExactAge(''); }} />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '12px 0 0' }}>
+                                <div style={{ flex: 1, height: '1px', background: 'rgba(45,31,20,0.1)' }} />
+                                <span style={{ fontFamily: sans, fontSize: '10px', color: '#B09880', whiteSpace: 'nowrap' }}>or enter exact age</span>
+                                <div style={{ flex: 1, height: '1px', background: 'rgba(45,31,20,0.1)' }} />
+                            </div>
+                            <input type="text" placeholder="e.g. 2 years, 4 months" value={exactAge}
+                                onChange={e => { setExactAge(e.target.value); if (e.target.value) setApproxAge(''); }}
+                                style={{ width: '100%', marginTop: '8px', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }} />
+                        </div>
+
+                        <div>
+                            <FieldLabel>Size</FieldLabel>
+                            <PillToggle large options={SIZE_OPTIONS} value={approxSize} onChange={setApproxSize} />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '12px 0 0' }}>
+                                <div style={{ flex: 1, height: '1px', background: 'rgba(45,31,20,0.1)' }} />
+                                <span style={{ fontFamily: sans, fontSize: '10px', color: '#B09880', whiteSpace: 'nowrap' }}>or enter exact weight</span>
+                                <div style={{ flex: 1, height: '1px', background: 'rgba(45,31,20,0.1)' }} />
+                            </div>
+                            <input type="text" placeholder="e.g. 14 kg" value={exactWeight} onChange={e => setExactWeight(e.target.value)}
+                                style={{ width: '100%', marginTop: '8px', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }} />
+                        </div>
+
+                        <div>
+                            <FieldLabel>Coat color <span style={{ fontFamily: sans, fontSize: '10px', fontWeight: 400, color: '#B09880' }}>— select all that apply</span></FieldLabel>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                {COAT_COLOR_OPTIONS.map(c => {
+                                    const active = coatColors.includes(c);
+                                    return (
+                                        <button key={c} type="button"
+                                            onClick={() => setCoatColors(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c])}
+                                            style={{ fontFamily: sans, fontSize: '12px', padding: '6px 16px', borderRadius: '100px', cursor: 'pointer', border: `1px solid ${active ? '#2D1F14' : 'rgba(45,31,20,0.15)'}`, background: active ? '#2D1F14' : 'transparent', color: active ? '#FAF7F4' : '#7A5C44', transition: 'all 0.15s' }}>
+                                            {c}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            {coatColors.includes('Other') && (
+                                <input type="text" placeholder="Describe the coat color…" value={coatColorOther} onChange={e => setCoatColorOther(e.target.value)}
+                                    style={{ width: '100%', marginTop: '10px', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }} />
+                            )}
+                        </div>
+
+                        <div>
+                            <FieldLabel>Coat type</FieldLabel>
+                            <PillToggle large options={COAT_TYPE_OPTIONS} value={coatType} onChange={setCoatType} />
+                        </div>
+
+                        <div>
+                            <FieldLabel>Breed (if known)</FieldLabel>
+                            <input type="text" placeholder="e.g. Labrador mix, unknown" value={breed} onChange={e => setBreed(e.target.value)}
+                                style={{ width: '100%', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }} />
+                        </div>
+
+                    </div>
+
+                    <SectionDivider />
+
+                    {/* ── LOCATION ────────────────────────────────────────── */}
+                    <SectionLabel>Location</SectionLabel>
+                    <div style={{ marginBottom: '24px' }}>
+                        <LocationPicker value={locValue} onChange={setLocValue} />
+                    </div>
+
+                    <SectionDivider />
+
                     {/* ── PHOTOS ──────────────────────────────────────────── */}
                     <div style={{ marginBottom: '32px' }}>
                         <SectionLabel>Photos</SectionLabel>
@@ -618,122 +732,9 @@ export default function EditAnimalPage() {
 
                     <SectionDivider />
 
-                    {/* ── WHEREABOUTS & SITUATION ─────────────────────────── */}
-                    <SectionLabel>Whereabouts &amp; situation</SectionLabel>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
-
-                        <div>
-                            <FieldLabel>What's this animal's situation?</FieldLabel>
-                            <PillToggle large options={FOUND_HOW_OPTIONS} value={foundHow} onChange={setFoundHow} />
-                            {foundHow === 'Other' && (
-                                <input type="text" placeholder="Please describe…" value={foundHowOther} onChange={e => setFoundHowOther(e.target.value)} autoFocus
-                                    style={{ width: '100%', marginTop: '10px', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }} />
-                            )}
-                        </div>
-
-                        <div>
-                            <FieldLabel>Current status</FieldLabel>
-                            <PillToggle large options={ANIMAL_STATUS_OPTIONS} value={animalStatus} onChange={setAnimalStatus} />
-                        </div>
-
-                    </div>
-
-                    <SectionDivider />
-
-                    {/* ── HEALTH ──────────────────────────────────────────── */}
-                    <SectionLabel>Health</SectionLabel>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
-                        <div>
-                            <FieldLabel>Microchip</FieldLabel>
-                            <PillToggle large options={['Yes', 'No', "Don't know"]} value={hasMicrochip} onChange={setHasMicrochip} />
-                        </div>
-                        <div>
-                            <FieldLabel>Neutered / spayed</FieldLabel>
-                            <PillToggle large options={['Yes', 'No', "Don't know"]} value={isNeutered} onChange={setIsNeutered} />
-                        </div>
-                        <div>
-                            <FieldLabel>Vaccinated</FieldLabel>
-                            <PillToggle large options={['Yes, fully', 'Partially', 'No', "Don't know"]} value={isVaccinated} onChange={setIsVaccinated} />
-                        </div>
-                    </div>
-
-                    <SectionDivider />
-
-                    {/* ── APPEARANCE ──────────────────────────────────────── */}
-                    <SectionLabel>Appearance</SectionLabel>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
-
-                        <div>
-                            <FieldLabel>Age</FieldLabel>
-                            <PillToggle large options={AGE_OPTIONS} value={approxAge}
-                                onChange={v => { setApproxAge(v); if (v) setExactAge(''); }} />
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '12px 0 0' }}>
-                                <div style={{ flex: 1, height: '1px', background: 'rgba(45,31,20,0.1)' }} />
-                                <span style={{ fontFamily: sans, fontSize: '10px', color: '#B09880', whiteSpace: 'nowrap' }}>or enter exact age</span>
-                                <div style={{ flex: 1, height: '1px', background: 'rgba(45,31,20,0.1)' }} />
-                            </div>
-                            <input type="text" placeholder="e.g. 2 years, 4 months" value={exactAge}
-                                onChange={e => { setExactAge(e.target.value); if (e.target.value) setApproxAge(''); }}
-                                style={{ width: '100%', marginTop: '8px', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }} />
-                        </div>
-
-                        <div>
-                            <FieldLabel>Size</FieldLabel>
-                            <PillToggle large options={SIZE_OPTIONS} value={approxSize} onChange={setApproxSize} />
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '12px 0 0' }}>
-                                <div style={{ flex: 1, height: '1px', background: 'rgba(45,31,20,0.1)' }} />
-                                <span style={{ fontFamily: sans, fontSize: '10px', color: '#B09880', whiteSpace: 'nowrap' }}>or enter exact weight</span>
-                                <div style={{ flex: 1, height: '1px', background: 'rgba(45,31,20,0.1)' }} />
-                            </div>
-                            <input type="text" placeholder="e.g. 14 kg" value={exactWeight} onChange={e => setExactWeight(e.target.value)}
-                                style={{ width: '100%', marginTop: '8px', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }} />
-                        </div>
-
-                        <div>
-                            <FieldLabel>Coat color <span style={{ fontFamily: sans, fontSize: '10px', fontWeight: 400, color: '#B09880' }}>— select all that apply</span></FieldLabel>
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                {COAT_COLOR_OPTIONS.map(c => {
-                                    const active = coatColors.includes(c);
-                                    return (
-                                        <button key={c} type="button"
-                                            onClick={() => setCoatColors(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c])}
-                                            style={{ fontFamily: sans, fontSize: '12px', padding: '6px 16px', borderRadius: '100px', cursor: 'pointer', border: `1px solid ${active ? '#2D1F14' : 'rgba(45,31,20,0.15)'}`, background: active ? '#2D1F14' : 'transparent', color: active ? '#FAF7F4' : '#7A5C44', transition: 'all 0.15s' }}>
-                                            {c}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                            {coatColors.includes('Other') && (
-                                <input type="text" placeholder="Describe the coat color…" value={coatColorOther} onChange={e => setCoatColorOther(e.target.value)}
-                                    style={{ width: '100%', marginTop: '10px', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }} />
-                            )}
-                        </div>
-
-                        <div>
-                            <FieldLabel>Coat type</FieldLabel>
-                            <PillToggle large options={COAT_TYPE_OPTIONS} value={coatType} onChange={setCoatType} />
-                        </div>
-
-                        <div>
-                            <FieldLabel>Breed (if known)</FieldLabel>
-                            <input type="text" placeholder="e.g. Labrador mix, unknown" value={breed} onChange={e => setBreed(e.target.value)}
-                                style={{ width: '100%', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }} />
-                        </div>
-
-                    </div>
-
-                    <SectionDivider />
-
-                    {/* ── LOCATION ────────────────────────────────────────── */}
-                    <SectionLabel>Location</SectionLabel>
-                    <div style={{ marginBottom: '24px' }}>
-                        <LocationPicker value={locValue} onChange={setLocValue} />
-                    </div>
-
                     {/* ── MODERATION STATUS (admin only) ───────────────────── */}
                     {user?.isAdmin && (
                         <>
-                            <SectionDivider />
                             <SectionLabel>Moderation status <span style={{ color: '#B09880', textTransform: 'none', letterSpacing: 0, fontWeight: 400 }}>— admin only</span></SectionLabel>
                             <div style={{ marginBottom: '24px' }}>
                                 <PillToggle large
@@ -742,10 +743,9 @@ export default function EditAnimalPage() {
                                     onChange={v => { if (v) setModerationStatus(v); }}
                                 />
                             </div>
+                            <SectionDivider />
                         </>
                     )}
-
-                    <SectionDivider />
 
                     {/* ── SAVE ────────────────────────────────────────────── */}
                     {saveError && (
