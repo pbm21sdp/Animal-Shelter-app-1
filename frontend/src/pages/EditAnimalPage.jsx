@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Navbar from '../components/Navbar';
@@ -69,6 +69,8 @@ function SectionDivider() {
 export default function EditAnimalPage() {
     const { id }       = useParams();
     const navigate     = useNavigate();
+    const location     = useLocation();
+    const returnTo     = location.state?.from || null;
     const { user }     = useAuthStore();
     const { getPetById, clearSelectedPet } = usePetStore();
 
@@ -97,6 +99,7 @@ export default function EditAnimalPage() {
     const [coatColorOther,   setCoatColorOther]   = useState('');
     const [coatType,         setCoatType]         = useState('');
     const [breed,            setBreed]            = useState('');
+    const [gender,           setGender]           = useState('');
 
     // Step-2 fields
     const [headline,         setHeadline]         = useState('');
@@ -214,6 +217,10 @@ export default function EditAnimalPage() {
         // Breed
         setBreed(p.breed || '');
 
+        // Gender
+        const gMap = { male: 'Male', female: 'Female', unknown: 'Unknown' };
+        setGender(gMap[(p.gender || '').toLowerCase()] || '');
+
         // Description
         setDescription(p.description || '');
 
@@ -281,6 +288,7 @@ export default function EditAnimalPage() {
                 microchip:  hasMicrochip,
                 foundHow:   actualFoundHow || foundHow,
                 breed, color: effectiveColors.join(', '), coat: coatType,
+                gender:     gender || '',
                 city:       locValue.city || locValue.county || '',
                 traits:     selectedTraits,
             }, { withCredentials: true });
@@ -355,6 +363,7 @@ export default function EditAnimalPage() {
                 size:             exactWeight ? `${approxSize ? `${approxSize} — ` : ''}${exactWeight}` : (approxSize || ''),
                 color:            effectiveColors.join(', ') || '',
                 coat:             coatType || '',
+                gender:           gender.toLowerCase() || '',
                 description:      description.trim(),
                 traits:           selectedTraits,
                 health_status:    status || '',
@@ -379,7 +388,7 @@ export default function EditAnimalPage() {
             }
 
             toast.success('Listing updated!');
-            navigate(`/pet/${id}`);
+            navigate(returnTo || `/pet/${id}`);
         } catch (err) {
             setSaveError(err.response?.data?.message || 'Failed to save changes.');
         } finally {
@@ -428,7 +437,7 @@ export default function EditAnimalPage() {
                 <form onSubmit={handleSubmit} style={{ maxWidth: '680px', margin: '0 auto', padding: '36px 48px 80px', width: '100%', boxSizing: 'border-box' }}>
 
                     {/* Back */}
-                    <button type="button" onClick={() => navigate(`/pet/${id}`)}
+                    <button type="button" onClick={() => navigate(returnTo || `/pet/${id}`)}
                         style={{ fontFamily: sans, fontSize: '11px', color: '#9A7A60', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: '24px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                         onMouseEnter={e => { e.currentTarget.style.color = '#C07A4A'; }}
                         onMouseLeave={e => { e.currentTarget.style.color = '#9A7A60'; }}
@@ -550,6 +559,11 @@ export default function EditAnimalPage() {
                         <div>
                             <FieldLabel>Coat type</FieldLabel>
                             <PillToggle large options={COAT_TYPE_OPTIONS} value={coatType} onChange={setCoatType} />
+                        </div>
+
+                        <div>
+                            <FieldLabel>Gender</FieldLabel>
+                            <PillToggle large options={['Male', 'Female', 'Unknown']} value={gender} onChange={setGender} />
                         </div>
 
                         <div>
