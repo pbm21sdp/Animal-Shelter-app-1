@@ -1,60 +1,83 @@
-// components/Admin/shared/AdminPagination.jsx
 import React from 'react';
+
+const sans = "'DM Sans', sans-serif";
+
+const btnBase = {
+    fontFamily: sans,
+    fontSize: '12px',
+    padding: '5px 10px',
+    border: '1px solid rgba(45,31,20,0.15)',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    background: 'transparent',
+    color: '#7A5C44',
+    transition: 'background-color 0.12s, color 0.12s',
+    lineHeight: 1.4,
+};
+
+const btnActive = {
+    ...btnBase,
+    backgroundColor: '#C07A4A',
+    borderColor: '#C07A4A',
+    color: '#FAF7F4',
+    fontWeight: 500,
+    cursor: 'default',
+};
 
 const AdminPagination = ({ itemsPerPage, totalItems, currentPage, paginate }) => {
     const pageNumbers = [];
-
     for (let i = 1; i <= Math.ceil(totalItems / itemsPerPage); i++) {
         pageNumbers.push(i);
     }
 
-    // Only show 5 page numbers max with current page in the middle when possible
     let visiblePages = pageNumbers;
     if (pageNumbers.length > 5) {
         const startIndex = Math.max(0, currentPage - 3);
-        const endIndex = Math.min(pageNumbers.length, currentPage + 2);
+        const endIndex   = Math.min(pageNumbers.length, currentPage + 2);
         visiblePages = pageNumbers.slice(startIndex, endIndex);
 
-        // Always show first and last page
         if (!visiblePages.includes(1)) {
             visiblePages.unshift(1);
             if (visiblePages[1] > 2) visiblePages.splice(1, 0, '...');
         }
         if (!visiblePages.includes(pageNumbers.length)) {
-            if (visiblePages[visiblePages.length - 1] < pageNumbers.length - 1) {
-                visiblePages.push('...');
-            }
+            if (visiblePages[visiblePages.length - 1] < pageNumbers.length - 1) visiblePages.push('...');
             visiblePages.push(pageNumbers.length);
         }
     }
 
     if (pageNumbers.length <= 1) return null;
 
+    const hoverOn  = e => { if (e.currentTarget.dataset.active !== 'true') { e.currentTarget.style.backgroundColor = 'rgba(192,122,74,0.08)'; e.currentTarget.style.color = '#2D1F14'; }};
+    const hoverOff = e => { if (e.currentTarget.dataset.active !== 'true') { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#7A5C44'; }};
+
     return (
-        <nav className="flex justify-center mt-4 mb-6">
-            <ul className="flex">
-                <li className={`mx-1 ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}`}>
+        <nav style={{ display: 'flex', justifyContent: 'center', marginTop: '16px', marginBottom: '24px' }}>
+            <ul style={{ display: 'flex', gap: '4px', listStyle: 'none', margin: 0, padding: 0, alignItems: 'center' }}>
+
+                <li>
                     <button
                         onClick={() => currentPage > 1 && paginate(currentPage - 1)}
                         disabled={currentPage === 1}
-                        className="px-3 py-1 border rounded bg-gray-100 hover:bg-gray-200"
+                        style={{ ...btnBase, opacity: currentPage === 1 ? 0.4 : 1, cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
+                        onMouseEnter={hoverOn}
+                        onMouseLeave={hoverOff}
                     >
-                        Prev
+                        ← Prev
                     </button>
                 </li>
 
                 {visiblePages.map((number, index) => (
-                    <li key={index} className="mx-1">
+                    <li key={index}>
                         {number === '...' ? (
-                            <span className="px-3 py-1">...</span>
+                            <span style={{ padding: '5px 6px', fontSize: '12px', color: '#B09880', fontFamily: sans }}>…</span>
                         ) : (
                             <button
                                 onClick={() => paginate(number)}
-                                className={`px-3 py-1 border rounded ${
-                                    currentPage === number
-                                        ? 'bg-tealcustom text-white'
-                                        : 'bg-gray-100 hover:bg-gray-200'
-                                }`}
+                                data-active={currentPage === number ? 'true' : 'false'}
+                                style={currentPage === number ? btnActive : btnBase}
+                                onMouseEnter={hoverOn}
+                                onMouseLeave={hoverOff}
                             >
                                 {number}
                             </button>
@@ -62,15 +85,18 @@ const AdminPagination = ({ itemsPerPage, totalItems, currentPage, paginate }) =>
                     </li>
                 ))}
 
-                <li className={`mx-1 ${currentPage === pageNumbers.length ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                <li>
                     <button
                         onClick={() => currentPage < pageNumbers.length && paginate(currentPage + 1)}
                         disabled={currentPage === pageNumbers.length}
-                        className="px-3 py-1 border rounded bg-gray-100 hover:bg-gray-200"
+                        style={{ ...btnBase, opacity: currentPage === pageNumbers.length ? 0.4 : 1, cursor: currentPage === pageNumbers.length ? 'not-allowed' : 'pointer' }}
+                        onMouseEnter={hoverOn}
+                        onMouseLeave={hoverOff}
                     >
-                        Next
+                        Next →
                     </button>
                 </li>
+
             </ul>
         </nav>
     );

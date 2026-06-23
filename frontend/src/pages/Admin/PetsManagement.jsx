@@ -671,7 +671,7 @@ const PetsManagement = () => {
         <div>
             {/* Title and Add Pet Button */}
             <div className="flex flex-wrap justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold mb-4 sm:mb-0">Manage Pets</h2>
+                <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '24px', fontWeight: 700, color: '#2D1F14', margin: 0 }}>Manage Pets</h2>
                 <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
                     <AdminSearchBar
                         value={searchTerm}
@@ -689,123 +689,105 @@ const PetsManagement = () => {
             )}
 
             {/* Pets Table */}
-            <div className="bg-white shadow-md rounded-lg overflow-x-auto w-full">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+            <div style={{ backgroundColor: '#FFFAF7', border: '1px solid rgba(45,31,20,0.1)', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(45,31,20,0.06)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: "'DM Sans', sans-serif" }}>
+                    <thead style={{ backgroundColor: 'rgba(45,31,20,0.03)', borderBottom: '1px solid rgba(45,31,20,0.1)' }}>
                     <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pet</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Breed</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Age</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gender</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Moderation</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        <th style={{ padding: '8px 10px', fontSize: '10px', fontWeight: 600, color: '#B09880', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'left', whiteSpace: 'nowrap' }}>Pet</th>
+                        <th style={{ padding: '8px 10px', fontSize: '10px', fontWeight: 600, color: '#B09880', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'left', whiteSpace: 'nowrap' }}>Type</th>
+                        <th style={{ padding: '8px 10px', fontSize: '10px', fontWeight: 600, color: '#B09880', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'left', whiteSpace: 'nowrap' }}>Breed</th>
+                        <th style={{ padding: '8px 10px', fontSize: '10px', fontWeight: 600, color: '#B09880', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'left', whiteSpace: 'nowrap' }}>Age</th>
+                        <th style={{ padding: '8px 10px', fontSize: '10px', fontWeight: 600, color: '#B09880', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'left', whiteSpace: 'nowrap' }}>Gender</th>
+                        <th style={{ padding: '8px 10px', fontSize: '10px', fontWeight: 600, color: '#B09880', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'left', whiteSpace: 'nowrap' }}>Location</th>
+                        <th style={{ padding: '8px 10px', fontSize: '10px', fontWeight: 600, color: '#B09880', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'left', whiteSpace: 'nowrap' }}>Moderation</th>
+                        <th style={{ padding: '8px 10px', fontSize: '10px', fontWeight: 600, color: '#B09880', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'left', whiteSpace: 'nowrap' }}>Status</th>
+                        <th style={{ padding: '8px 10px', fontSize: '10px', fontWeight: 600, color: '#B09880', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'left', whiteSpace: 'nowrap' }}>Actions</th>
                     </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody>
                     {isLoading ? (
                         <tr>
-                            <td colSpan="9" className="px-6 py-4 text-center">Loading...</td>
+                            <td colSpan="9" style={{ padding: '32px', textAlign: 'center', fontSize: '13px', color: '#B09880', fontFamily: "'DM Sans', sans-serif" }}>Loading...</td>
                         </tr>
                     ) : filteredPets.length === 0 ? (
                         <tr>
-                            <td colSpan="9" className="px-6 py-4 text-center">No pets found</td>
+                            <td colSpan="9" style={{ padding: '32px', textAlign: 'center', fontSize: '13px', color: '#B09880', fontFamily: "'DM Sans', sans-serif" }}>No pets found</td>
                         </tr>
                     ) : (
                         // Use getCurrentPets() instead of filteredPets directly
                         getCurrentPets().map(pet => (
-                            <tr key={pet.id} className="hover:bg-gray-50">
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="flex items-center">
-                                        <div className="h-10 w-10 rounded-full overflow-hidden bg-gray-200 mr-3">
+                            <tr key={pet.id} style={{ borderTop: '1px solid rgba(45,31,20,0.06)' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(192,122,74,0.04)'} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                                <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <div style={{ width: '30px', height: '30px', borderRadius: '50%', overflow: 'hidden', backgroundColor: '#E8D4C8', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                             {pet.photos && pet.photos.length > 0 ? (
                                                 <img
                                                     src={getPhotoUrl(pet.photos.find(p => p.is_primary)?.id || pet.photos[0].id)}
                                                     alt={pet.name}
-                                                    className="h-full w-full object-cover"
-                                                    onError={(e) => e.target.src = '/api/placeholder/40/40'}
+                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                    onError={(e) => e.target.src = '/api/placeholder/30/30'}
                                                 />
                                             ) : (
-                                                <div className="h-full w-full flex items-center justify-center bg-gray-200 text-gray-500">
-                                                    <PawPrint className="h-6 w-6" />
-                                                    <span className="sr-only">No photo provided</span>
-                                                </div>
+                                                <PawPrint style={{ width: '14px', height: '14px', color: '#B09880' }} />
                                             )}
                                         </div>
-                                        <div className="font-medium text-gray-900">{pet.name}</div>
+                                        <span style={{ fontSize: '13px', fontWeight: 500, color: '#2D1F14' }}>{pet.name}</span>
                                     </div>
                                 </td>
-                                <td className="px-6 py-4">{pet.type}</td>
-                                <td className="px-6 py-4">{pet.breed}</td>
-                                <td className="px-6 py-4">{pet.age_category}</td>
-                                <td className="px-6 py-4">{pet.gender}</td>
-                                <td className="px-6 py-4">{pet.location_city}</td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                        pet.status === 'approved' ? 'bg-emerald-100 text-emerald-800' :
-                                            pet.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                                                'bg-amber-100 text-amber-800'
-                                    }`}>
-                                        {pet.status === 'approved' ? 'Approved' :
-                                            pet.status === 'rejected' ? 'Rejected' :
-                                                'Pending'}
+                                <td style={{ padding: '8px 10px', fontSize: '12px', color: '#7A5C44' }}>{pet.type}</td>
+                                <td style={{ padding: '8px 10px', fontSize: '12px', color: '#7A5C44' }}>{pet.breed}</td>
+                                <td style={{ padding: '8px 10px', fontSize: '12px', color: '#7A5C44' }}>{pet.age_category}</td>
+                                <td style={{ padding: '8px 10px', fontSize: '12px', color: '#7A5C44' }}>{pet.gender}</td>
+                                <td style={{ padding: '8px 10px', fontSize: '12px', color: '#7A5C44' }}>{pet.location_city}</td>
+                                <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>
+                                    <span style={{
+                                        padding: '3px 8px', fontSize: '11px', fontWeight: 500, borderRadius: '100px',
+                                        ...(pet.status === 'approved'
+                                            ? { backgroundColor: 'rgba(34,197,94,0.1)', color: '#166534' }
+                                            : pet.status === 'rejected'
+                                            ? { backgroundColor: 'rgba(153,60,29,0.1)', color: '#993C1D' }
+                                            : { backgroundColor: '#FAF3E8', color: '#8B4E28' })
+                                    }}>
+                                        {pet.status === 'approved' ? 'Approved' : pet.status === 'rejected' ? 'Rejected' : 'Pending'}
                                     </span>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                        pet.adoption_status === 'available' ? 'bg-green-100 text-green-800' :
-                                            pet.adoption_status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                                pet.adoption_status === 'adopted' ? 'bg-blue-100 text-blue-800' :
-                                                    pet.adoption_status === 'unavailable' ? 'bg-gray-100 text-gray-800' :
-                                                        'bg-gray-100 text-gray-800'
-                                    }`}>
+                                <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>
+                                    <span style={{
+                                        padding: '3px 8px', fontSize: '11px', fontWeight: 500, borderRadius: '100px',
+                                        ...(pet.adoption_status === 'available'
+                                            ? { backgroundColor: 'rgba(34,197,94,0.1)', color: '#166534' }
+                                            : pet.adoption_status === 'pending'
+                                            ? { backgroundColor: '#FAF3E8', color: '#8B4E28' }
+                                            : pet.adoption_status === 'adopted'
+                                            ? { backgroundColor: 'rgba(45,31,20,0.08)', color: '#2D1F14' }
+                                            : { backgroundColor: 'rgba(45,31,20,0.05)', color: '#7A5C44' })
+                                    }}>
                                         {pet.adoption_status === 'available' ? 'Available' :
                                             pet.adoption_status === 'pending' ? 'Pending' :
-                                                pet.adoption_status === 'adopted' ? 'Adopted' :
-                                                    pet.adoption_status === 'unavailable' ? 'Unavailable' :
-                                                        pet.adoption_status || 'Unknown'}
+                                            pet.adoption_status === 'adopted' ? 'Adopted' :
+                                            pet.adoption_status === 'unavailable' ? 'Unavailable' :
+                                            pet.adoption_status || 'Unknown'}
                                     </span>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="flex space-x-2">
+                                <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>
+                                    <div style={{ display: 'flex', gap: '2px' }}>
                                         <button
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                handleEditClick(pet, e);
-                                            }}
-                                            className="text-indigo-600 hover:text-indigo-900"
-                                            style={{
-                                                touchAction: 'manipulation !important',
-                                                minHeight: '44px',
-                                                minWidth: '44px',
-                                                position: 'relative',
-                                                zIndex: 10,
-                                                padding: '10px'
-                                            }}
+                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEditClick(pet, e); }}
+                                            style={{ color: '#C07A4A', background: 'none', border: 'none', cursor: 'pointer', padding: '6px', borderRadius: '4px', display: 'flex', alignItems: 'center' }}
+                                            onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(192,122,74,0.1)'}
+                                            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                                             aria-label={`Edit ${pet.name}`}
                                         >
-                                            <Edit className="h-5 w-5" />
+                                            <Edit style={{ width: '15px', height: '15px' }} />
                                         </button>
                                         <button
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                handleDeleteClick(pet, e);
-                                            }}
-                                            className="text-red-600 hover:text-red-900"
-                                            style={{
-                                                touchAction: 'manipulation !important',
-                                                minHeight: '44px',
-                                                minWidth: '44px',
-                                                position: 'relative',
-                                                zIndex: 10
-                                            }}
+                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteClick(pet, e); }}
+                                            style={{ color: '#993C1D', background: 'none', border: 'none', cursor: 'pointer', padding: '6px', borderRadius: '4px', display: 'flex', alignItems: 'center' }}
+                                            onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(153,60,29,0.08)'}
+                                            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                                             aria-label={`Delete ${pet.name}`}
                                         >
-                                            <Trash2 className="h-5 w-5" />
+                                            <Trash2 style={{ width: '15px', height: '15px' }} />
                                         </button>
                                     </div>
                                 </td>

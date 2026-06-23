@@ -1,18 +1,39 @@
-// components/Admin/shared/AdminSearchBar.jsx
 import React from 'react';
 import { Search } from 'lucide-react';
 
-const AdminSearchBar = ({ value, onChange, placeholder = 'Search...', className = '' }) => {
+const AdminSearchBar = ({ value, onChange, placeholder = 'Search...' }) => {
     return (
-        <div className={`relative w-full sm:w-auto ${className}`}>
+        <div style={{ position: 'relative', flexShrink: 0 }}>
             <input
                 type="text"
                 placeholder={placeholder}
                 value={value}
                 onChange={onChange}
-                className="px-4 py-2 pl-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 w-full"
+                style={{
+                    padding: '6px 12px 6px 30px',
+                    border: '1px solid rgba(45,31,20,0.15)',
+                    borderRadius: '100px',
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '12px',
+                    color: '#7A5C44',
+                    backgroundColor: '#FAF7F4',
+                    outline: 'none',
+                    width: '190px',
+                    transition: 'border-color 0.15s',
+                }}
+                onFocus={e => { e.target.style.borderColor = '#C07A4A'; }}
+                onBlur={e  => { e.target.style.borderColor = 'rgba(45,31,20,0.15)'; }}
             />
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <Search style={{
+                position: 'absolute',
+                left: '10px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: '13px',
+                height: '13px',
+                color: '#B09880',
+                pointerEvents: 'none',
+            }} />
         </div>
     );
 };

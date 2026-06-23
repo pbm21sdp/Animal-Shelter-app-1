@@ -66,7 +66,7 @@ const AdminDashboardPage = () => {
 
                 {/* Sidebar — desktop only */}
                 <aside
-                    className="hidden md:flex flex-col w-64"
+                    className="hidden md:flex flex-col w-48"
                     style={{
                         backgroundColor: '#FAF7F4',
                         borderRight: '1px solid rgba(45,31,20,0.1)',
