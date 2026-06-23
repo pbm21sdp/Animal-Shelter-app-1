@@ -167,7 +167,7 @@ const PetsManagement = () => {
 
             setShowAddModal(false);
             resetForm();
-            getAllPets(); // Refresh the pet list
+            getAllPets({ isAdminRequest: true }); // Refresh the pet list
         } catch (error) {
             console.error('Error creating pet:', error);
         }
@@ -188,7 +188,7 @@ const PetsManagement = () => {
                 setShowEditModal(false);
                 resetForm();
                 setSelectedPet(null);
-                getAllPets(); // Refresh the pet list
+                getAllPets({ isAdminRequest: true }); // Refresh the pet list
             } catch (error) {
                 console.error('Error updating pet:', error);
             }
@@ -202,7 +202,7 @@ const PetsManagement = () => {
                 await deletePet(selectedPet.id);
                 setShowDeleteConfirm(false);
                 setSelectedPet(null);
-                getAllPets(); // Refresh the pet list
+                getAllPets({ isAdminRequest: true }); // Refresh the pet list
             } catch (error) {
                 console.error('Error deleting pet:', error);
             }
@@ -831,6 +831,7 @@ const PetsManagement = () => {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Age</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gender</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Moderation</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
@@ -838,11 +839,11 @@ const PetsManagement = () => {
                     <tbody className="bg-white divide-y divide-gray-200">
                     {isLoading ? (
                         <tr>
-                            <td colSpan="8" className="px-6 py-4 text-center">Loading...</td>
+                            <td colSpan="9" className="px-6 py-4 text-center">Loading...</td>
                         </tr>
                     ) : filteredPets.length === 0 ? (
                         <tr>
-                            <td colSpan="8" className="px-6 py-4 text-center">No pets found</td>
+                            <td colSpan="9" className="px-6 py-4 text-center">No pets found</td>
                         </tr>
                     ) : (
                         // Use getCurrentPets() instead of filteredPets directly
@@ -873,6 +874,17 @@ const PetsManagement = () => {
                                 <td className="px-6 py-4">{pet.age_category}</td>
                                 <td className="px-6 py-4">{pet.gender}</td>
                                 <td className="px-6 py-4">{pet.location_city}</td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                        pet.status === 'approved' ? 'bg-emerald-100 text-emerald-800' :
+                                            pet.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                                                'bg-amber-100 text-amber-800'
+                                    }`}>
+                                        {pet.status === 'approved' ? 'Approved' :
+                                            pet.status === 'rejected' ? 'Rejected' :
+                                                'Pending'}
+                                    </span>
+                                </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                                         pet.adoption_status === 'available' ? 'bg-green-100 text-green-800' :
