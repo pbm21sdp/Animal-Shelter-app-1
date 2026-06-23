@@ -604,15 +604,15 @@ class AnimalDescriptionGenerator:
         parts = [opening]
 
         # Appearance sentence (breed / color / coat from AI analysis)
-        appearance_parts = []
-        if breed:
-            appearance_parts.append(f'appears to be a {breed}')
-        if color:
-            appearance_parts.append(f'with a {color} coat')
-        if coat and not color:
-            appearance_parts.append(f'with {coat} fur')
-        if appearance_parts:
-            parts.append(f'This {animal_type} {", ".join(appearance_parts)}.')
+        if breed and (color or coat):
+            coat_str = f'with a {color} coat' if color else f'with {coat} fur'
+            parts.append(f'This {animal_type} appears to be a {breed}, {coat_str}.')
+        elif breed:
+            parts.append(f'This {animal_type} appears to be a {breed}.')
+        elif color:
+            parts.append(f'This {animal_type} has a {color} coat.')
+        elif coat:
+            parts.append(f'This {animal_type} has {coat} fur.')
 
         # Personality traits — multiple sentence patterns for variety
         if traits:
