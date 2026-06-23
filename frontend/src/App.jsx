@@ -17,7 +17,6 @@ import AdoptionProcessPage from "./pages/AdoptionProcessPage";
 import AdoptionRequirementsPage from "./pages/AdoptionRequirementsPage";
 import AdoptionFAQPage from './pages/AdoptionFAQPage';
 import DonationSuccessPage from './pages/DonationSuccessPage';
-import UserProfilePage from './pages/UserProfilePage';
 import ProfilePage from './pages/ProfilePage';
 import Team from './pages/Team';
 import Partnerships from './pages/Partnerships';
@@ -205,13 +204,6 @@ function App() {
                         <ProfilePage />
                     </ProtectedRoute>
                 }/>
-                {/* Legacy profile page (messages, meetings, adoptions tabs) */}
-                <Route path="/my-profile" element={
-                    <ProtectedRoute>
-                        <UserProfilePage />
-                    </ProtectedRoute>
-                }
-                />
                 <Route path="/team" element={
                     <ProtectedRoute>
                         <Team />

@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { PawPrint, ArrowLeft, Users, MessageSquare, BarChart3, Settings, Heart, Calendar, ShieldCheck } from 'lucide-react';
+import { PawPrint, ArrowLeft, Users, BarChart3, Settings, Heart, ShieldCheck } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 // Import admin panel components
 import PetsManagement from './Admin/PetsManagement';
 import UsersManagement from './Admin/UsersManagement';
-import MessagesInbox from './Admin/MessagesInbox';
 import DonationsStats from './Admin/DonationsStats';
 import AdoptionsManagement from './Admin/AdoptionsManagement';
 import AdminSettings from './Admin/AdminSettings';
-import MeetingsManagement from "./Admin/MeetingsManagement.jsx";
 import StatisticsManagement from './Admin/StatisticsManagement';
 import ModerationPanel from './Admin/ModerationPanel';
 
@@ -59,9 +57,7 @@ const AdminDashboardPage = () => {
     const navItems = [
         { id: 'pets', label: 'Pets', icon: <PawPrint className="h-5 w-5" /> },
         { id: 'adoptions', label: 'Adoptions', icon: <Heart className="h-5 w-5" /> },
-        { id: 'meetings', label: 'Meetings', icon: <Calendar className="h-5 w-5" /> },
         { id: 'users', label: 'Users', icon: <Users className="h-5 w-5" /> },
-        { id: 'messages', label: 'Messages', icon: <MessageSquare className="h-5 w-5" /> },
         { id: 'moderation', label: 'Moderation', icon: <ShieldCheck className="h-5 w-5" /> },
         { id: 'statistics', label: 'Statistics', icon: <BarChart3 className="h-5 w-5" /> },
         { id: 'settings', label: 'Settings', icon: <Settings className="h-5 w-5" /> }
@@ -139,9 +135,7 @@ const AdminDashboardPage = () => {
                         {activePanel === 'statistics' && <StatisticsManagement />}
                         {activePanel === 'pets' && <PetsManagement />}
                         {activePanel === 'adoptions' && <AdoptionsManagement />}
-                        {activePanel === 'meetings' && <MeetingsManagement />}
                         {activePanel === 'users' && <UsersManagement />}
-                        {activePanel === 'messages' && <MessagesInbox />}
                         {activePanel === 'settings' && <AdminSettings />}
                     </div>
                 </main>
