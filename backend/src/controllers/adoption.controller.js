@@ -2,6 +2,7 @@ import { Adoption } from '../models/adoption.model.js';
 import { User } from '../models/user.model.js';
 import { PetModel } from '../models/pet.model.js';
 import mongoose from 'mongoose';
+import { pool } from '../config/database/connectPostgresDB.js';
 
 // Submit adoption application
 export const submitAdoptionApplication = async (req, res) => {
@@ -240,52 +241,66 @@ export const getAdoptionDetails = async (req, res) => {
 
 
 
-// Admin: Get all adoption applications
+// Admin: Get all completed adoptions (approved only, cross-DB enriched)
 export const getAllAdoptions = async (req, res) => {
     try {
-        // Get query parameters for filtering
-        const { status, petType, sort = 'newest' } = req.query;
+        const { petType, sort = 'newest' } = req.query;
 
-        // Build filter object
-        const filters = {};
+        // Always filter to approved (completed adoptions only)
+        const mongoFilter = { status: 'approved' };
+        if (petType && petType !== 'all') mongoFilter.petType = petType;
 
-        // Only add filters if they have valid values (not 'all')
-        if (status && status !== 'all') {
-            filters.status = status;
-        }
+        const sortOptions = sort === 'oldest' ? { createdAt: 1 } : { createdAt: -1 };
 
-        if (petType && petType !== 'all') {
-            filters.petType = petType;
-        }
-
-        // Determine sort order
-        let sortOptions = {};
-        if (sort === 'oldest') {
-            sortOptions = { createdAt: 1 };
-        } else if (sort === 'status') {
-            sortOptions = { status: 1, createdAt: -1 };
-        } else {
-            // Default sort by newest
-            sortOptions = { createdAt: -1 };
-        }
-
-        // Fetch adoptions with populated user data
-        const adoptions = await Adoption.find(filters)
+        const adoptions = await Adoption.find(mongoFilter)
             .populate('user', 'name email')
-            .sort(sortOptions);
+            .sort(sortOptions)
+            .lean();
 
-        // Return the adoptions
-        res.status(200).json({
-            success: true,
-            adoptions
-        });
+        if (adoptions.length === 0) {
+            return res.status(200).json({ success: true, adoptions: [] });
+        }
+
+        // Cross-DB: verify petIds exist in PostgreSQL and get uploader info
+        const petIds = [...new Set(adoptions.map(a => a.petId).filter(Boolean))];
+        let uploaderMap = {};
+        let validPetIds = new Set();
+
+        try {
+            const pgResult = await pool.query(
+                'SELECT id, uploader_id FROM pets WHERE id = ANY($1)',
+                [petIds]
+            );
+            pgResult.rows.forEach(r => validPetIds.add(r.id));
+
+            const uploaderIds = [...new Set(pgResult.rows.map(r => r.uploader_id).filter(Boolean))];
+            if (uploaderIds.length > 0) {
+                const uploaders = await User.find({ _id: { $in: uploaderIds } }, { name: 1, email: 1 }).lean();
+                const userMap = Object.fromEntries(uploaders.map(u => [u._id.toString(), u]));
+                pgResult.rows.forEach(r => {
+                    if (r.uploader_id && userMap[r.uploader_id]) {
+                        uploaderMap[r.id] = userMap[r.uploader_id];
+                    }
+                });
+            }
+        } catch (pgErr) {
+            console.warn('[adoptions] PostgreSQL lookup failed:', pgErr.message);
+            // Fallback: include all adoptions without uploader/validity filtering
+        }
+
+        // Filter out seeded/fake adoptions (petId not in PostgreSQL)
+        const enriched = adoptions
+            .filter(a => validPetIds.size === 0 || validPetIds.has(a.petId))
+            .map(a => ({
+                ...a,
+                uploaderName:  uploaderMap[a.petId]?.name  || null,
+                uploaderEmail: uploaderMap[a.petId]?.email || null,
+            }));
+
+        res.status(200).json({ success: true, adoptions: enriched });
     } catch (error) {
         console.error('Error fetching all adoptions:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to fetch adoptions',
-            error: error.message
-        });
+        res.status(500).json({ success: false, message: 'Failed to fetch adoptions', error: error.message });
     }
 };
 
