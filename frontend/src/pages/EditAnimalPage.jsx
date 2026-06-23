@@ -436,14 +436,16 @@ export default function EditAnimalPage() {
 
                 <form onSubmit={handleSubmit} style={{ maxWidth: '680px', margin: '0 auto', padding: '36px 48px 80px', width: '100%', boxSizing: 'border-box' }}>
 
-                    {/* Back */}
-                    <button type="button" onClick={() => navigate(-1)}
-                        style={{ fontFamily: sans, fontSize: '11px', color: '#9A7A60', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: '24px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                        onMouseEnter={e => { e.currentTarget.style.color = '#C07A4A'; }}
-                        onMouseLeave={e => { e.currentTarget.style.color = '#9A7A60'; }}
-                    >
-                        ← {returnTo === '/admin/pets' ? 'Back to Dashboard' : 'Back to listing'}
-                    </button>
+                    {/* Cancel */}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+                        <button type="button" onClick={() => navigate(-1)}
+                            style={{ fontFamily: sans, fontSize: '11px', color: '#9A7A60', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                            onMouseEnter={e => { e.currentTarget.style.color = '#C07A4A'; }}
+                            onMouseLeave={e => { e.currentTarget.style.color = '#9A7A60'; }}
+                        >
+                            ✕ Cancel
+                        </button>
+                    </div>
 
                     {/* Masthead */}
                     <div style={{ textAlign: 'center', paddingBottom: '24px', borderBottom: '3px double rgba(45,31,20,0.15)', marginBottom: '32px' }}>
