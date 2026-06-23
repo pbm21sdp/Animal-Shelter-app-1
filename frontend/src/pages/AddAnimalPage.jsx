@@ -194,6 +194,7 @@ export default function AddAnimalPage() {
     const [coatColorOther,  setCoatColorOther]  = useState('');
     const [coatType,        setCoatType]        = useState('');
     const [breed,           setBreed]           = useState('');
+    const [gender,          setGender]          = useState('');
 
     // ── Step 2 state ──────────────────────────────────────────────────────────
     const [headline,        setHeadline]        = useState('');
@@ -262,6 +263,7 @@ export default function AddAnimalPage() {
                 breed:      breed || '',
                 color:      effectiveColors.join(', ') || '',
                 coat:       coatType || '',
+                gender:     gender || '',
                 city:       locValue.city || locValue.county || '',
                 traits:     selectedTraits,
             }, { withCredentials: true });
@@ -379,7 +381,7 @@ export default function AddAnimalPage() {
                 type:                  actualType.toLowerCase(),
                 breed:                 breed || '',
                 age_category:          exactAge || approxAge || '',
-                gender:                '',
+                gender:                gender.toLowerCase() || '',
                 size:                  exactWeight ? `${approxSize ? `${approxSize} — ` : ''}${exactWeight}` : (approxSize || ''),
                 color:                 effectiveColors.join(', ') || '',
                 coat:                  coatType || '',
@@ -466,6 +468,17 @@ export default function AddAnimalPage() {
                 <StepIndicator step={1} />
 
                 <div style={{ maxWidth: '640px', margin: '0 auto', padding: '36px 48px 80px', width: '100%', boxSizing: 'border-box' }}>
+
+                    {/* Cancel */}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+                        <button type="button" onClick={() => navigate(-1)}
+                            style={{ fontFamily: sans, fontSize: '11px', color: '#9A7A60', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                            onMouseEnter={e => { e.currentTarget.style.color = '#C07A4A'; }}
+                            onMouseLeave={e => { e.currentTarget.style.color = '#9A7A60'; }}
+                        >
+                            ✕ Cancel
+                        </button>
+                    </div>
 
                     {/* Masthead */}
                     <div style={{ textAlign: 'center', marginBottom: '36px' }}>
@@ -647,6 +660,11 @@ export default function AddAnimalPage() {
                         </div>
 
                         <div>
+                            <FieldLabel>Gender</FieldLabel>
+                            <PillToggle large options={['Male', 'Female', 'Unknown']} value={gender} onChange={setGender} />
+                        </div>
+
+                        <div>
                             <FieldLabel>Breed (if known)</FieldLabel>
                             <input
                                 type="text"
@@ -703,16 +721,27 @@ export default function AddAnimalPage() {
 
             <form onSubmit={handleSubmit} style={{ maxWidth: '720px', margin: '0 auto', padding: '40px 48px 80px', width: '100%', boxSizing: 'border-box' }}>
 
-                {/* Back link */}
-                <button
-                    type="button"
-                    onClick={() => setStep(1)}
-                    style={{ fontFamily: sans, fontSize: '11px', color: '#9A7A60', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: '24px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                    onMouseEnter={e => { e.currentTarget.style.color = '#C07A4A'; }}
-                    onMouseLeave={e => { e.currentTarget.style.color = '#9A7A60'; }}
-                >
-                    ← Back
-                </button>
+                {/* Back / Cancel */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                    <button
+                        type="button"
+                        onClick={() => setStep(1)}
+                        style={{ fontFamily: sans, fontSize: '11px', color: '#9A7A60', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                        onMouseEnter={e => { e.currentTarget.style.color = '#C07A4A'; }}
+                        onMouseLeave={e => { e.currentTarget.style.color = '#9A7A60'; }}
+                    >
+                        ← Back
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => navigate(-1)}
+                        style={{ fontFamily: sans, fontSize: '11px', color: '#9A7A60', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                        onMouseEnter={e => { e.currentTarget.style.color = '#C07A4A'; }}
+                        onMouseLeave={e => { e.currentTarget.style.color = '#9A7A60'; }}
+                    >
+                        ✕ Cancel
+                    </button>
+                </div>
 
                 {/* ── MASTHEAD ─────────────────────────────────────────── */}
                 <div style={{ textAlign: 'center', marginBottom: '0' }}>
