@@ -1,5 +1,6 @@
 // components/Admin/PetsManagement.jsx
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { usePetStore } from '../../store/petStore';
 import { PawPrint, Plus, X, Edit, Trash2, Check, Camera, Star, Search, Filter, RefreshCw } from 'lucide-react';
 import axios from 'axios';
@@ -8,11 +9,11 @@ import AdminModal from './shared/AdminModal';
 import AdminSearchBar from './shared/AdminSearchBar';
 
 const PetsManagement = () => {
+    const navigate = useNavigate();
     const { pets, isLoading, error, getAllPets, createPet, updatePet, deletePet } = usePetStore();
 
     // UI state
     const [showAddModal, setShowAddModal] = useState(false);
-    const [showEditModal, setShowEditModal] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [filteredPets, setFilteredPets] = useState([]);
@@ -173,28 +174,6 @@ const PetsManagement = () => {
         }
     };
 
-    // Handle form update
-    const handleUpdate = async (e) => {
-        e.preventDefault();
-        if (selectedPet) {
-            try {
-                await updatePet(selectedPet.id, formData);
-
-                // If a photo is selected, upload it
-                if (photoFile) {
-                    await uploadPhoto(selectedPet.id, photoFile);
-                }
-
-                setShowEditModal(false);
-                resetForm();
-                setSelectedPet(null);
-                getAllPets({ isAdminRequest: true }); // Refresh the pet list
-            } catch (error) {
-                console.error('Error updating pet:', error);
-            }
-        }
-    };
-
     // Handle pet deletion
     const handleDelete = async () => {
         if (selectedPet) {
@@ -209,53 +188,10 @@ const PetsManagement = () => {
         }
     };
 
-    // Open edit modal with pet data
-    const handleEditClick = async (pet, e) => {
-        // Stop event propagation to prevent table row click
-        if (e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-
-        setSelectedPet(pet);
-
-        // Set form data from pet
-        setFormData({
-            name: pet.name || '',
-            type: pet.type || 'dog',
-            breed: pet.breed || '',
-            age_category: pet.age_category || 'young',
-            gender: pet.gender || 'male',
-            size: pet.size || 'medium',
-            color: pet.color || '',
-            coat: pet.coat || '',
-            fee: pet.fee || '',
-            description: pet.description || '',
-            health_status: pet.health_status || 'healthy',
-            story: pet.story || '',
-            location_address: pet.location_address || '',
-            location_city: pet.location_city || '',
-            location_country: pet.location_country || '',
-            shelter_contact_email: pet.shelter_contact_email || '',
-            shelter_contact_phone: pet.shelter_contact_phone || '',
-            zip_code: pet.zip_code || '',
-            traits: pet.traits ? (Array.isArray(pet.traits) ? pet.traits : [pet.traits]) : [],
-            is_available: pet.is_available !== undefined ? pet.is_available : true,
-            adoption_status: pet.is_available !== undefined && !pet.is_available ? 'unavailable' : pet.adoption_status || 'available'
-        });
-
-        // Fetch photos for this pet
-        try {
-            const response = await axios.get(`http://localhost:5000/api/pets/${pet.id}/photos`);
-            if (response.data.success) {
-                setCurrentPetPhotos(response.data.photos || []);
-            }
-        } catch (error) {
-            console.error('Error fetching pet photos:', error);
-            setCurrentPetPhotos([]);
-        }
-
-        setShowEditModal(true);
+    // Navigate to the edit page for this pet
+    const handleEditClick = (pet, e) => {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        navigate(`/pet/${pet.id}/edit`);
     };
 
     // Handle delete button click
@@ -344,8 +280,8 @@ const PetsManagement = () => {
     };
 
     // Add Pet Form Content
-    const renderAddEditForm = (isEdit = false) => (
-        <form onSubmit={isEdit ? handleUpdate : handleSubmit} className="p-6">
+    const renderAddEditForm = () => (
+        <form onSubmit={handleSubmit} className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Basic Info */}
                 <div>
@@ -770,7 +706,7 @@ const PetsManagement = () => {
             <div className="mt-6 flex justify-end">
                 <button
                     type="button"
-                    onClick={() => isEdit ? setShowEditModal(false) : setShowAddModal(false)}
+                    onClick={() => setShowAddModal(false)}
                     className="mr-4 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
                     style={{ touchAction: 'manipulation', minWidth: '100px' }}
                 >
@@ -962,16 +898,7 @@ const PetsManagement = () => {
                 onClose={() => setShowAddModal(false)}
                 title="Add New Pet"
             >
-                {renderAddEditForm(false)}
-            </AdminModal>
-
-            {/* Edit Pet Modal */}
-            <AdminModal
-                isOpen={showEditModal}
-                onClose={() => setShowEditModal(false)}
-                title={`Edit Pet: ${selectedPet?.name}`}
-            >
-                {renderAddEditForm(true)}
+                {renderAddEditForm()}
             </AdminModal>
 
             {/* Delete Confirmation Modal */}
