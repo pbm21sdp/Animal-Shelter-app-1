@@ -191,7 +191,7 @@ const PetsManagement = () => {
     // Navigate to the edit page for this pet
     const handleEditClick = (pet, e) => {
         if (e) { e.preventDefault(); e.stopPropagation(); }
-        navigate(`/pet/${pet.id}/edit`);
+        navigate(`/pet/${pet.id}/edit`, { state: { from: '/admin/pets' } });
     };
 
     // Handle delete button click
@@ -822,24 +822,37 @@ const PetsManagement = () => {
                 title="Delete Pet"
                 size="sm"
             >
-                <div className="p-6">
-                    <p className="mb-6">
-                        Are you sure you want to delete {selectedPet?.name}? This action cannot be undone.
+                <div style={{ padding: '24px 20px' }}>
+                    <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', color: '#7A5C44', marginBottom: '24px', lineHeight: 1.6 }}>
+                        Are you sure you want to delete <strong style={{ color: '#2D1F14' }}>{selectedPet?.name}</strong>? This action cannot be undone.
                     </p>
-                    <div className="flex justify-end">
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                         <button
                             onClick={() => setShowDeleteConfirm(false)}
-                            className="mr-4 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
-                            style={{ touchAction: 'manipulation', minWidth: '100px' }}
+                            style={{
+                                fontFamily: "'DM Sans', sans-serif", fontSize: '13px',
+                                padding: '8px 18px', borderRadius: '6px', cursor: 'pointer',
+                                border: '1px solid rgba(45,31,20,0.2)', background: 'transparent',
+                                color: '#7A5C44', minWidth: '90px',
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(45,31,20,0.04)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                         >
                             Cancel
                         </button>
                         <button
                             onClick={handleDelete}
-                            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded flex items-center justify-center"
-                            style={{ touchAction: 'manipulation', minWidth: '120px' }}
+                            style={{
+                                fontFamily: "'DM Sans', sans-serif", fontSize: '13px', fontWeight: 500,
+                                padding: '8px 18px', borderRadius: '6px', cursor: 'pointer',
+                                border: '1px solid #993C1D', backgroundColor: '#993C1D',
+                                color: '#FAF7F4', minWidth: '100px',
+                                display: 'flex', alignItems: 'center', gap: '6px',
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#7A2E14'; e.currentTarget.style.borderColor = '#7A2E14'; }}
+                            onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#993C1D'; e.currentTarget.style.borderColor = '#993C1D'; }}
                         >
-                            <Trash2 className="h-5 w-5 mr-2" />
+                            <Trash2 style={{ width: '14px', height: '14px' }} />
                             Delete
                         </button>
                     </div>
