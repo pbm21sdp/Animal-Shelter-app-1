@@ -821,7 +821,7 @@ const PetsManagement = () => {
             )}
 
             {/* Pets Table */}
-            <div className="bg-white shadow-md rounded-lg overflow-hidden w-full">
+            <div className="bg-white shadow-md rounded-lg overflow-x-auto w-full">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                     <tr>
@@ -868,11 +868,11 @@ const PetsManagement = () => {
                                         <div className="font-medium text-gray-900">{pet.name}</div>
                                     </div>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap">{pet.type}</td>
-                                <td className="px-6 py-4 whitespace-nowrap">{pet.breed}</td>
-                                <td className="px-6 py-4 whitespace-nowrap">{pet.age_category}</td>
-                                <td className="px-6 py-4 whitespace-nowrap">{pet.gender}</td>
-                                <td className="px-6 py-4 whitespace-nowrap">{pet.location_city}</td>
+                                <td className="px-6 py-4">{pet.type}</td>
+                                <td className="px-6 py-4">{pet.breed}</td>
+                                <td className="px-6 py-4">{pet.age_category}</td>
+                                <td className="px-6 py-4">{pet.gender}</td>
+                                <td className="px-6 py-4">{pet.location_city}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                                         pet.adoption_status === 'available' ? 'bg-green-100 text-green-800' :
