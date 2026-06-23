@@ -162,4 +162,9 @@ thesis_context.md
 # Test generated filed
 /backend/coverage/*
 
+# Database backups
+backend/db/backup_*.sql
+backend/db/mongo_backup_*/
+backend/db/*_backup_*/
+
 .env
