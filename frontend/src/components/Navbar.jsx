@@ -83,7 +83,7 @@ export default function Navbar() {
             flexShrink: 0,
         }}>
             {/* Logo — left */}
-            <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '7px', textDecoration: 'none', flexShrink: 0, marginRight: '36px' }}>
+            <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '7px', textDecoration: 'none', outline: 'none', flexShrink: 0, marginRight: '36px' }}>
                 <span style={{
                     width: '8px', height: '8px',
                     borderRadius: '50%',
