@@ -2,6 +2,7 @@
 import { PetModel } from '../models/pet.model.js';
 import { Adoption } from '../models/adoption.model.js';
 import { pool } from '../config/database/connectPostgresDB.js';
+import { User } from '../models/user.model.js';
 
 export const getAllPets = async (req, res) => {
     try {
@@ -338,7 +339,29 @@ export const getPendingPets = async (req, res) => {
             WHERE p.status = 'pending'
             ORDER BY p.created_at ASC
         `);
-        res.status(200).json({ success: true, pets: result.rows });
+
+        const pets = result.rows;
+
+        // Enrich with uploader name/email from MongoDB
+        const uploaderIds = [...new Set(pets.map(p => p.uploader_id).filter(Boolean))];
+        if (uploaderIds.length > 0) {
+            try {
+                const users = await User.find(
+                    { _id: { $in: uploaderIds } },
+                    { name: 1, email: 1 }
+                ).lean();
+                const userMap = Object.fromEntries(users.map(u => [u._id.toString(), u]));
+                for (const pet of pets) {
+                    const u = pet.uploader_id ? userMap[pet.uploader_id] : null;
+                    pet.uploader_name  = u?.name  || null;
+                    pet.uploader_email = u?.email || null;
+                }
+            } catch (mongoErr) {
+                console.warn('[pending] MongoDB uploader lookup failed:', mongoErr.message);
+            }
+        }
+
+        res.status(200).json({ success: true, pets });
     } catch (error) {
         console.error('Error fetching pending pets:', error);
         res.status(500).json({ success: false, message: 'Failed to fetch pending pets', error: error.message });
