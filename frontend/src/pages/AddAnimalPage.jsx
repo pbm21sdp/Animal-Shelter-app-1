@@ -574,6 +574,11 @@ export default function AddAnimalPage() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
                         <div>
+                            <FieldLabel>Gender</FieldLabel>
+                            <PillToggle large options={['Male', 'Female', 'Unknown']} value={gender} onChange={setGender} />
+                        </div>
+
+                        <div>
                             <FieldLabel>Age</FieldLabel>
                             <PillToggle
                                 large
@@ -657,11 +662,6 @@ export default function AddAnimalPage() {
                         <div>
                             <FieldLabel>Coat type</FieldLabel>
                             <PillToggle large options={COAT_TYPE_OPTIONS} value={coatType} onChange={setCoatType} />
-                        </div>
-
-                        <div>
-                            <FieldLabel>Gender</FieldLabel>
-                            <PillToggle large options={['Male', 'Female', 'Unknown']} value={gender} onChange={setGender} />
                         </div>
 
                         <div>
@@ -1052,11 +1052,11 @@ export default function AddAnimalPage() {
                 {(() => {
                     const step1Summary = [
                         foundHow && foundHow !== 'Other' ? { label: 'Found', value: foundHow } : foundHowOther ? { label: 'Found', value: foundHowOther } : null,
-                        (exactAge || (approxAge && approxAge !== 'Unknown')) ? { label: 'Age', value: exactAge || approxAge } : null,
-                        (exactWeight || (approxSize && approxSize !== 'Unknown')) ? { label: 'Size', value: exactWeight ? `${exactWeight}${approxSize ? ` · ${approxSize}` : ''}` : approxSize } : null,
-                        isVaccinated && isVaccinated !== "Don't know" ? { label: 'Vaccinated', value: isVaccinated } : null,
-                        isNeutered && isNeutered !== "Don't know" ? { label: 'Neutered', value: isNeutered } : null,
-                        hasMicrochip && hasMicrochip !== "Don't know" ? { label: 'Microchip', value: hasMicrochip } : null,
+                        (exactAge || approxAge) ? { label: 'Age', value: exactAge || approxAge } : null,
+                        (exactWeight || approxSize) ? { label: 'Size', value: exactWeight ? `${exactWeight}${approxSize ? ` · ${approxSize}` : ''}` : approxSize } : null,
+                        isVaccinated ? { label: 'Vaccinated', value: isVaccinated } : null,
+                        isNeutered ? { label: 'Neutered', value: isNeutered } : null,
+                        hasMicrochip ? { label: 'Microchip', value: hasMicrochip } : null,
                         breed ? { label: 'Breed', value: breed } : null,
                         effectiveColors.length > 0 ? { label: 'Color', value: effectiveColors.join(', ') } : null,
                         coatType ? { label: 'Coat', value: coatType } : null,
