@@ -148,6 +148,7 @@ backend/.env.backup
 backend/db/migrations/
 backend/ml-service/__pycache__/
 backend/uploads/
+backend/ml-service/dataset_zipped.zip
 *.pyc
 __pycache__/
 
@@ -156,6 +157,7 @@ CLAUDE.md
 PLANNING.md
 PRD.md
 TASKS.md
+thesis_context.md
 
 # Test generated filed
 /backend/coverage/*
