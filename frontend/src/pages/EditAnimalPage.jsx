@@ -442,7 +442,7 @@ export default function EditAnimalPage() {
                         onMouseEnter={e => { e.currentTarget.style.color = '#C07A4A'; }}
                         onMouseLeave={e => { e.currentTarget.style.color = '#9A7A60'; }}
                     >
-                        ← Back to listing
+                        ← {returnTo === '/admin/pets' ? 'Back to Dashboard' : 'Back to listing'}
                     </button>
 
                     {/* Masthead */}
@@ -511,6 +511,11 @@ export default function EditAnimalPage() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
 
                         <div>
+                            <FieldLabel>Gender</FieldLabel>
+                            <PillToggle large options={['Male', 'Female', 'Unknown']} value={gender} onChange={setGender} />
+                        </div>
+
+                        <div>
                             <FieldLabel>Age</FieldLabel>
                             <PillToggle large options={AGE_OPTIONS} value={approxAge}
                                 onChange={v => { setApproxAge(v); if (v) setExactAge(''); }} />
@@ -559,11 +564,6 @@ export default function EditAnimalPage() {
                         <div>
                             <FieldLabel>Coat type</FieldLabel>
                             <PillToggle large options={COAT_TYPE_OPTIONS} value={coatType} onChange={setCoatType} />
-                        </div>
-
-                        <div>
-                            <FieldLabel>Gender</FieldLabel>
-                            <PillToggle large options={['Male', 'Female', 'Unknown']} value={gender} onChange={setGender} />
                         </div>
 
                         <div>
