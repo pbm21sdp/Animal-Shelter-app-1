@@ -2,6 +2,7 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Strategy as FacebookStrategy } from 'passport-facebook';
 import crypto from 'crypto';
+import bcryptjs from 'bcryptjs';
 import { User } from '../models/user.model.js';
 
 passport.use(new GoogleStrategy(
@@ -22,13 +23,14 @@ passport.use(new GoogleStrategy(
             if (!user) {
                 // Generate a random placeholder password — OAuth users never log in with a password
                 const randomPassword = crypto.randomBytes(32).toString('hex');
+                const hashedPassword = await bcryptjs.hash(randomPassword, 10);
 
                 user = new User({
                     email,
                     name: profile.displayName,
                     avatar: profile.photos?.[0]?.value || null,
                     isVerified: true,
-                    password: randomPassword,
+                    password: hashedPassword,
                 });
                 await user.save();
             }
@@ -58,13 +60,14 @@ passport.use(new FacebookStrategy(
 
             if (!user) {
                 const randomPassword = crypto.randomBytes(32).toString('hex');
+                const hashedPassword = await bcryptjs.hash(randomPassword, 10);
 
                 user = new User({
                     email: email || `fb_${profile.id}@facebook.placeholder`,
                     name: profile.displayName,
                     avatar: profile.photos?.[0]?.value || null,
                     isVerified: true,
-                    password: randomPassword,
+                    password: hashedPassword,
                 });
                 await user.save();
             }
