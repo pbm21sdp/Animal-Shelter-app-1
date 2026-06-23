@@ -222,7 +222,13 @@ export const updatePet = async (req, res) => {
             return res.status(403).json({ success: false, message: 'Forbidden — only the uploader or an admin can edit this listing' });
         }
 
-        const updatedPet = await PetModel.update(id, req.body);
+        // Non-admin uploaders always trigger re-moderation on edit
+        const updateBody = { ...req.body };
+        if (isOwner && !req.isAdmin) {
+            updateBody.status = 'pending';
+        }
+
+        const updatedPet = await PetModel.update(id, updateBody);
         if (!updatedPet) {
             return res.status(404).json({ success: false, message: 'Pet not found' });
         }
