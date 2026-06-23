@@ -1,1045 +1,283 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAdoptionStore } from '../../store/adoptionStore';
-import {
-    Check, X, Eye, RefreshCw, Filter, Search, Users,
-    PawPrint, Edit, Trash2, AlertCircle, User, Home,
-    MessageSquare, Clock, ArrowUp, ArrowDown, CheckCircle,
-    XCircle, AlertTriangle, ChevronRight, ExternalLink, BarChart3
-} from 'lucide-react';
-import AdminTable from './shared/AdminTable';
 import AdminPagination from './shared/AdminPagination';
-import AdminModal from './shared/AdminModal';
 import AdminSearchBar from './shared/AdminSearchBar';
 
-const AdoptionsManagement = () => {
-    const {
-        adoptions,
-        selectedAdoption,
-        isLoading,
-        error,
-        getAllAdoptions,
-        getAdoptionDetails,
-        updateAdoptionStatus,
-        deleteAdoption,
-        clearSelectedAdoption,
-        getAdoptionDetailsAdmin
-    } = useAdoptionStore();
+const serif = "'Cormorant Garamond', serif";
+const sans  = "'DM Sans', sans-serif";
 
-    // State
-    const [searchTerm, setSearchTerm] = useState('');
-    const [filteredAdoptions, setFilteredAdoptions] = useState([]);
-    const [currentPage, setCurrentPage] = useState(1);
-    const [adoptionsPerPage] = useState(10);
-    const [showFilters, setShowFilters] = useState(false);
-    const [filters, setFilters] = useState({
-        status: 'all',
-        petType: 'all',
-        sort: 'newest',
-        housingType: 'all'
+const cap = str => str ? str.charAt(0).toUpperCase() + str.slice(1) : '—';
+
+const PET_TYPES = [
+    { value: 'all',        label: 'All types' },
+    { value: 'dog',        label: 'Dogs' },
+    { value: 'cat',        label: 'Cats' },
+    { value: 'rabbit',     label: 'Rabbits' },
+    { value: 'bird',       label: 'Birds' },
+    { value: 'fish',       label: 'Fish' },
+    { value: 'hamster',    label: 'Hamsters' },
+    { value: 'guinea pig', label: 'Guinea pigs' },
+    { value: 'reptile',    label: 'Reptiles' },
+    { value: 'other',      label: 'Other' },
+];
+
+const SORT_OPTIONS = [
+    { value: 'newest',       label: 'Newest first' },
+    { value: 'oldest',       label: 'Oldest first' },
+    { value: 'alpha_pet',    label: 'Animal A–Z' },
+    { value: 'alpha_poster', label: 'Poster A–Z' },
+];
+
+const formatDate = (dateStr) => {
+    if (!dateStr) return '—';
+    return new Date(dateStr).toLocaleDateString('ro-RO', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        timeZone: 'Europe/Bucharest',
     });
-    const [showDetailsModal, setShowDetailsModal] = useState(false);
-    const [showStatusModal, setShowStatusModal] = useState(false);
-    const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [statusToUpdate, setStatusToUpdate] = useState('');
-    const [adminNotes, setAdminNotes] = useState('');
-    const [showStats, setShowStats] = useState(false);
+};
 
-    // State to hold user details
-    const [userDetails, setUserDetails] = useState({});
+const selectStyle = {
+    fontFamily: sans, fontSize: '12px', color: '#7A5C44',
+    border: '1px solid rgba(45,31,20,0.15)', borderRadius: '100px',
+    padding: '6px 14px', background: 'transparent', cursor: 'pointer',
+    outline: 'none', appearance: 'none', WebkitAppearance: 'none',
+    paddingRight: '28px',
+};
 
-    // Fetch adoptions on component mount
+function FilterSelect({ value, onChange, options }) {
+    return (
+        <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+            <select value={value} onChange={e => onChange(e.target.value)} style={selectStyle}>
+                {options.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+            </select>
+            <span style={{ position: 'absolute', right: '10px', pointerEvents: 'none', fontSize: '9px', color: '#B09880' }}>▼</span>
+        </div>
+    );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+const AdoptionsManagement = () => {
+    const { adoptions, isLoading, error, getAllAdoptions } = useAdoptionStore();
+
+    const [search,      setSearch]      = useState('');
+    const [petType,     setPetType]     = useState('all');
+    const [sort,        setSort]        = useState('newest');
+    const [currentPage, setCurrentPage] = useState(1);
+    const PER_PAGE = 12;
+
     useEffect(() => {
-        getAllAdoptions(filters);
-    }, [getAllAdoptions, filters]);
+        const serverSort = sort.startsWith('alpha') ? 'newest' : sort;
+        getAllAdoptions({ petType: petType !== 'all' ? petType : undefined, sort: serverSort });
+    }, [petType, sort]);
 
-    // Function to get user details
-    const getUserDetails = async (userId) => {
-        try {
-            const response = await axios.get(`http://localhost:5000/api/users/admin/${userId}`,
-                { withCredentials: true }
+    const filtered = useMemo(() => {
+        let list = [...(adoptions || [])];
+
+        if (search.trim()) {
+            const s = search.toLowerCase();
+            list = list.filter(a =>
+                a.petName?.toLowerCase().includes(s)    ||
+                a.petType?.toLowerCase().includes(s)    ||
+                a.petBreed?.toLowerCase().includes(s)   ||
+                a.city?.toLowerCase().includes(s)       ||
+                a.uploaderName?.toLowerCase().includes(s)  ||
+                a.uploaderEmail?.toLowerCase().includes(s)
             );
-
-            if (response.data.success) {
-                setUserDetails(prev => ({
-                    ...prev,
-                    [userId]: response.data.user
-                }));
-
-                // Update the selected adoption if this is the user we're looking at
-                if (selectedAdoption && selectedAdoption.user === userId) {
-                    setSelectedAdoption(prev => ({
-                        ...prev,
-                        user: {
-                            ...response.data.user,
-                            _id: userId
-                        }
-                    }));
-                }
-            }
-        } catch (error) {
-            console.error('Error fetching user details:', error);
-        }
-    };
-
-    // Filter adoptions when search term or adoptions change
-    useEffect(() => {
-        if (adoptions && adoptions.length > 0) {
-            setFilteredAdoptions(
-                adoptions.filter(adoption => {
-                    // Get user details from our cached state if available
-                    const userInfo = typeof adoption.user === 'string' && userDetails[adoption.user]
-                        ? userDetails[adoption.user]
-                        : adoption.user;
-
-                    return (
-                        adoption.petName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        adoption.petType?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        adoption.petBreed?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        userInfo?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        userInfo?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        adoption.livingArrangement?.toLowerCase().includes(searchTerm.toLowerCase())
-                    );
-                })
-            );
-        } else {
-            setFilteredAdoptions([]);
-        }
-    }, [searchTerm, adoptions, userDetails]);
-
-    // Reset pagination when filtered adoptions change
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [filteredAdoptions]);
-
-    // Handle filter changes
-    const handleFilterChange = (e) => {
-        const { name, value } = e.target;
-        setFilters(prev => ({
-            ...prev,
-            [name]: value
-        }));
-    };
-
-    // Apply filters
-    const applyFilters = () => {
-        getAllAdoptions(filters);
-        setShowFilters(false);
-    };
-
-    // Reset filters
-    const resetFilters = () => {
-        setFilters({
-            status: 'all',
-            petType: 'all',
-            sort: 'newest',
-            housingType: 'all'
-        });
-        getAllAdoptions({
-            status: 'all',
-            petType: 'all',
-            sort: 'newest',
-            housingType: 'all'
-        });
-        setShowFilters(false);
-    };
-
-    // Format date
-    const formatDate = (dateString) => {
-        const date = new Date(dateString);
-        return date.toLocaleDateString(undefined, {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    };
-
-    // Handle row click to view details
-    const handleRowClick = async (adoption) => {
-        await getAdoptionDetailsAdmin(adoption._id);
-        setShowDetailsModal(true);
-    };
-
-
-    // Handle status update click
-    const handleStatusUpdateClick = async (adoption, e) => {
-        if (e) {
-            e.stopPropagation();
         }
 
-        // First, get the latest adoption details
-        await getAdoptionDetailsAdmin(adoption._id);
+        if (sort === 'alpha_pet')    list.sort((a, b) => (a.petName || '').localeCompare(b.petName || ''));
+        if (sort === 'alpha_poster') list.sort((a, b) => (a.uploaderName || '').localeCompare(b.uploaderName || ''));
 
-        // Then set the status modal state using the fresh data
-        setStatusToUpdate(adoption.status);
-        setAdminNotes(adoption.adminNotes || '');
-        setShowStatusModal(true);
-    };
+        return list;
+    }, [adoptions, search, sort]);
 
-    // Handle delete click
-    const handleDeleteClick = (adoption, e) => {
-        if (e) {
-            e.stopPropagation();
-        }
-        getAdoptionDetailsAdmin(adoption._id).then(() => {
-            setShowDeleteModal(true);
-        });
-    };
-    // Update status
-    const handleStatusUpdate = async () => {
-        // Validate rejection reason
-        if (statusToUpdate === 'rejected' && !adminNotes.trim()) {
-            alert('Please provide a reason for rejection');
-            return;
-        }
+    useEffect(() => { setCurrentPage(1); }, [filtered.length, search]);
 
-        if (selectedAdoption) {
-            const result = await updateAdoptionStatus(selectedAdoption._id, {
-                status: statusToUpdate,
-                adminNotes: adminNotes
-            });
+    const paginated  = filtered.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
+    const globalOff  = (currentPage - 1) * PER_PAGE;
+    const total      = (adoptions || []).length;
 
-            if (result.success) {
-                setShowStatusModal(false);
-                getAllAdoptions(filters);
-            }
-        }
-    };
-
-    // Delete adoption
-    const handleDelete = async () => {
-        if (selectedAdoption) {
-            const result = await deleteAdoption(selectedAdoption._id);
-
-            if (result.success) {
-                setShowDeleteModal(false);
-                getAllAdoptions(filters);
-                clearSelectedAdoption();
-            }
-        }
-    };
-
-    // Close details modal
-    const closeDetailsModal = () => {
-        setShowDetailsModal(false);
-        clearSelectedAdoption();
-    };
-
-    // Close status modal
-    const closeStatusModal = () => {
-        setShowStatusModal(false);
-    };
-
-    // Close delete modal
-    const closeDeleteModal = () => {
-        setShowDeleteModal(false);
-    };
-
-    // Toggle statistics view
-    const toggleStats = () => {
-        setShowStats(!showStats);
-    };
-
-    // Status badge component
-    const StatusBadge = ({ status }) => {
-        const statusColors = {
-            pending: 'bg-yellow-100 text-yellow-800',
-            in_review: 'bg-blue-100 text-blue-800',
-            approved: 'bg-green-100 text-green-800',
-            rejected: 'bg-red-100 text-red-800',
-            unavailable: 'bg-gray-100 text-gray-800' // Add this for unavailable pets
-        };
-
-        const statusText = {
-            pending: 'Pending',
-            in_review: 'In Review',
-            approved: 'Approved',
-            rejected: 'Rejected',
-            unavailable: 'Unavailable' // Add this for unavailable pets
-        };
-
-        const statusIcons = {
-            pending: <Clock className="h-4 w-4 mr-1" />,
-            in_review: <AlertTriangle className="h-4 w-4 mr-1" />,
-            approved: <CheckCircle className="h-4 w-4 mr-1" />,
-            rejected: <XCircle className="h-4 w-4 mr-1" />
-        };
-
-        return (
-            <span className={`px-2 py-1 text-xs font-medium rounded-full flex items-center ${statusColors[status] || 'bg-gray-100 text-gray-800'}`}>
-                {statusIcons[status]}
-                {statusText[status] || status}
-            </span>
-        );
-    };
-
-    // Pagination logic
-    const indexOfLastAdoption = currentPage * adoptionsPerPage;
-    const indexOfFirstAdoption = indexOfLastAdoption - adoptionsPerPage;
-    const currentAdoptions = filteredAdoptions.slice(indexOfFirstAdoption, indexOfLastAdoption);
-
-    // Calculate statistics
-    const stats = {
-        total: filteredAdoptions.length,
-        pending: filteredAdoptions.filter(a => a.status === 'pending').length,
-        inReview: filteredAdoptions.filter(a => a.status === 'in_review').length,
-        approved: filteredAdoptions.filter(a => a.status === 'approved').length,
-        rejected: filteredAdoptions.filter(a => a.status === 'rejected').length,
-        // Count by pet type
-        petTypes: filteredAdoptions.reduce((acc, adoption) => {
-            const type = adoption.petType || 'unknown';
-            acc[type] = (acc[type] || 0) + 1;
-            return acc;
-        }, {}),
-        // Count by housing type
-        housingTypes: filteredAdoptions.reduce((acc, adoption) => {
-            const type = adoption.livingArrangement || 'unknown';
-            acc[type] = (acc[type] || 0) + 1;
-            return acc;
-        }, {})
-    };
-
-    // Table columns
-    const columns = [
-        {
-            header: 'Application Date',
-            accessor: 'applicationDate',
-            render: (adoption) => (
-                <div className="flex items-center">
-                    <span className="text-sm text-gray-900">{formatDate(adoption.createdAt)}</span>
-                </div>
-            )
-        },
-        {
-            header: 'Pet',
-            accessor: 'pet',
-            render: (adoption) => (
-                <div className="flex items-center">
-                    <div className="flex-shrink-0 h-8 w-8 bg-teal-100 rounded-full flex items-center justify-center mr-2">
-                        <PawPrint className="h-4 w-4 text-tealcustom" />
-                    </div>
-                    <div>
-                        <div className="font-medium text-gray-900">{adoption.petName}</div>
-                        <div className="text-xs text-gray-500">{adoption.petType} - {adoption.petBreed || 'Unknown breed'}</div>
-                    </div>
-                </div>
-            )
-        },
-        {
-            header: 'Applicant',
-            accessor: 'user',
-            render: (adoption) => (
-                <div className="flex items-center">
-                    <div className="flex-shrink-0 h-8 w-8 bg-gray-100 rounded-full flex items-center justify-center mr-2">
-                        <Users className="h-4 w-4 text-gray-500" />
-                    </div>
-                    <div>
-                        <div className="font-medium text-gray-900">{adoption.user?.name || 'Unknown'}</div>
-                        <div className="text-xs text-gray-500">{adoption.user?.email}</div>
-                    </div>
-                </div>
-            )
-        },
-        {
-            header: 'Living Arrangement',
-            accessor: 'livingArrangement',
-            render: (adoption) => (
-                <div className="flex items-center">
-                    <div className="flex-shrink-0 h-8 w-8 bg-gray-100 rounded-full flex items-center justify-center mr-2">
-                        <Home className="h-4 w-4 text-gray-500" />
-                    </div>
-                    <div>
-                        <div className="text-sm text-gray-900">{adoption.livingArrangement || 'Not specified'}</div>
-                        <div className="text-xs text-gray-500">
-                            {adoption.hasChildren ? 'Has children' : 'No children'} •
-                            {adoption.hasOtherPets ? ' Has other pets' : ' No other pets'}
-                        </div>
-                    </div>
-                </div>
-            )
-        },
-        {
-            header: 'Status',
-            accessor: 'status',
-            render: (adoption) => <StatusBadge status={adoption.status} />
-        },
-        {
-            header: 'Actions',
-            accessor: 'actions',
-            render: (adoption) => (
-                <div className="flex space-x-2">
-                    <button
-                        onClick={(e) => handleStatusUpdateClick(adoption, e)}
-                        className="text-blue-600 hover:text-blue-900 p-1"
-                        title="Update Status"
-                    >
-                        <Edit className="h-4 w-4" />
-                    </button>
-                    <button
-                        onClick={(e) => handleDeleteClick(adoption, e)}
-                        className="text-red-600 hover:text-red-900 p-1"
-                        title="Delete Application"
-                    >
-                        <Trash2 className="h-4 w-4" />
-                    </button>
-                </div>
-            )
-        }
-    ];
+    const COLS = ['#', 'Animal', 'City', 'Found its home', 'Posted by'];
 
     return (
-        <div className="container mx-auto px-4 py-6">
-            <div className="flex flex-wrap justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold mb-4 sm:mb-0">Manage Adoptions</h2>
-                <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
-                    <AdminSearchBar
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder="Search adoptions..."
-                    />
-                    <button
-                        onClick={() => setShowFilters(!showFilters)}
-                        className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md flex items-center w-full sm:w-auto justify-center"
-                    >
-                        <Filter className="h-5 w-5 mr-1" />
-                        Filters
-                    </button>
-                    <button
-                        onClick={toggleStats}
-                        className="bg-indigo-100 hover:bg-indigo-200 text-indigo-800 px-4 py-2 rounded-md flex items-center w-full sm:w-auto justify-center"
-                    >
-                        <BarChart3 className="h-5 w-5 mr-1" />
-                        {showStats ? 'Hide Stats' : 'Show Stats'}
-                    </button>
-                    <button
-                        onClick={() => getAllAdoptions(filters)}
-                        className="bg-tealcustom hover:bg-teal-700 text-white px-4 py-2 rounded-md flex items-center w-full sm:w-auto justify-center"
-                    >
-                        <RefreshCw className="h-5 w-5 mr-1" />
-                        Refresh
-                    </button>
-                </div>
+        <div>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '20px', flexWrap: 'wrap', gap: '8px' }}>
+                <h2 style={{ fontFamily: serif, fontSize: '24px', fontWeight: 700, color: '#2D1F14', margin: 0 }}>
+                    Adoptions
+                </h2>
+                {total > 0 && (
+                    <span style={{ fontFamily: sans, fontSize: '12px', color: '#B09880' }}>
+                        {total} animal{total !== 1 ? 's' : ''} found a home
+                    </span>
+                )}
             </div>
 
-            {/* Statistics Panel */}
-            {showStats && (
-                <div className="bg-white shadow-md rounded-lg p-4 mb-6">
-                    <h3 className="text-lg font-semibold mb-4 flex items-center">
-                        <BarChart3 className="h-5 w-5 mr-2 text-tealcustom" />
-                        Adoption Statistics
-                    </h3>
+            {/* Controls */}
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '16px' }}>
+                <AdminSearchBar
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    placeholder="Search by animal, city, poster…"
+                />
+                <FilterSelect value={petType} onChange={setPetType} options={PET_TYPES} />
+                <FilterSelect value={sort}    onChange={setSort}    options={SORT_OPTIONS} />
+            </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                        <div className="bg-blue-50 p-4 rounded-lg">
-                            <div className="text-blue-500 font-semibold">{stats.total}</div>
-                            <div className="text-sm text-gray-600">Total Applications</div>
-                        </div>
-                        <div className="bg-yellow-50 p-4 rounded-lg">
-                            <div className="text-yellow-500 font-semibold">{stats.pending + stats.inReview}</div>
-                            <div className="text-sm text-gray-600">Pending/In Review</div>
-                        </div>
-                        <div className="bg-green-50 p-4 rounded-lg">
-                            <div className="text-green-500 font-semibold">{stats.approved}</div>
-                            <div className="text-sm text-gray-600">Approved</div>
-                        </div>
-                        <div className="bg-red-50 p-4 rounded-lg">
-                            <div className="text-red-500 font-semibold">{stats.rejected}</div>
-                            <div className="text-sm text-gray-600">Rejected</div>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Pet Types */}
-                        <div>
-                            <h4 className="text-sm font-medium text-gray-500 uppercase mb-3">By Pet Type</h4>
-                            <div className="space-y-4">
-                                {Object.entries(stats.petTypes)
-                                    .sort((a, b) => b[1] - a[1])
-                                    .slice(0, 4)
-                                    .map(([type, count], index) => (
-                                        <div key={index}>
-                                            <div className="flex justify-between mb-1">
-                                                <span className="text-sm font-medium">
-                                                    {type.charAt(0).toUpperCase() + type.slice(1)}
-                                                </span>
-                                                <span className="text-sm text-gray-500">
-                                                    {count} ({Math.round((count / stats.total) * 100)}%)
-                                                </span>
-                                            </div>
-                                            <div className="w-full bg-gray-200 rounded-full h-2">
-                                                <div
-                                                    className="bg-tealcustom h-2 rounded-full"
-                                                    style={{ width: `${Math.round((count / stats.total) * 100)}%` }}
-                                                ></div>
-                                            </div>
-                                        </div>
-                                    ))}
-                            </div>
-                        </div>
-
-                        {/* Housing Types */}
-                        <div>
-                            <h4 className="text-sm font-medium text-gray-500 uppercase mb-3">By Living Arrangement</h4>
-                            <div className="space-y-4">
-                                {Object.entries(stats.housingTypes)
-                                    .sort((a, b) => b[1] - a[1])
-                                    .slice(0, 4)
-                                    .map(([type, count], index) => (
-                                        <div key={index}>
-                                            <div className="flex justify-between mb-1">
-                                                <span className="text-sm font-medium">
-                                                    {type.charAt(0).toUpperCase() + type.slice(1)}
-                                                </span>
-                                                <span className="text-sm text-gray-500">
-                                                    {count} ({Math.round((count / stats.total) * 100)}%)
-                                                </span>
-                                            </div>
-                                            <div className="w-full bg-gray-200 rounded-full h-2">
-                                                <div
-                                                    className="bg-indigo-500 h-2 rounded-full"
-                                                    style={{ width: `${Math.round((count / stats.total) * 100)}%` }}
-                                                ></div>
-                                            </div>
-                                        </div>
-                                    ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Filter Panel */}
-            {showFilters && (
-                <div className="bg-white shadow-md rounded-lg p-4 mb-6">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div>
-                            <label className="block text-gray-700 text-sm font-medium mb-1">Status</label>
-                            <select
-                                name="status"
-                                value={filters.status}
-                                onChange={handleFilterChange}
-                                className="w-full p-2 border border-gray-300 rounded-md text-sm"
-                            >
-                                <option value="all">All Statuses</option>
-                                <option value="pending">Pending</option>
-                                <option value="in_review">In Review</option>
-                                <option value="approved">Approved</option>
-                                <option value="rejected">Rejected</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-gray-700 text-sm font-medium mb-1">Pet Type</label>
-                            <select
-                                name="petType"
-                                value={filters.petType}
-                                onChange={handleFilterChange}
-                                className="w-full p-2 border border-gray-300 rounded-md text-sm"
-                            >
-                                <option value="all">All Types</option>
-                                <option value="dog">Dogs</option>
-                                <option value="cat">Cats</option>
-                                <option value="bird">Birds</option>
-                                <option value="other">Other</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-gray-700 text-sm font-medium mb-1">Housing Type</label>
-                            <select
-                                name="housingType"
-                                value={filters.housingType}
-                                onChange={handleFilterChange}
-                                className="w-full p-2 border border-gray-300 rounded-md text-sm"
-                            >
-                                <option value="all">All Housing Types</option>
-                                <option value="house">House</option>
-                                <option value="apartment">Apartment</option>
-                                <option value="condo">Condo</option>
-                                <option value="other">Other</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-gray-700 text-sm font-medium mb-1">Sort By</label>
-                            <select
-                                name="sort"
-                                value={filters.sort}
-                                onChange={handleFilterChange}
-                                className="w-full p-2 border border-gray-300 rounded-md text-sm"
-                            >
-                                <option value="newest">Newest First</option>
-                                <option value="oldest">Oldest First</option>
-                                <option value="status">By Status</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div className="mt-4 flex justify-end space-x-3">
-                        <button
-                            onClick={resetFilters}
-                            className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md text-sm"
-                        >
-                            Reset
-                        </button>
-                        <button
-                            onClick={applyFilters}
-                            className="px-4 py-2 bg-tealcustom hover:bg-teal-700 text-white rounded-md text-sm"
-                        >
-                            Apply Filters
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {/* Error Display */}
+            {/* Error */}
             {error && (
-                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                <div style={{
+                    background: 'rgba(153,60,29,0.06)', border: '1px solid rgba(153,60,29,0.2)',
+                    borderRadius: '8px', padding: '12px 16px', marginBottom: '16px',
+                    fontFamily: sans, fontSize: '13px', color: '#993C1D',
+                }}>
                     {error}
                 </div>
             )}
 
-            {/* Adoptions Table */}
-            <AdminTable
-                columns={columns}
-                data={currentAdoptions}
-                isLoading={isLoading}
-                emptyMessage="No adoption applications found"
-                onRowClick={handleRowClick}
-            />
+            {/* Table */}
+            <div style={{
+                backgroundColor: '#FFFAF7',
+                border: '1px solid rgba(45,31,20,0.1)',
+                borderRadius: '8px',
+                overflow: 'hidden',
+                boxShadow: '0 1px 4px rgba(45,31,20,0.06)',
+            }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: sans }}>
+                    <thead>
+                        <tr style={{ backgroundColor: 'rgba(45,31,20,0.03)', borderBottom: '1px solid rgba(45,31,20,0.1)' }}>
+                            {COLS.map(h => (
+                                <th key={h} style={{
+                                    padding: '8px 10px', fontSize: '10px', fontWeight: 600,
+                                    color: '#B09880', textTransform: 'uppercase', letterSpacing: '0.06em',
+                                    textAlign: 'left', whiteSpace: 'nowrap',
+                                }}>
+                                    {h}
+                                </th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {isLoading ? (
+                            <tr>
+                                <td colSpan={COLS.length} style={{ padding: '48px', textAlign: 'center', fontFamily: sans, fontSize: '13px', color: '#B09880' }}>
+                                    Loading…
+                                </td>
+                            </tr>
+                        ) : paginated.length === 0 ? (
+                            <tr>
+                                <td colSpan={COLS.length} style={{ padding: '48px', textAlign: 'center', fontFamily: sans, fontSize: '13px', color: '#B09880' }}>
+                                    {search ? 'No adoptions match your search.' : 'No completed adoptions yet.'}
+                                </td>
+                            </tr>
+                        ) : paginated.map((adoption, idx) => (
+                            <AdoptionRow
+                                key={adoption._id}
+                                adoption={adoption}
+                                index={globalOff + idx + 1}
+                            />
+                        ))}
+                    </tbody>
+                </table>
+            </div>
 
             {/* Pagination */}
-            <AdminPagination
-                itemsPerPage={adoptionsPerPage}
-                totalItems={filteredAdoptions.length}
-                currentPage={currentPage}
-                paginate={setCurrentPage}
-            />
-
-            {/* Adoption Details Modal */}
-            <AdminModal
-                isOpen={showDetailsModal}
-                onClose={closeDetailsModal}
-                title="Adoption Application Details"
-                size="lg"
-            >
-                {selectedAdoption ? (
-                    <div className="p-6">
-                        {/* Status Banner */}
-                        <div className={`mb-6 px-4 py-2 rounded-md flex justify-between items-center ${
-                            selectedAdoption.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                selectedAdoption.status === 'in_review' ? 'bg-blue-100 text-blue-800' :
-                                    selectedAdoption.status === 'approved' ? 'bg-green-100 text-green-800' :
-                                        'bg-red-100 text-red-800'
-                        }`}>
-                            <div className="flex items-center">
-                                <span className="font-medium flex items-center">
-                                    {selectedAdoption.status === 'pending' ? <Clock className="h-4 w-4 mr-1" /> :
-                                        selectedAdoption.status === 'in_review' ? <AlertTriangle className="h-4 w-4 mr-1" /> :
-                                            selectedAdoption.status === 'approved' ? <CheckCircle className="h-4 w-4 mr-1" /> :
-                                                <XCircle className="h-4 w-4 mr-1" />}
-                                    Status: {selectedAdoption.status === 'pending' ? 'Pending' :
-                                    selectedAdoption.status === 'in_review' ? 'In Review' :
-                                        selectedAdoption.status === 'approved' ? 'Approved' : 'Rejected'}
-                                </span>
-                            </div>
-                            <div className="text-sm">
-                                Application Date: {formatDate(selectedAdoption.createdAt)}
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                            {/* Pet Information */}
-                            <div>
-                                <h3 className="text-lg font-semibold mb-3 flex items-center">
-                                    <PawPrint className="h-5 w-5 mr-2 text-tealcustom" />
-                                    Pet Information
-                                </h3>
-                                <div className="bg-gray-50 rounded-md p-4">
-                                    {selectedAdoption.petId && (
-                                        <div className="mb-2">
-                                            <span className="text-gray-600 text-sm">Pet ID:</span>
-                                            <span className="ml-2 text-gray-900">{selectedAdoption.petId}</span>
-                                        </div>
-                                    )}
-                                    <div className="mb-2">
-                                        <span className="text-gray-600 text-sm">Name:</span>
-                                        <span className="ml-2 text-gray-900">{selectedAdoption.petName}</span>
-                                    </div>
-                                    <div className="mb-2">
-                                        <span className="text-gray-600 text-sm">Type:</span>
-                                        <span className="ml-2 text-gray-900">{selectedAdoption.petType}</span>
-                                    </div>
-                                    {selectedAdoption.petBreed && (
-                                        <div className="mb-2">
-                                            <span className="text-gray-600 text-sm">Breed:</span>
-                                            <span className="ml-2 text-gray-900">{selectedAdoption.petBreed}</span>
-                                        </div>
-                                    )}
-                                    {selectedAdoption.petId && (
-                                        <div className="mt-3">
-                                            <button
-                                                onClick={() => window.open(`/pet/${selectedAdoption.petId}`, '_blank')}
-                                                className="text-tealcustom hover:text-teal-700 flex items-center text-sm"
-                                            >
-                                                <ExternalLink className="h-4 w-4 mr-1" />
-                                                View Pet Details
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Applicant Information */}
-                            <div>
-                                <h3 className="text-lg font-semibold mb-3 flex items-center">
-                                    <User className="h-5 w-5 mr-2 text-tealcustom" />
-                                    Applicant Information
-                                </h3>
-                                <div className="bg-gray-50 rounded-md p-4">
-                                    <div className="mb-2">
-                                        <span className="text-gray-600 text-sm">Name:</span>
-                                        <span className="ml-2 text-gray-900">
-                                            {selectedAdoption.user?.name ||
-                                                selectedAdoption.fullName ||
-                                                (typeof selectedAdoption.user === 'string' ? 'Loading user information...' : 'Unknown')}
-                                        </span>
-                                    </div>
-                                    <div className="mb-2">
-                                        <span className="text-gray-600 text-sm">Email:</span>
-                                        <span className="ml-2 text-gray-900">
-                                            {selectedAdoption.user?.email ||
-                                                selectedAdoption.email ||
-                                                (typeof selectedAdoption.user === 'string' ? 'Loading user information...' : 'Not provided')}
-                                        </span>
-                                    </div>
-                                    {selectedAdoption.phone && (
-                                        <div className="mb-2">
-                                            <span className="text-gray-600 text-sm">Phone:</span>
-                                            <span className="ml-2 text-gray-900">{selectedAdoption.phone}</span>
-                                        </div>
-                                    )}
-                                    <div className="mb-2">
-                                        <span className="text-gray-600 text-sm">Application Date:</span>
-                                        <span className="ml-2 text-gray-900">{formatDate(selectedAdoption.applicationDate || selectedAdoption.createdAt)}</span>
-                                    </div>
-                                    {typeof selectedAdoption.user === 'string' && (
-                                        <div className="mt-2 text-sm text-blue-600">
-                                            <button
-                                                onClick={() => getUserDetails(selectedAdoption.user)}
-                                                className="flex items-center"
-                                            >
-                                                <RefreshCw className="h-4 w-4 mr-1" />
-                                                Load complete user information
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="mb-6">
-                            <h3 className="text-lg font-semibold mb-3 flex items-center">
-                                <Home className="h-5 w-5 mr-2 text-tealcustom" />
-                                Living Situation
-                            </h3>
-                            <div className="bg-gray-50 rounded-md p-4">
-                                {selectedAdoption.livingArrangement && (
-                                    <div className="mb-4">
-                                        <div className="text-gray-600 text-sm mb-1">Living Arrangement:</div>
-                                        <p className="text-gray-900">{selectedAdoption.livingArrangement}</p>
-                                    </div>
-                                )}
-
-                                {selectedAdoption.housingType && (
-                                    <div className="mb-4">
-                                        <div className="text-gray-600 text-sm mb-1">Housing Type:</div>
-                                        <p className="text-gray-900">{selectedAdoption.housingType}</p>
-                                    </div>
-                                )}
-
-                                {selectedAdoption.address && (
-                                    <div className="mb-4">
-                                        <div className="text-gray-600 text-sm mb-1">Address:</div>
-                                        <p className="text-gray-900">
-                                            {selectedAdoption.address}
-                                            {selectedAdoption.city && `, ${selectedAdoption.city}`}
-                                            {selectedAdoption.postalCode && ` ${selectedAdoption.postalCode}`}
-                                        </p>
-                                    </div>
-                                )}
-
-                                {selectedAdoption.hasYard !== undefined && (
-                                    <div className="mb-4">
-                                        <div className="text-gray-600 text-sm mb-1">Has Yard:</div>
-                                        <p className="text-gray-900">
-                                            {selectedAdoption.hasYard === 'yes' || selectedAdoption.hasYard === true ? 'Yes' : 'No'}
-                                        </p>
-                                    </div>
-                                )}
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <div className="text-gray-600 text-sm mb-1">Has Children:</div>
-                                        <p className="text-gray-900">
-                                            {selectedAdoption.hasChildren || selectedAdoption.children === 'none' ?
-                                                'No' : selectedAdoption.children ?
-                                                    `Yes (${selectedAdoption.children})` : 'No'}
-                                        </p>
-                                    </div>
-
-                                    <div>
-                                        <div className="text-gray-600 text-sm mb-1">Has Other Pets:</div>
-                                        <p className="text-gray-900">
-                                            {selectedAdoption.hasOtherPets ? 'Yes' :
-                                                selectedAdoption.otherPets === 'none' ? 'No' :
-                                                    selectedAdoption.otherPets ? `Yes (${selectedAdoption.otherPets})` : 'No'}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                {((selectedAdoption.hasOtherPets && selectedAdoption.otherPetsDetails) ||
-                                    (selectedAdoption.otherPets && selectedAdoption.otherPets !== 'none')) && (
-                                    <div className="mt-3">
-                                        <div className="text-gray-600 text-sm mb-1">Other Pets Details:</div>
-                                        <p className="text-gray-900">
-                                            {selectedAdoption.otherPetsDetails || selectedAdoption.previousPetExperience || selectedAdoption.otherPets}
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-
-                        <div className="mb-6">
-                            <h3 className="text-lg font-semibold mb-3 flex items-center">
-                                <MessageSquare className="h-5 w-5 mr-2 text-tealcustom" />
-                                Application Reason
-                            </h3>
-                            <div className="bg-gray-50 rounded-md p-4">
-                                {selectedAdoption.adoptionReason && (
-                                    <div className="mb-4">
-                                        <div className="text-gray-600 text-sm mb-1">Adoption Reason:</div>
-                                        <p className="text-gray-900">{selectedAdoption.adoptionReason}</p>
-                                    </div>
-                                )}
-
-                                {selectedAdoption.message && (
-                                    <div className="mb-4">
-                                        <div className="text-gray-600 text-sm mb-1">Applicant Message:</div>
-                                        <p className="text-gray-900">{selectedAdoption.message}</p>
-                                    </div>
-                                )}
-
-                                {selectedAdoption.notes && (
-                                    <div>
-                                        <div className="text-gray-600 text-sm mb-1">Additional Notes:</div>
-                                        <p className="text-gray-900">{selectedAdoption.notes}</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {selectedAdoption.adminNotes && (
-                            <div className="mb-6">
-                                <h4 className="font-medium text-gray-900 mb-2">Admin Notes</h4>
-                                <div className="bg-gray-50 rounded-md p-4">
-                                    <p className="text-gray-900 text-sm">{selectedAdoption.adminNotes}</p>
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="flex justify-end space-x-3 mt-6">
-                            <button
-                                onClick={closeDetailsModal}
-                                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md"
-                            >
-                                Close
-                            </button>
-                            {selectedAdoption.status === 'pending' && (
-                                <button
-                                    onClick={async () => {
-                                        // Don't close the details modal yet
-                                        // Keep the current selectedAdoption
-                                        setStatusToUpdate('rejected');
-                                        setAdminNotes('');
-                                        setShowDetailsModal(false);  // Close details modal
-                                        setShowStatusModal(true);    // Open status modal immediately
-                                    }}
-                                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md flex items-center"
-                                >
-                                    <XCircle className="h-4 w-4 mr-2" />
-                                    Reject Application
-                                </button>
-                            )}
-                            <button
-                                onClick={() => {
-                                    closeDetailsModal();
-                                    handleStatusUpdateClick(selectedAdoption);
-                                }}
-                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md flex items-center"
-                            >
-                                <Edit className="h-4 w-4 mr-2" />
-                                Update Status
-                            </button>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="p-6 text-center">
-                        <AlertCircle className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                        <p>Loading application details...</p>
-                    </div>
-                )}
-            </AdminModal>
-
-            {/* Status Update Modal */}
-            <AdminModal
-                isOpen={showStatusModal}
-                onClose={closeStatusModal}
-                title="Update Adoption Status"
-                size="md"
-            >
-                {selectedAdoption ? (
-                    <div className="p-6">
-                        <div className="mb-6">
-                            <p className="text-gray-700 mb-2">
-                                Update the adoption status for <span className="font-semibold">{selectedAdoption.petName} </span>
-                                applied by  <span className="font-semibold">{selectedAdoption.user?.name || selectedAdoption.fullName || 'Unknown'}</span>.
-                            </p>
-
-                            <div className="mt-4">
-                                <label className="block text-gray-700 text-sm font-medium mb-2">
-                                    Status
-                                </label>
-                                <select
-                                    value={statusToUpdate}
-                                    onChange={(e) => setStatusToUpdate(e.target.value)}
-                                    className="w-full p-2 border border-gray-300 rounded-md"
-                                >
-                                    <option value="pending">Pending</option>
-                                    <option value="in_review">In Review</option>
-                                    <option value="approved">Approved</option>
-                                    <option value="rejected">Rejected</option>
-                                </select>
-                            </div>
-
-                            {statusToUpdate === 'rejected' && (
-                                <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
-                                    <div className="flex items-center text-red-800">
-                                        <XCircle className="h-4 w-4 mr-2" />
-                                        <span className="font-medium">Warning: This will reject the application</span>
-                                    </div>
-                                    <p className="text-sm text-red-600 mt-1">
-                                        The pet will be marked as available again, and the applicant will be notified of the rejection.
-                                    </p>
-                                </div>
-                            )}
-
-                            <div className="mt-4">
-                                <label className="block text-gray-700 text-sm font-medium mb-2">
-                                    {statusToUpdate === 'rejected' ? 'Rejection Reason *' : 'Admin Notes'}
-                                </label>
-                                <textarea
-                                    value={adminNotes}
-                                    onChange={(e) => setAdminNotes(e.target.value)}
-                                    placeholder={statusToUpdate === 'rejected'
-                                        ? "Please provide a reason for rejection (required)"
-                                        : "Add notes about this decision (optional)"
-                                    }
-                                    rows="4"
-                                    className={`w-full p-2 border rounded-md ${
-                                        statusToUpdate === 'rejected' && !adminNotes.trim()
-                                            ? 'border-red-300 bg-red-50'
-                                            : 'border-gray-300'
-                                    }`}
-                                    required={statusToUpdate === 'rejected'}
-                                ></textarea>
-                                {statusToUpdate === 'rejected' && !adminNotes.trim() && (
-                                    <p className="text-red-500 text-sm mt-1">A rejection reason is required</p>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="flex justify-end space-x-3">
-                            <button
-                                onClick={closeStatusModal}
-                                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleStatusUpdate}
-                                className={`px-4 py-2 ${
-                                    statusToUpdate === 'rejected'
-                                        ? 'bg-red-600 hover:bg-red-700'
-                                        : 'bg-tealcustom hover:bg-teal-700'
-                                } text-white rounded-md flex items-center`}
-                            >
-                                {statusToUpdate === 'rejected' ? (
-                                    <>
-                                        <XCircle className="h-4 w-4 mr-2" />
-                                        Reject Application
-                                    </>
-                                ) : (
-                                    <>
-                                        <Check className="h-4 w-4 mr-2" />
-                                        Update Status
-                                    </>
-                                )}
-                            </button>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="p-6 text-center">
-                        <AlertCircle className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                        <p>Loading application details...</p>
-                    </div>
-                )}
-            </AdminModal>
-
-            {/* Delete Confirmation Modal */}
-            <AdminModal
-                isOpen={showDeleteModal}
-                onClose={closeDeleteModal}
-                title="Delete Adoption Application"
-                size="sm"
-            >
-                {selectedAdoption ? (
-                    <div className="p-6">
-                        <div className="mb-6">
-                            <AlertCircle className="h-12 w-12 mx-auto text-red-400 mb-4" />
-                            <p className="text-center text-gray-700">
-                                Are you sure you want to delete the adoption application for <span className="font-semibold">{selectedAdoption.petName}</span>?
-                            </p>
-                            <p className="text-center text-gray-500 text-sm mt-2">
-                                This action cannot be undone. If the application was pending or in review,
-                                the pet will be marked as available again.
-                            </p>
-                        </div>
-
-                        <div className="flex justify-end space-x-3">
-                            <button
-                                onClick={closeDeleteModal}
-                                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleDelete}
-                                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md flex items-center"
-                            >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Delete
-                            </button>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="p-6 text-center">
-                        <AlertCircle className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                        <p>Loading application details...</p>
-                    </div>
-                )}
-            </AdminModal>
-
+            {filtered.length > PER_PAGE && (
+                <div style={{ marginTop: '20px' }}>
+                    <AdminPagination
+                        itemsPerPage={PER_PAGE}
+                        totalItems={filtered.length}
+                        currentPage={currentPage}
+                        paginate={setCurrentPage}
+                    />
+                </div>
+            )}
         </div>
     );
 };
+
+// ── Row ───────────────────────────────────────────────────────────────────────
+function AdoptionRow({ adoption, index }) {
+    const [hover, setHover] = useState(false);
+
+    const days = adoption.daysToAdoption;
+    const daysLabel = days != null
+        ? days === 0 ? 'same day as posting'
+        : days === 1 ? '1 day after posting'
+        : `${days} days after posting`
+        : null;
+
+    return (
+        <tr
+            onMouseEnter={() => setHover(true)}
+            onMouseLeave={() => setHover(false)}
+            style={{
+                borderTop: '1px solid rgba(45,31,20,0.06)',
+                background: hover ? 'rgba(192,122,74,0.03)' : 'transparent',
+                transition: 'background 0.1s',
+            }}
+        >
+            {/* # */}
+            <td style={{ padding: '10px 10px', width: '40px' }}>
+                <span style={{ fontFamily: sans, fontSize: '11px', color: '#B09880', fontWeight: 500 }}>{index}</span>
+            </td>
+
+            {/* Animal */}
+            <td style={{ padding: '10px 10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{
+                        width: '30px', height: '30px', borderRadius: '50%',
+                        background: '#E8D4C8', flexShrink: 0,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontFamily: sans, fontSize: '11px', fontWeight: 700, color: '#7A5C44',
+                    }}>
+                        {(adoption.petName || '?').charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                        <div style={{ fontFamily: sans, fontSize: '13px', fontWeight: 500, color: '#2D1F14' }}>
+                            {adoption.petName || '—'}
+                        </div>
+                        <div style={{ fontFamily: sans, fontSize: '11px', color: '#B09880' }}>
+                            {cap(adoption.petType)}{adoption.petBreed ? ` · ${adoption.petBreed}` : ''}
+                        </div>
+                    </div>
+                </div>
+            </td>
+
+            {/* City */}
+            <td style={{ padding: '10px 10px', whiteSpace: 'nowrap' }}>
+                <span style={{ fontFamily: sans, fontSize: '12px', color: adoption.city ? '#2D1F14' : '#B09880' }}>
+                    {adoption.city || '—'}
+                </span>
+            </td>
+
+            {/* Found its home */}
+            <td style={{ padding: '10px 10px', whiteSpace: 'nowrap' }}>
+                <div style={{ fontFamily: sans, fontSize: '12px', color: '#2D1F14', fontWeight: 500 }}>
+                    {formatDate(adoption.adoptedAt)}
+                </div>
+                {daysLabel && (
+                    <div style={{ fontFamily: sans, fontSize: '10px', color: '#B09880', marginTop: '2px' }}>
+                        {daysLabel}
+                    </div>
+                )}
+            </td>
+
+            {/* Posted by */}
+            <td style={{ padding: '10px 10px' }}>
+                <div style={{ fontFamily: sans, fontSize: '12px', fontWeight: 500, color: '#2D1F14' }}>
+                    {adoption.uploaderName || '—'}
+                </div>
+                {adoption.uploaderEmail && (
+                    <div style={{ fontFamily: sans, fontSize: '11px', color: '#B09880' }}>
+                        {adoption.uploaderEmail}
+                    </div>
+                )}
+            </td>
+        </tr>
+    );
+}
 
 export default AdoptionsManagement;

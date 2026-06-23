@@ -241,65 +241,80 @@ export const getAdoptionDetails = async (req, res) => {
 
 
 
-// Admin: Get all completed adoptions (approved only, cross-DB enriched)
+// Admin: Get all completed adoptions — reads from PostgreSQL (is_adopted = true)
 export const getAllAdoptions = async (req, res) => {
     try {
         const { petType, sort = 'newest' } = req.query;
 
-        // Always filter to approved (completed adoptions only)
-        const mongoFilter = { status: 'approved' };
-        if (petType && petType !== 'all') mongoFilter.petType = petType;
+        const conditions = ['p.is_adopted = TRUE', 'p.adopted_at IS NOT NULL'];
+        const values = [];
+        let n = 1;
 
-        const sortOptions = sort === 'oldest' ? { createdAt: 1 } : { createdAt: -1 };
+        if (petType && petType !== 'all') {
+            conditions.push(`LOWER(p.type) = $${n++}`);
+            values.push(petType.toLowerCase());
+        }
 
-        const adoptions = await Adoption.find(mongoFilter)
-            .populate('user', 'name email')
-            .sort(sortOptions)
-            .lean();
+        const orderBy = sort === 'oldest' ? 'p.adopted_at ASC' : 'p.adopted_at DESC';
 
-        if (adoptions.length === 0) {
+        const pgResult = await pool.query(`
+            SELECT
+                p.id,
+                p.name                                                                  AS "petName",
+                p.type                                                                  AS "petType",
+                p.breed                                                                 AS "petBreed",
+                p.location_city                                                         AS city,
+                p.adopted_at                                                            AS "adoptedAt",
+                p.created_at                                                            AS "postedAt",
+                GREATEST(
+                    ROUND(EXTRACT(EPOCH FROM (p.adopted_at - p.created_at)) / 86400)::int,
+                    0
+                )                                                                       AS "daysToAdoption",
+                p.uploader_id                                                           AS "uploaderId",
+                p.adopted_by                                                            AS "adoptedById"
+            FROM pets p
+            WHERE ${conditions.join(' AND ')}
+            ORDER BY ${orderBy}
+        `, values);
+
+        const pets = pgResult.rows;
+
+        if (pets.length === 0) {
             return res.status(200).json({ success: true, adoptions: [] });
         }
 
-        // Cross-DB: verify petIds exist in PostgreSQL and get uploader info
-        const petIds = [...new Set(adoptions.map(a => a.petId).filter(Boolean))];
-        let uploaderMap = {};
-        let validPetIds = new Set();
+        // Enrich with MongoDB user names for uploader and adopted_by
+        const mongoIds = [...new Set([
+            ...pets.map(p => p.uploaderId).filter(Boolean),
+            ...pets.map(p => p.adoptedById).filter(Boolean),
+        ])];
 
-        try {
-            const pgResult = await pool.query(
-                'SELECT id, uploader_id FROM pets WHERE id = ANY($1)',
-                [petIds]
-            );
-            pgResult.rows.forEach(r => validPetIds.add(r.id));
-
-            const uploaderIds = [...new Set(pgResult.rows.map(r => r.uploader_id).filter(Boolean))];
-            if (uploaderIds.length > 0) {
-                const uploaders = await User.find({ _id: { $in: uploaderIds } }, { name: 1, email: 1 }).lean();
-                const userMap = Object.fromEntries(uploaders.map(u => [u._id.toString(), u]));
-                pgResult.rows.forEach(r => {
-                    if (r.uploader_id && userMap[r.uploader_id]) {
-                        uploaderMap[r.id] = userMap[r.uploader_id];
-                    }
-                });
+        let userMap = {};
+        if (mongoIds.length > 0) {
+            try {
+                const users = await User.find({ _id: { $in: mongoIds } }, { name: 1, email: 1 }).lean();
+                userMap = Object.fromEntries(users.map(u => [u._id.toString(), u]));
+            } catch (mongoErr) {
+                console.warn('[adoptions] MongoDB user lookup failed:', mongoErr.message);
             }
-        } catch (pgErr) {
-            console.warn('[adoptions] PostgreSQL lookup failed:', pgErr.message);
-            // Fallback: include all adoptions without uploader/validity filtering
         }
 
-        // Filter out seeded/fake adoptions (petId not in PostgreSQL)
-        const enriched = adoptions
-            .filter(a => validPetIds.size === 0 || validPetIds.has(a.petId))
-            .map(a => ({
-                ...a,
-                uploaderName:  uploaderMap[a.petId]?.name  || null,
-                uploaderEmail: uploaderMap[a.petId]?.email || null,
-            }));
+        const enriched = pets.map(p => ({
+            _id:             p.id,
+            petName:         p.petName,
+            petType:         p.petType,
+            petBreed:        p.petBreed,
+            city:            p.city,
+            adoptedAt:       p.adoptedAt,
+            postedAt:        p.postedAt,
+            daysToAdoption:  p.daysToAdoption,
+            uploaderName:    userMap[p.uploaderId]?.name  || null,
+            uploaderEmail:   userMap[p.uploaderId]?.email || null,
+        }));
 
         res.status(200).json({ success: true, adoptions: enriched });
     } catch (error) {
-        console.error('Error fetching all adoptions:', error);
+        console.error('Error fetching adoptions:', error);
         res.status(500).json({ success: false, message: 'Failed to fetch adoptions', error: error.message });
     }
 };
