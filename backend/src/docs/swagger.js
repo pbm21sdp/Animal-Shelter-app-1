@@ -8,7 +8,6 @@ import { responses } from './components/responses.js';
 import { authDocs } from './routes/auth.docs.js';
 import { adoptionsDocs } from './routes/adoptions.docs.js';
 import { petsDocs } from './routes/pets.docs.js';
-import { meetingsDocs } from './routes/meetings.docs.js';
 import { messagesDocs } from './routes/messages.docs.js';
 import { donationsDocs } from './routes/donations.docs.js';
 import { usersDocs } from './routes/user.docs.js';
@@ -64,8 +63,7 @@ const swaggerDefinition = {
         ...petsDocs,
         ...usersDocs,
         ...messagesDocs,
-        ...donationsDocs,
-        ...meetingsDocs
+        ...donationsDocs
     },
     tags: [
         { name: 'Authentication', description: 'User authentication and authorization endpoints' },
@@ -73,8 +71,7 @@ const swaggerDefinition = {
         { name: 'Pets', description: 'Pet management and searching' },
         { name: 'Users', description: 'User profile and management' },
         { name: 'Messages', description: 'Contact and messaging system' },
-        { name: 'Donations', description: 'Donation and payment processing' },
-        { name: 'Meetings', description: 'Scheduled meetings for adoptions' }
+        { name: 'Donations', description: 'Donation and payment processing' }
     ]
 };
 

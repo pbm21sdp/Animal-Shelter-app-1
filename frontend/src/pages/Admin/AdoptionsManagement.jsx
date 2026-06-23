@@ -4,13 +4,12 @@ import {
     Check, X, Eye, RefreshCw, Filter, Search, Users,
     PawPrint, Edit, Trash2, AlertCircle, User, Home,
     MessageSquare, Clock, ArrowUp, ArrowDown, CheckCircle,
-    XCircle, AlertTriangle, ChevronRight, ExternalLink, BarChart3, Calendar
+    XCircle, AlertTriangle, ChevronRight, ExternalLink, BarChart3
 } from 'lucide-react';
 import AdminTable from './shared/AdminTable';
 import AdminPagination from './shared/AdminPagination';
 import AdminModal from './shared/AdminModal';
 import AdminSearchBar from './shared/AdminSearchBar';
-import ScheduleMeetingModal from './ScheduleMeetingModal';
 
 const AdoptionsManagement = () => {
     const {
@@ -44,8 +43,6 @@ const AdoptionsManagement = () => {
     const [statusToUpdate, setStatusToUpdate] = useState('');
     const [adminNotes, setAdminNotes] = useState('');
     const [showStats, setShowStats] = useState(false);
-
-    const [showScheduleMeetingModal, setShowScheduleMeetingModal] = useState(false);
 
     // State to hold user details
     const [userDetails, setUserDetails] = useState({});
@@ -223,15 +220,6 @@ const AdoptionsManagement = () => {
         }
     };
 
-    const handleScheduleMeetingClick = (adoption, e) => {
-        if (e) {
-            e.stopPropagation();
-        }
-        getAdoptionDetailsAdmin(adoption._id).then(() => {
-            setShowScheduleMeetingModal(true);
-        });
-    };
-
     // Close details modal
     const closeDetailsModal = () => {
         setShowDetailsModal(false);
@@ -381,15 +369,6 @@ const AdoptionsManagement = () => {
             accessor: 'actions',
             render: (adoption) => (
                 <div className="flex space-x-2">
-                    {adoption.status === 'pending' && (
-                        <button
-                            onClick={(e) => handleScheduleMeetingClick(adoption, e)}
-                            className="text-teal-600 hover:text-teal-900 p-1"
-                            title="Schedule Meeting"
-                        >
-                            <Calendar className="h-4 w-4" />
-                        </button>
-                    )}
                     <button
                         onClick={(e) => handleStatusUpdateClick(adoption, e)}
                         className="text-blue-600 hover:text-blue-900 p-1"
@@ -1058,16 +1037,6 @@ const AdoptionsManagement = () => {
                     </div>
                 )}
             </AdminModal>
-
-            {/* Schedule Meeting Modal */}
-            <ScheduleMeetingModal
-                isOpen={showScheduleMeetingModal}
-                onClose={() => {
-                    setShowScheduleMeetingModal(false);
-                    clearSelectedAdoption();
-                }}
-                adoption={selectedAdoption}
-            />
 
         </div>
     );
