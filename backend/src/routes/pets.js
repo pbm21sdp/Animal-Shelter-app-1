@@ -11,6 +11,9 @@ import {
     getSearchSuggestions,
     adoptPet,
     unadoptPet,
+    getPendingPets,
+    approvePet,
+    rejectPet,
 } from '../controllers/pet.controller.js';
 import {
     uploadPhoto,
@@ -29,6 +32,11 @@ const router = express.Router();
 router.get('/suggestions', getSearchSuggestions); // This must come BEFORE /:id routes
 router.get('/search', searchPets);
 router.get('/', getAllPets);
+
+// Admin moderation routes — must come BEFORE /:id to avoid route shadowing
+router.get('/admin/pending', verifyToken, isAdmin, getPendingPets);
+router.patch('/:id/approve', verifyToken, isAdmin, approvePet);
+router.patch('/:id/reject',  verifyToken, isAdmin, rejectPet);
 
 // ID-based routes
 router.get('/:id/similar', getSimilarPets);

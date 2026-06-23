@@ -1,5 +1,5 @@
 // controllers/pet.controller.js
-import {PetModel} from '../models/pet.model.js';
+import { PetModel } from '../models/pet.model.js';
 import { Adoption } from '../models/adoption.model.js';
 import { pool } from '../config/database/connectPostgresDB.js';
 
@@ -18,6 +18,13 @@ export const getAllPets = async (req, res) => {
         // This allows admins to see all pets regardless of adoption status
         if (showAll !== 'true') {
             filters.is_available = true;
+        }
+
+        // Moderation filter: show only approved pets on the public feed.
+        // Exception: a user viewing their own listings sees all statuses (pending/approved/rejected).
+        const isViewingOwnListings = uploader_id && uploader_id === req.userId;
+        if (!isViewingOwnListings) {
+            filters.status = 'approved';
         }
 
         // Optional: ?adopted=true → only community-adopted, ?adopted=false → only not adopted
@@ -99,6 +106,13 @@ export const getPetById = async (req, res) => {
                 success: false,
                 message: 'Pet not found'
             });
+        }
+
+        // Moderation gate — non-approved listings visible only to uploader or admin
+        if (pet.status !== 'approved') {
+            if (!req.isAdmin && pet.uploader_id !== req.userId) {
+                return res.status(404).json({ success: false, message: 'Pet not found' });
+            }
         }
 
         // If pet is not available, check access
@@ -296,6 +310,89 @@ export const unadoptPet = async (req, res) => {
     } catch (error) {
         console.error('Error in unadoptPet:', error);
         res.status(500).json({ success: false, message: 'Failed to reverse adoption mark', error: error.message });
+    }
+};
+
+// GET /api/pets/admin/pending — admin only
+export const getPendingPets = async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT p.*,
+                   (SELECT pp.id FROM pet_photos pp WHERE pp.pet_id = p.id AND pp.is_primary = true LIMIT 1) as primary_photo_id,
+                   (SELECT json_agg(json_build_object(
+                       'id', pp.id, 'pet_id', pp.pet_id,
+                       'photo_name', pp.photo_name, 'content_type', pp.content_type,
+                       'photo_url', pp.photo_url, 'is_primary', pp.is_primary,
+                       'created_at', pp.created_at
+                   ) ORDER BY pp.is_primary DESC, pp.created_at ASC)
+                    FROM pet_photos pp WHERE pp.pet_id = p.id) as photos,
+                   (SELECT json_agg(DISTINCT pt.trait) FROM pet_traits pt WHERE pt.pet_id = p.id) as traits
+            FROM pets p
+            WHERE p.status = 'pending'
+            ORDER BY p.created_at ASC
+        `);
+        res.status(200).json({ success: true, pets: result.rows });
+    } catch (error) {
+        console.error('Error fetching pending pets:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch pending pets', error: error.message });
+    }
+};
+
+// PATCH /api/pets/:id/approve — admin only
+export const approvePet = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query(
+            `UPDATE pets SET status = 'approved', reviewed_by = $1, reviewed_at = NOW()
+             WHERE id = $2 RETURNING *`,
+            [req.userId, id]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Pet not found' });
+        }
+        const pet = result.rows[0];
+        if (pet.uploader_id) {
+            await pool.query(
+                `INSERT INTO notifications (user_id, type, related_animal_id, message)
+                 VALUES ($1, 'animal_approved', $2, $3)`,
+                [pet.uploader_id, pet.id, `Your listing "${pet.name}" has been approved and is now visible to all users.`]
+            );
+        }
+        res.status(200).json({ success: true, message: 'Pet approved successfully', pet });
+    } catch (error) {
+        console.error('Error approving pet:', error);
+        res.status(500).json({ success: false, message: 'Failed to approve pet', error: error.message });
+    }
+};
+
+// PATCH /api/pets/:id/reject — admin only
+export const rejectPet = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { reason } = req.body;
+        if (!reason || !reason.trim()) {
+            return res.status(400).json({ success: false, message: 'Rejection reason is required' });
+        }
+        const result = await pool.query(
+            `UPDATE pets SET status = 'rejected', rejection_reason = $1, reviewed_by = $2, reviewed_at = NOW()
+             WHERE id = $3 RETURNING *`,
+            [reason.trim(), req.userId, id]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Pet not found' });
+        }
+        const pet = result.rows[0];
+        if (pet.uploader_id) {
+            await pool.query(
+                `INSERT INTO notifications (user_id, type, related_animal_id, message)
+                 VALUES ($1, 'animal_rejected', $2, $3)`,
+                [pet.uploader_id, pet.id, `Your listing "${pet.name}" was not approved. Reason: ${reason.trim()}`]
+            );
+        }
+        res.status(200).json({ success: true, message: 'Pet rejected successfully', pet });
+    } catch (error) {
+        console.error('Error rejecting pet:', error);
+        res.status(500).json({ success: false, message: 'Failed to reject pet', error: error.message });
     }
 };
 

@@ -66,6 +66,12 @@ export const PetModel = {
                 paramCount++;
             }
 
+            if (filters.status) {
+                query += ` AND p.status = $${paramCount}`;
+                values.push(filters.status);
+                paramCount++;
+            }
+
             query += ` ORDER BY p.created_at DESC`;
 
             const result = await pool.query(query, values);
