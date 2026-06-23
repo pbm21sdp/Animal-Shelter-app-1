@@ -233,6 +233,7 @@ export default function PetDetailPage() {
         { label: 'Breed',  value: pet.breed },
         { label: 'Size',   value: cap(pet.size) },
         { label: 'Age',    value: pet.age_category },
+        { label: 'Gender', value: cap(pet.gender) },
         { label: 'Color',  value: pet.color },
         { label: 'Weight', value: pet.weight ? `${pet.weight} kg` : null },
     ].filter(p => p.value);
@@ -287,6 +288,7 @@ export default function PetDetailPage() {
                         {pet.type         && <><span>{cap(pet.type)}</span><Dot /></>}
                         {(pet.location_address || pet.location_city) && <><span>◎ {[pet.location_address, pet.location_city].filter(Boolean).join(', ')}</span><Dot /></>}
                         {pet.age_category && <><span>{pet.age_category}</span><Dot /></>}
+                        {pet.gender       && <><span>{cap(pet.gender)}</span><Dot /></>}
                         {pet.created_at   && <span>{timeAgo(pet.created_at)}</span>}
                     </div>
                 </div>
