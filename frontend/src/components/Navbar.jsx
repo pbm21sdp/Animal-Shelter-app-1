@@ -327,6 +327,25 @@ export default function Navbar() {
                                                 {label}
                                             </Link>
                                         ))}
+                                        {user?.isAdmin && (
+                                            <Link
+                                                to="/admin/pets"
+                                                style={{
+                                                    display: 'block',
+                                                    padding: '10px 16px',
+                                                    color: '#C07A4A',
+                                                    fontSize: '13px',
+                                                    textDecoration: 'none',
+                                                    transition: 'background-color 0.12s',
+                                                    fontWeight: 500,
+                                                }}
+                                                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#FDEADE'; }}
+                                                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                                onClick={() => setShowProfileDropdown(false)}
+                                            >
+                                                Admin Dashboard
+                                            </Link>
+                                        )}
                                         <button
                                             onClick={() => { logout(); setShowProfileDropdown(false); }}
                                             style={{

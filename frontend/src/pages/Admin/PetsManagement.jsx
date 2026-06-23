@@ -528,66 +528,9 @@ const PetsManagement = () => {
                         </div>
                     </div>
 
-                    {isEdit && (
-                        <div className="mb-4">
-                            <label className="block text-gray-700 text-sm font-bold mb-2">
-                                Current Photos
-                            </label>
-                            <div className="flex flex-wrap gap-2">
-                                {currentPetPhotos.length === 0 ? (
-                                    <p className="text-gray-500 italic">No photos provided</p>
-                                ) : (
-                                    currentPetPhotos.map((photo) => (
-                                        <div key={photo.id} className="relative group">
-                                            <img
-                                                src={getPhotoUrl(photo.id)}
-                                                alt={photo.photo_name || 'Pet photo'}
-                                                className={`h-20 w-20 object-cover rounded border-2 ${photo.is_primary ? 'border-yellow-400' : 'border-transparent'}`}
-                                                onError={(e) => e.target.src = '/api/placeholder/80/80'}
-                                            />
-                                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
-                                                {!photo.is_primary && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setPrimaryPhoto(selectedPet.id, photo.id);
-                                                        }}
-                                                        className="text-yellow-400 hover:text-yellow-300 mx-1 p-2"
-                                                        style={{ touchAction: 'manipulation' }}
-                                                        title="Set as primary photo"
-                                                    >
-                                                        <Star className="h-5 w-5" />
-                                                    </button>
-                                                )}
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        deletePhoto(selectedPet.id, photo.id);
-                                                    }}
-                                                    className="text-red-400 hover:text-red-300 mx-1 p-2"
-                                                    style={{ touchAction: 'manipulation' }}
-                                                    title="Delete photo"
-                                                >
-                                                    <Trash2 className="h-5 w-5" />
-                                                </button>
-                                            </div>
-                                            {photo.is_primary && (
-                                                <span className="absolute top-0 right-0 bg-yellow-400 text-white text-xs px-1 rounded-bl">
-                                                    Primary
-                                                </span>
-                                            )}
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-                    )}
-
                     <div className="mb-4">
                         <label className="block text-gray-700 text-sm font-bold mb-2">
-                            {isEdit ? 'Add New Photo' : 'Photo'}
+                            Photo
                         </label>
                         <div className="flex items-center">
                             <input
@@ -595,10 +538,10 @@ const PetsManagement = () => {
                                 accept="image/*"
                                 onChange={handlePhotoChange}
                                 className="hidden"
-                                id={isEdit ? "photo-upload-edit" : "photo-upload"}
+                                id="photo-upload"
                             />
                             <label
-                                htmlFor={isEdit ? "photo-upload-edit" : "photo-upload"}
+                                htmlFor="photo-upload"
                                 className="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded flex items-center"
                                 style={{ touchAction: 'manipulation' }}
                             >
@@ -718,7 +661,7 @@ const PetsManagement = () => {
                     style={{ touchAction: 'manipulation', minWidth: '120px' }}
                 >
                     <Check className="h-5 w-5 mr-2" />
-                    {isEdit ? 'Update Pet' : 'Save Pet'}
+                    Save Pet
                 </button>
             </div>
         </form>
@@ -735,17 +678,6 @@ const PetsManagement = () => {
                         onChange={(e) => setSearchTerm(e.target.value)}
                         placeholder="Search pets..."
                     />
-                    <button
-                        onClick={() => {
-                            resetForm();
-                            setShowAddModal(true);
-                        }}
-                        className="bg-tealcustom hover:bg-teal-700 text-white px-4 py-2 rounded-md flex items-center w-full sm:w-auto justify-center"
-                        style={{ padding: '10px', touchAction: 'manipulation', minWidth: '120px' }}
-                    >
-                        <Plus className="h-5 w-5 mr-1" />
-                        Add New Pet
-                    </button>
                 </div>
             </div>
 
