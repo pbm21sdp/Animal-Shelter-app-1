@@ -14,8 +14,8 @@ print("PAWS CLIP FINE-TUNING SCRIPT")
 print("="*60)
 
 # ── Configuration ──────────────────────────────────────────────
-DATASET_DIR = '/content/drive/MyDrive/Paws_CLIP_Training/dataset'
-MODEL_OUTPUT_DIR = '/content/drive/MyDrive/Paws_CLIP_Training/models/clip_finetuned'
+DATASET_DIR = '/content/drive/MyDrive/Paws_CLIP_training/dataset'
+MODEL_OUTPUT_DIR = '/content/drive/MyDrive/Paws_CLIP_training/models/clip_finetuned'
 BASE_MODEL = "openai/clip-vit-base-patch32"
 BATCH_SIZE = 16
 NUM_EPOCHS = 5
@@ -203,7 +203,11 @@ def train():
             for cat, texts in CATEGORY_LABELS.items():
                 enc = val_dataset.processor(text=texts, return_tensors='pt', padding=True, truncation=True)
                 enc = {k: v.to(DEVICE) for k, v in enc.items()}
-                feats = model.get_text_features(**enc)
+                text_out = model.text_model(
+                    input_ids=enc['input_ids'],
+                    attention_mask=enc['attention_mask']
+                )
+                feats = model.text_projection(text_out.pooler_output)
                 feats = feats / feats.norm(dim=-1, keepdim=True)
                 cat_text_emb[cat] = feats
 
@@ -222,7 +226,8 @@ def train():
                 val_loss += loss.item()
 
                 # Real classification accuracy against full label set per category
-                image_features = model.get_image_features(pixel_values=pixel_values)
+                vision_out = model.vision_model(pixel_values=pixel_values)
+                image_features = model.visual_projection(vision_out.pooler_output)
                 image_features = image_features / image_features.norm(dim=-1, keepdim=True)
                 for i in range(len(pixel_values)):
                     cat      = categories[i]
