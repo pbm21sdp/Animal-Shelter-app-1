@@ -21,9 +21,10 @@ export const getAllPets = async (req, res) => {
         }
 
         // Moderation filter: show only approved pets on the public feed.
-        // Exception: a user viewing their own listings sees all statuses (pending/approved/rejected).
+        // Exceptions: a user viewing their own listings, or an admin requesting all pets.
         const isViewingOwnListings = uploader_id && uploader_id === req.userId;
-        if (!isViewingOwnListings) {
+        const isAdminViewingAll = showAll === 'true' && req.isAdmin === true;
+        if (!isViewingOwnListings && !isAdminViewingAll) {
             filters.status = 'approved';
         }
 
