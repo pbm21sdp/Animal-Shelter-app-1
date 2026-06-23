@@ -57,7 +57,12 @@ export default function MyAnimalsPage() {
         console.log('[MyAnimalsPage] currentUser at effect:', currentUser);
         if (!currentUser?._id) { setIsLoading(false); return; }
         axios.get(`${API}/users/${currentUser._id}/pets`, { withCredentials: true })
-            .then(r => setMyPets(r.data.pets || []))
+            .then(r => {
+                console.log('[MyAnimalsPage] response data:', r.data);
+                console.log('[MyAnimalsPage] pets count:', r.data.pets?.length);
+                console.log('[MyAnimalsPage] pet names:', r.data.pets?.map(p => p.name));
+                setMyPets(r.data.pets || []);
+            })
             .catch(() => setMyPets([]))
             .finally(() => setIsLoading(false));
     }, [currentUser?._id]);
