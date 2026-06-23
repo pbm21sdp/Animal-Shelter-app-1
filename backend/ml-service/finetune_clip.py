@@ -14,10 +14,10 @@ print("PAWS CLIP FINE-TUNING SCRIPT")
 print("="*60)
 
 # ── Configuration ──────────────────────────────────────────────
-DATASET_DIR = os.path.join(os.path.dirname(__file__), 'dataset')
-MODEL_OUTPUT_DIR = os.path.join(os.path.dirname(__file__), 'models', 'clip_finetuned')
+DATASET_DIR = '/content/drive/MyDrive/Paws_CLIP_Training/dataset'
+MODEL_OUTPUT_DIR = '/content/drive/MyDrive/Paws_CLIP_Training/models/clip_finetuned'
 BASE_MODEL = "openai/clip-vit-base-patch32"
-BATCH_SIZE = 8
+BATCH_SIZE = 16
 NUM_EPOCHS = 5
 LEARNING_RATE = 1e-5
 IMAGE_SIZE = 224
@@ -126,6 +126,7 @@ def collate_fn(batch):
         'input_ids': input_ids,
         'attention_mask': attention_mask,
         'labels': torch.stack([b['label'] for b in batch]),
+        'categories': [b['category'] for b in batch],
     }
 
 
@@ -151,7 +152,7 @@ def train():
     loss_fn = nn.CrossEntropyLoss()
 
     best_val_loss = float('inf')
-    history = {'train_loss': [], 'val_loss': [], 'val_accuracy': [], 'started': datetime.now().isoformat()}
+    history = {'train_loss': [], 'val_loss': [], 'val_accuracy': [], 'val_accuracy_per_cat': {}, 'started': datetime.now().isoformat()}
 
     print(f"\nStarting training for {NUM_EPOCHS} epochs...")
     print(f"Training samples:   {len(train_dataset)}")
@@ -193,35 +194,63 @@ def train():
         val_loss = 0
         correct = 0
         total = 0
+        cat_correct = {}
+        cat_total = {}
 
         with torch.no_grad():
+            # Recompute text embeddings with current model weights each epoch
+            cat_text_emb = {}
+            for cat, texts in CATEGORY_LABELS.items():
+                enc = val_dataset.processor(text=texts, return_tensors='pt', padding=True, truncation=True)
+                enc = {k: v.to(DEVICE) for k, v in enc.items()}
+                feats = model.get_text_features(**enc)
+                feats = feats / feats.norm(dim=-1, keepdim=True)
+                cat_text_emb[cat] = feats
+
             for batch in val_loader:
-                pixel_values = batch['pixel_values'].to(DEVICE)
-                input_ids = batch['input_ids'].to(DEVICE)
+                pixel_values   = batch['pixel_values'].to(DEVICE)
+                input_ids      = batch['input_ids'].to(DEVICE)
                 attention_mask = batch['attention_mask'].to(DEVICE)
+                true_labels    = batch['labels'].to(DEVICE)
+                categories     = batch['categories']
 
+                # Contrastive loss (unchanged — drives model saving criterion)
                 outputs = model(pixel_values=pixel_values, input_ids=input_ids, attention_mask=attention_mask)
-                logits = outputs.logits_per_image
-
+                logits  = outputs.logits_per_image
                 contrastive_labels = torch.arange(len(pixel_values)).to(DEVICE)
                 loss = (loss_fn(logits, contrastive_labels) + loss_fn(logits.T, contrastive_labels)) / 2
                 val_loss += loss.item()
 
-                preds = logits.argmax(dim=1)
-                correct += (preds == contrastive_labels).sum().item()
-                total += len(pixel_values)
+                # Real classification accuracy against full label set per category
+                image_features = model.get_image_features(pixel_values=pixel_values)
+                image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+                for i in range(len(pixel_values)):
+                    cat      = categories[i]
+                    true_lbl = true_labels[i].item()
+                    sims     = image_features[i] @ cat_text_emb[cat].T
+                    pred     = sims.argmax().item()
+                    hit      = int(pred == true_lbl)
+                    correct             += hit
+                    total               += 1
+                    cat_correct[cat]     = cat_correct.get(cat, 0) + hit
+                    cat_total[cat]       = cat_total.get(cat, 0)   + 1
 
         avg_val_loss = val_loss / max(len(val_loader), 1)
-        accuracy = correct / max(total, 1) * 100
+        accuracy     = correct / max(total, 1) * 100
+        cat_accuracy = {c: round(cat_correct[c] / max(cat_total[c], 1) * 100, 1) for c in cat_correct}
 
         history['train_loss'].append(avg_train_loss)
         history['val_loss'].append(avg_val_loss)
         history['val_accuracy'].append(accuracy)
+        for cat, acc in cat_accuracy.items():
+            history['val_accuracy_per_cat'].setdefault(cat, []).append(acc)
 
         print(f"\nEpoch {epoch+1}/{NUM_EPOCHS} complete")
         print(f"  Train Loss:   {avg_train_loss:.4f}")
         print(f"  Val Loss:     {avg_val_loss:.4f}")
-        print(f"  Val Accuracy: {accuracy:.1f}%")
+        print(f"  Val Accuracy: {accuracy:.1f}%  (real classification, all categories)")
+        for cat in sorted(cat_accuracy.keys()):
+            print(f"    {cat}: {cat_accuracy[cat]:.1f}%  ({cat_correct[cat]}/{cat_total[cat]})")
 
         scheduler.step()
 
@@ -234,7 +263,7 @@ def train():
     history['completed'] = datetime.now().isoformat()
     history['best_val_loss'] = best_val_loss
     os.makedirs(MODEL_OUTPUT_DIR, exist_ok=True)
-    with open(os.path.join(MODEL_OUTPUT_DIR, 'training_history.json'), 'w') as f:
+    with open(os.path.join(MODEL_OUTPUT_DIR, 'training_history.json'), 'w', encoding='utf-8') as f:
         json.dump(history, f, indent=2)
 
     print("\n" + "="*60)
