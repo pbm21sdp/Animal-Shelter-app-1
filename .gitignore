@@ -141,12 +141,14 @@ dist
 /backend/scripts/runSchema.js
 /backend/src/uploads/**
 
+backend/db/migrations/
 backend/ml-service/venv/
 backend/ml-service/models/
+backend/ml-service/dataset/
 backend/.env.backup
-backend/db/migrations/
 backend/ml-service/__pycache__/
 backend/uploads/
+backend/ml-service/dataset_zipped.zip
 *.pyc
 __pycache__/
 
@@ -155,8 +157,14 @@ CLAUDE.md
 PLANNING.md
 PRD.md
 TASKS.md
+thesis_context.md
 
 # Test generated filed
 /backend/coverage/*
+
+# Database backups
+backend/db/backup_*.sql
+backend/db/mongo_backup_*/
+backend/db/*_backup_*/
 
 .env

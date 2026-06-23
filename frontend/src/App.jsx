@@ -7,7 +7,7 @@ import PetSearchPage from "./pages/PetSearchPage";
 import PetDetailPage from "./pages/PetDetailPage";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
 import EmailVerificationPage from "./pages/EmailVerificationPage";
-import {Toaster} from "react-hot-toast";
+import toast, {Toaster} from "react-hot-toast";
 import {useAuthStore} from "./store/authStore";
 import {useEffect} from "react";
 import LoadingSpinner from "./components/LoadingSpinner";
@@ -17,7 +17,6 @@ import AdoptionProcessPage from "./pages/AdoptionProcessPage";
 import AdoptionRequirementsPage from "./pages/AdoptionRequirementsPage";
 import AdoptionFAQPage from './pages/AdoptionFAQPage';
 import DonationSuccessPage from './pages/DonationSuccessPage';
-import UserProfilePage from './pages/UserProfilePage';
 import ProfilePage from './pages/ProfilePage';
 import Team from './pages/Team';
 import Partnerships from './pages/Partnerships';
@@ -49,6 +48,28 @@ const ProtectedRoute = ({children}) => {
         return <Navigate to="/verify-email" replace />;
     }
 
+    return children;
+};
+
+// Admin-only route: requires authentication + verified + isAdmin
+const AdminRoute = ({children}) => {
+    const {isAuthenticated, user} = useAuthStore();
+
+    useEffect(() => {
+        if (isAuthenticated && user && !user.isAdmin) {
+            toast.error('Acces interzis');
+        }
+    }, [isAuthenticated, user]);
+
+    if (!isAuthenticated) {
+        return <Navigate to="/login" replace />;
+    }
+    if (!user.isVerified) {
+        return <Navigate to="/verify-email" replace />;
+    }
+    if (!user.isAdmin) {
+        return <Navigate to="/" replace />;
+    }
     return children;
 };
 
@@ -139,9 +160,9 @@ function App() {
                     </RedirectAuthenticatedUser>
                 }/>
                 <Route path='/admin/pets' element={
-                    <ProtectedRoute>
+                    <AdminRoute>
                         <AdminDashboardPage />
-                    </ProtectedRoute>
+                    </AdminRoute>
                 }
                 />
                 <Route path="/adoption-process" element={
@@ -183,13 +204,6 @@ function App() {
                         <ProfilePage />
                     </ProtectedRoute>
                 }/>
-                {/* Legacy profile page (messages, meetings, adoptions tabs) */}
-                <Route path="/my-profile" element={
-                    <ProtectedRoute>
-                        <UserProfilePage />
-                    </ProtectedRoute>
-                }
-                />
                 <Route path="/team" element={
                     <ProtectedRoute>
                         <Team />

@@ -14,10 +14,10 @@ print("PAWS CLIP FINE-TUNING SCRIPT")
 print("="*60)
 
 # ── Configuration ──────────────────────────────────────────────
-DATASET_DIR = os.path.join(os.path.dirname(__file__), 'dataset')
-MODEL_OUTPUT_DIR = os.path.join(os.path.dirname(__file__), 'models', 'clip_finetuned')
+DATASET_DIR = '/content/drive/MyDrive/Paws_CLIP_training/dataset'
+MODEL_OUTPUT_DIR = '/content/drive/MyDrive/Paws_CLIP_training/models/clip_finetuned'
 BASE_MODEL = "openai/clip-vit-base-patch32"
-BATCH_SIZE = 8
+BATCH_SIZE = 16
 NUM_EPOCHS = 5
 LEARNING_RATE = 1e-5
 IMAGE_SIZE = 224
@@ -30,25 +30,25 @@ print(f"Output: {MODEL_OUTPUT_DIR}")
 # ── Label maps for each category ──────────────────────────────
 CATEGORY_LABELS = {
     "1_species": ["a photo of a cat", "a photo of a dog", "a photo of a puppy", "a photo of a kitten", "a photo of a rabbit", "a photo of a guinea pig", "a photo of a hamster"],
-    "2_dog_breed": ["a golden retriever", "a german shepherd", "a labrador retriever", "a siberian husky", "a beagle", "a chihuahua", "a mixed breed dog"],
-    "3_cat_breed": ["a persian cat", "a siamese cat", "a maine coon cat", "a tabby cat", "a domestic shorthair cat", "a mixed breed cat"],
+    "2_dog_breed": ["a golden retriever", "a german shepherd", "a labrador retriever", "a siberian husky", "a beagle", "a chihuahua", "a mixed breed dog", "a boxer dog", "an english cocker spaniel", "a havanese dog", "a maltese dog", "a newfoundland dog", "a yorkshire terrier"],
+    "3_cat_breed": ["a persian cat", "a siamese cat", "a maine coon cat", "a tabby cat", "a domestic shorthair cat", "a mixed breed cat", "a bengal cat", "a birman cat", "a bombay cat", "a british shorthair cat", "a ragdoll cat", "a russian blue cat", "a sphynx cat"],
     "4_color": ["a brown animal", "a white animal", "a black animal", "a gray animal", "an orange animal", "a golden animal", "a black and white animal", "a multicolored animal"],
     "5_size": ["a very small animal under 5kg", "a small animal 5 to 10kg", "a medium sized animal", "a large animal over 25kg"],
     "6_age": ["a newborn baby animal under 3 months", "a young animal 3 to 12 months", "a young adult animal 1 to 3 years", "a mature adult animal 3 to 7 years", "a senior animal over 7 years"],
     "7_fur_length": ["a short haired animal", "a medium haired animal", "a long haired animal", "a hairless animal"],
-    "8_fur_pattern": ["a solid colored animal", "a tabby striped animal", "a spotted animal", "a calico animal", "a tuxedo black and white animal", "a bicolor animal"],
+    "8_fur_pattern": ["a solid colored animal", "a tabby striped animal", "a spotted animal", "a calico animal", "a tuxedo black and white animal", "a bicolor animal", "a tricolor animal"],
 }
 
 # Map folder names to label indices
 FOLDER_TO_LABEL = {
     "1_species": {"cat": 0, "dog": 1, "puppy": 2, "kitten": 3, "rabbit": 4, "guinea_pig": 5, "hamster": 6},
-    "2_dog_breed": {"golden_retriever": 0, "german_shepherd": 1, "labrador": 2, "husky": 3, "beagle": 4, "chihuahua": 5, "mixed_breed_dog": 6},
-    "3_cat_breed": {"persian": 0, "siamese": 1, "maine_coon": 2, "tabby": 3, "domestic_shorthair": 4, "mixed_breed_cat": 5},
+    "2_dog_breed": {"golden_retriever": 0, "german_shepherd": 1, "labrador": 2, "husky": 3, "beagle": 4, "chihuahua": 5, "mixed_breed_dog": 6, "boxer": 7, "english_cocker_spaniel": 8, "havanese": 9, "maltese": 10, "newfoundland": 11, "yorkshire_terrier": 12},
+    "3_cat_breed": {"persian": 0, "siamese": 1, "maine_coon": 2, "tabby": 3, "domestic_shorthair": 4, "mixed_breed_cat": 5, "bengal": 6, "birman": 7, "bombay": 8, "british_shorthair": 9, "ragdoll": 10, "russian_blue": 11, "sphynx": 12},
     "4_color": {"brown": 0, "white": 1, "black": 2, "gray": 3, "orange": 4, "golden": 5, "black_and_white": 6, "multicolor": 7},
     "5_size": {"very_small": 0, "small": 1, "medium": 2, "large": 3},
     "6_age": {"baby_under_3months": 0, "young_3_12months": 1, "adult_1_3years": 2, "mature_3_7years": 3, "senior_over_7years": 4},
     "7_fur_length": {"short_hair": 0, "medium_hair": 1, "long_hair": 2, "hairless": 3},
-    "8_fur_pattern": {"solid": 0, "tabby_striped": 1, "spotted": 2, "calico": 3, "tuxedo": 4, "bicolor": 5},
+    "8_fur_pattern": {"solid": 0, "tabby_striped": 1, "spotted": 2, "calico": 3, "tuxedo": 4, "bicolor": 5, "tricolor": 6},
 }
 
 
@@ -126,6 +126,7 @@ def collate_fn(batch):
         'input_ids': input_ids,
         'attention_mask': attention_mask,
         'labels': torch.stack([b['label'] for b in batch]),
+        'categories': [b['category'] for b in batch],
     }
 
 
@@ -151,7 +152,7 @@ def train():
     loss_fn = nn.CrossEntropyLoss()
 
     best_val_loss = float('inf')
-    history = {'train_loss': [], 'val_loss': [], 'val_accuracy': [], 'started': datetime.now().isoformat()}
+    history = {'train_loss': [], 'val_loss': [], 'val_accuracy': [], 'val_accuracy_per_cat': {}, 'started': datetime.now().isoformat()}
 
     print(f"\nStarting training for {NUM_EPOCHS} epochs...")
     print(f"Training samples:   {len(train_dataset)}")
@@ -193,35 +194,68 @@ def train():
         val_loss = 0
         correct = 0
         total = 0
+        cat_correct = {}
+        cat_total = {}
 
         with torch.no_grad():
+            # Recompute text embeddings with current model weights each epoch
+            cat_text_emb = {}
+            for cat, texts in CATEGORY_LABELS.items():
+                enc = val_dataset.processor(text=texts, return_tensors='pt', padding=True, truncation=True)
+                enc = {k: v.to(DEVICE) for k, v in enc.items()}
+                text_out = model.text_model(
+                    input_ids=enc['input_ids'],
+                    attention_mask=enc['attention_mask']
+                )
+                feats = model.text_projection(text_out.pooler_output)
+                feats = feats / feats.norm(dim=-1, keepdim=True)
+                cat_text_emb[cat] = feats
+
             for batch in val_loader:
-                pixel_values = batch['pixel_values'].to(DEVICE)
-                input_ids = batch['input_ids'].to(DEVICE)
+                pixel_values   = batch['pixel_values'].to(DEVICE)
+                input_ids      = batch['input_ids'].to(DEVICE)
                 attention_mask = batch['attention_mask'].to(DEVICE)
+                true_labels    = batch['labels'].to(DEVICE)
+                categories     = batch['categories']
 
+                # Contrastive loss (unchanged — drives model saving criterion)
                 outputs = model(pixel_values=pixel_values, input_ids=input_ids, attention_mask=attention_mask)
-                logits = outputs.logits_per_image
-
+                logits  = outputs.logits_per_image
                 contrastive_labels = torch.arange(len(pixel_values)).to(DEVICE)
                 loss = (loss_fn(logits, contrastive_labels) + loss_fn(logits.T, contrastive_labels)) / 2
                 val_loss += loss.item()
 
-                preds = logits.argmax(dim=1)
-                correct += (preds == contrastive_labels).sum().item()
-                total += len(pixel_values)
+                # Real classification accuracy against full label set per category
+                vision_out = model.vision_model(pixel_values=pixel_values)
+                image_features = model.visual_projection(vision_out.pooler_output)
+                image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+                for i in range(len(pixel_values)):
+                    cat      = categories[i]
+                    true_lbl = true_labels[i].item()
+                    sims     = image_features[i] @ cat_text_emb[cat].T
+                    pred     = sims.argmax().item()
+                    hit      = int(pred == true_lbl)
+                    correct             += hit
+                    total               += 1
+                    cat_correct[cat]     = cat_correct.get(cat, 0) + hit
+                    cat_total[cat]       = cat_total.get(cat, 0)   + 1
 
         avg_val_loss = val_loss / max(len(val_loader), 1)
-        accuracy = correct / max(total, 1) * 100
+        accuracy     = correct / max(total, 1) * 100
+        cat_accuracy = {c: round(cat_correct[c] / max(cat_total[c], 1) * 100, 1) for c in cat_correct}
 
         history['train_loss'].append(avg_train_loss)
         history['val_loss'].append(avg_val_loss)
         history['val_accuracy'].append(accuracy)
+        for cat, acc in cat_accuracy.items():
+            history['val_accuracy_per_cat'].setdefault(cat, []).append(acc)
 
         print(f"\nEpoch {epoch+1}/{NUM_EPOCHS} complete")
         print(f"  Train Loss:   {avg_train_loss:.4f}")
         print(f"  Val Loss:     {avg_val_loss:.4f}")
-        print(f"  Val Accuracy: {accuracy:.1f}%")
+        print(f"  Val Accuracy: {accuracy:.1f}%  (real classification, all categories)")
+        for cat in sorted(cat_accuracy.keys()):
+            print(f"    {cat}: {cat_accuracy[cat]:.1f}%  ({cat_correct[cat]}/{cat_total[cat]})")
 
         scheduler.step()
 
@@ -234,7 +268,7 @@ def train():
     history['completed'] = datetime.now().isoformat()
     history['best_val_loss'] = best_val_loss
     os.makedirs(MODEL_OUTPUT_DIR, exist_ok=True)
-    with open(os.path.join(MODEL_OUTPUT_DIR, 'training_history.json'), 'w') as f:
+    with open(os.path.join(MODEL_OUTPUT_DIR, 'training_history.json'), 'w', encoding='utf-8') as f:
         json.dump(history, f, indent=2)
 
     print("\n" + "="*60)

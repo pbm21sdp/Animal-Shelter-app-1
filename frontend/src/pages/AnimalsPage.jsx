@@ -25,7 +25,10 @@ function getPrimaryPhotoUrl(photos) {
 
 function timeAgo(dateStr) {
     if (!dateStr) return '';
-    const diff = Date.now() - new Date(dateStr).getTime();
+    // Backend returns dates without timezone suffix — append Z to parse as UTC
+    const parsed = dateStr.endsWith('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z';
+    const diff = Date.now() - new Date(parsed).getTime();
+    if (diff < 60000) return 'just now';
     const mins = Math.floor(diff / 60000);
     if (mins < 60)  return `${mins}m ago`;
     const hrs = Math.floor(mins / 60);
@@ -41,6 +44,8 @@ function Badge({ type }) {
         Urgent:     { background: '#993C1D', color: '#FAF7F4', border: 'none' },
         Vaccinated: { background: 'rgba(29,158,117,0.12)', color: '#0F6E56', border: '1px solid rgba(29,158,117,0.2)' },
         Adopted:    { background: 'rgba(15,110,86,0.12)', color: '#0F6E56', border: '1px solid rgba(15,110,86,0.2)' },
+        Lost:       { background: 'rgba(192,140,40,0.13)', color: '#7A5000', border: '1px solid rgba(192,140,40,0.28)' },
+        Missing:    { background: 'rgba(100,80,200,0.11)', color: '#4A3BAA', border: '1px solid rgba(100,80,200,0.22)' },
     };
     const s = styles[type] || { background: 'rgba(45,31,20,0.08)', color: '#7A5C44', border: '1px solid rgba(45,31,20,0.12)' };
     return (
@@ -160,6 +165,7 @@ export default function AnimalsPage() {
                     : petType === typeFilter;
             const hs = (p.health_status || '').toLowerCase();
             const as = (p.adoption_status || '').toLowerCase();
+            const fh = (p.found_how || '').toLowerCase();
             const isAdoptedPet = p.is_adopted === true || as === 'adopted';
 
             const statusMatch =
@@ -168,7 +174,9 @@ export default function AnimalsPage() {
                 statusFilter === 'all'        ? true :
                 statusFilter === 'urgent'     ? (hs.includes('urgent') || as === 'urgent' || p.is_urgent === true) :
                 statusFilter === 'vaccinated' ? hs.includes('vacc') :
-                statusFilter === 'found'      ? (as === 'available' || hs.includes('found') || (p.type || '').toLowerCase().includes('found')) :
+                statusFilter === 'lost'       ? (fh.includes('lost') || fh.includes('appear')) :
+                statusFilter === 'missing'    ? fh.includes('missing') :
+                statusFilter === 'found'      ? (!fh.includes('missing') && !fh.includes('lost') && !fh.includes('appear') && (as === 'available' || hs.includes('found') || !fh)) :
                 true;
             const q = searchQuery.trim().toLowerCase();
             const qSingular = q.endsWith('s') && q.length > 3 ? q.slice(0, -1) : q;
@@ -217,6 +225,8 @@ export default function AnimalsPage() {
         { label: 'Urgent',     value: 'urgent',     urgent: true  },
         { label: 'Vaccinated', value: 'vaccinated', urgent: false },
         { label: 'Found',      value: 'found',      urgent: false },
+        { label: 'Lost',       value: 'lost',       urgent: false },
+        { label: 'Missing',    value: 'missing',    urgent: false },
         { label: 'Adopted',    value: 'adopted',    urgent: false },
     ];
 
@@ -359,6 +369,9 @@ export default function AnimalsPage() {
 function getBadgeType(pet) {
     const as = (pet.adoption_status || '').toLowerCase();
     if (as === 'adopted' || pet.is_adopted) return 'Adopted';
+    const fh = (pet.found_how || '').toLowerCase();
+    if (fh.includes('missing')) return 'Missing';
+    if (fh.includes('lost') || fh.includes('appear')) return 'Lost';
     const hs = (pet.health_status || '').toLowerCase();
     if (hs.includes('urgent')) return 'Urgent';
     if (hs.includes('vacc')) return 'Vaccinated';

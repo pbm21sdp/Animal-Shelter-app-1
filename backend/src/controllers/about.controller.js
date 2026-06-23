@@ -3,6 +3,31 @@ import { pool } from '../config/database/connectPostgresDB.js';
 import { User } from '../models/user.model.js';
 import Anthropic from '@anthropic-ai/sdk';
 
+// ─── Forecast helpers ─────────────────────────────────────────────────────────
+function linReg(values) {
+    const n = values.length;
+    if (n <= 1) return { slope: 0, intercept: values[0] || 0 };
+    const meanX = (n - 1) / 2;
+    const meanY = values.reduce((a, b) => a + b, 0) / n;
+    let num = 0, den = 0;
+    for (let i = 0; i < n; i++) {
+        num += (i - meanX) * (values[i] - meanY);
+        den += (i - meanX) ** 2;
+    }
+    const slope = den !== 0 ? num / den : 0;
+    return { slope, intercept: meanY - slope * meanX };
+}
+
+function forecastSteps(values, steps) {
+    if (values.length === 0) return Array(steps).fill(0);
+    if (values.length < 2) return Array(steps).fill(Math.max(0, Math.round(values[0])));
+    const { slope, intercept } = linReg(values);
+    const n = values.length;
+    return Array.from({ length: steps }, (_, i) =>
+        Math.max(0, Math.round(intercept + slope * (n + i)))
+    );
+}
+
 // ─── GET /api/animals/stats ───────────────────────────────────────────────────
 // Each query is isolated — one failing column doesn't kill all stats.
 const safeQuery = async (sql, fallback = 0) => {
@@ -305,5 +330,185 @@ export const getAIOrganizations = async (req, res) => {
     } catch (error) {
         console.error('[orgs] Error:', error);
         res.status(500).json({ success: false, message: 'Failed to find organizations', error: error.message });
+    }
+};
+
+// ─── GET /api/analytics/platform ─────────────────────────────────────────────
+export const getPlatformAnalytics = async (req, res) => {
+    try {
+        const [
+            uploadsRows,
+            adoptionRows,
+            dogRow,
+            catRow,
+            photoRows,
+            traitRows,
+            vacRows,
+        ] = await Promise.all([
+            pool.query(`
+                SELECT TO_CHAR(date_trunc('month', created_at), 'YYYY-MM') AS month,
+                       COUNT(*)::int AS count
+                FROM pets WHERE created_at IS NOT NULL
+                GROUP BY month ORDER BY month ASC
+            `).then(r => r.rows),
+
+            pool.query(`
+                SELECT TO_CHAR(date_trunc('month', adopted_at), 'YYYY-MM') AS month,
+                       COUNT(*)::int AS count
+                FROM pets WHERE is_adopted = true AND adopted_at IS NOT NULL
+                GROUP BY month ORDER BY month ASC
+            `).then(r => r.rows),
+
+            pool.query(`
+                SELECT COUNT(*) FILTER (WHERE is_adopted = true)::int AS adopted,
+                       COUNT(*)::int AS total
+                FROM pets WHERE type = 'dog'
+            `).then(r => r.rows[0] || { adopted: 0, total: 0 }),
+
+            pool.query(`
+                SELECT COUNT(*) FILTER (WHERE is_adopted = true)::int AS adopted,
+                       COUNT(*)::int AS total
+                FROM pets WHERE type = 'cat'
+            `).then(r => r.rows[0] || { adopted: 0, total: 0 }),
+
+            pool.query(`
+                SELECT CASE WHEN photo_count >= 3 THEN 'many' ELSE 'few' END AS bucket,
+                       COUNT(*)::int AS cnt,
+                       ROUND(AVG(days))::int AS avg_days
+                FROM (
+                    SELECT p.id,
+                           EXTRACT(EPOCH FROM (p.adopted_at - p.created_at)) / 86400 AS days,
+                           (SELECT COUNT(*) FROM pet_photos pp WHERE pp.pet_id = p.id)::int AS photo_count
+                    FROM pets p
+                    WHERE p.is_adopted = true AND p.adopted_at IS NOT NULL
+                      AND p.created_at IS NOT NULL
+                      AND EXTRACT(EPOCH FROM (p.adopted_at - p.created_at)) > 0
+                ) sub
+                GROUP BY bucket
+            `).then(r => r.rows),
+
+            pool.query(`
+                SELECT CASE WHEN trait_count > 0 THEN 'has' ELSE 'none' END AS bucket,
+                       COUNT(*)::int AS cnt,
+                       ROUND(AVG(days))::int AS avg_days
+                FROM (
+                    SELECT p.id,
+                           EXTRACT(EPOCH FROM (p.adopted_at - p.created_at)) / 86400 AS days,
+                           (SELECT COUNT(*) FROM pet_traits pt WHERE pt.pet_id = p.id)::int AS trait_count
+                    FROM pets p
+                    WHERE p.is_adopted = true AND p.adopted_at IS NOT NULL
+                      AND p.created_at IS NOT NULL
+                      AND EXTRACT(EPOCH FROM (p.adopted_at - p.created_at)) > 0
+                ) sub
+                GROUP BY bucket
+            `).then(r => r.rows),
+
+            pool.query(`
+                SELECT CASE WHEN LOWER(health_status) LIKE '%vacc%' THEN 'vacc' ELSE 'none' END AS bucket,
+                       COUNT(*)::int AS cnt,
+                       ROUND(AVG(EXTRACT(EPOCH FROM (adopted_at - created_at)) / 86400))::int AS avg_days
+                FROM pets
+                WHERE is_adopted = true AND adopted_at IS NOT NULL
+                  AND created_at IS NOT NULL
+                  AND EXTRACT(EPOCH FROM (adopted_at - created_at)) > 0
+                GROUP BY bucket
+            `).then(r => r.rows),
+        ]);
+
+        // Build aligned monthly time series
+        const allMonths = [...new Set([
+            ...uploadsRows.map(r => r.month),
+            ...adoptionRows.map(r => r.month),
+        ])].sort();
+
+        const uploadsMap   = Object.fromEntries(uploadsRows.map(r   => [r.month, r.count]));
+        const adoptionsMap = Object.fromEntries(adoptionRows.map(r => [r.month, r.count]));
+
+        const historicalUploads   = allMonths.map(m => uploadsMap[m]   || 0);
+        const historicalAdoptions = allMonths.map(m => adoptionsMap[m] || 0);
+
+        const fmtMonth = iso => {
+            const d = new Date(iso + '-01');
+            return d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+        };
+        const historicalLabels = allMonths.map(fmtMonth);
+
+        const MIN_MONTHS      = 3;
+        const FORECAST_MONTHS = 6;
+        let forecastLabels = [], forecastUploads = [], forecastAdoptions = [];
+        let next30 = null, next90 = null;
+
+        // Scale the current (partial) month's counts to a projected full-month
+        // value so the regression isn't pulled downward by an incomplete month.
+        const now = new Date();
+        const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const daysInMonth  = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const scaleFactor  = daysInMonth / now.getDate();
+
+        const regressionUploads   = allMonths.map(m => {
+            const v = uploadsMap[m] || 0;
+            return m === currentMonthStr ? Math.round(v * scaleFactor) : v;
+        });
+        const regressionAdoptions = allMonths.map(m => {
+            const v = adoptionsMap[m] || 0;
+            return m === currentMonthStr ? Math.round(v * scaleFactor) : v;
+        });
+
+        if (allMonths.length >= MIN_MONTHS) {
+            forecastUploads   = forecastSteps(regressionUploads,   FORECAST_MONTHS);
+            forecastAdoptions = forecastSteps(regressionAdoptions, FORECAST_MONTHS);
+
+            let d = new Date(allMonths[allMonths.length - 1] + '-01');
+            for (let i = 0; i < FORECAST_MONTHS; i++) {
+                d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+                forecastLabels.push(d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }));
+            }
+            next30 = forecastAdoptions[0];
+            next90 = forecastAdoptions.slice(0, 3).reduce((a, b) => a + b, 0);
+        }
+
+        const insufficientForecast = allMonths.length < MIN_MONTHS;
+
+        // Type-specific adoption rates
+        const dogRate = dogRow.total > 0 ? Math.round((dogRow.adopted / dogRow.total) * 100) : null;
+        const catRate = catRow.total > 0 ? Math.round((catRow.adopted / catRow.total) * 100) : null;
+
+        // "What moves the needle" — compare adoption speed across factor buckets
+        const MIN_N = 5;
+        const needleInsights = [];
+
+        const addInsight = (rows, keyA, keyB, label) => {
+            const a = rows.find(r => r.bucket === keyA);
+            const b = rows.find(r => r.bucket === keyB);
+            if (!a || !b || a.cnt < MIN_N || b.cnt < MIN_N) return;
+            if (!a.avg_days || !b.avg_days || a.avg_days >= b.avg_days) return;
+            const pct = Math.round(((b.avg_days - a.avg_days) / b.avg_days) * 100);
+            if (pct >= 5) needleInsights.push({ label, impact: `+${pct}%`, note: 'faster adoption' });
+        };
+
+        addInsight(photoRows, 'many', 'few',  'Listings with 3+ photos');
+        addInsight(traitRows, 'has',  'none', 'Personality traits filled in');
+        addInsight(vacRows,   'vacc', 'none', 'Vaccinated animals');
+
+        res.status(200).json({
+            success: true,
+            data: {
+                timeSeries: {
+                    historicalLabels,
+                    historicalUploads,
+                    historicalAdoptions,
+                    forecastLabels,
+                    forecastUploads,
+                    forecastAdoptions,
+                    insufficient: insufficientForecast,
+                },
+                forecast: { next30, next90, insufficient: insufficientForecast },
+                metrics: { dog_adoption_rate: dogRate, cat_adoption_rate: catRate },
+                needleInsights,
+            },
+        });
+    } catch (error) {
+        console.error('[analytics] Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch analytics', error: error.message });
     }
 };

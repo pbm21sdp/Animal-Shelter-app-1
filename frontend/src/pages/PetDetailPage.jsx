@@ -276,9 +276,9 @@ export default function PetDetailPage() {
                         <StatusBadge status={pet.health_status} />
                     </div>
 
-                    {/* H1 */}
+                    {/* H1 — use greeting only for single-word names */}
                     <h1 style={{ fontFamily: serif, fontSize: '52px', fontWeight: 700, color: '#2D1F14', lineHeight: 1.05, letterSpacing: '-1px', margin: '0 0 14px' }}>
-                        Hi, I'm {pet.name}
+                        {pet.name?.includes(' ') ? pet.name : `Hi, I'm ${pet.name}`}
                     </h1>
 
                     {/* Byline */}
@@ -340,6 +340,13 @@ export default function PetDetailPage() {
                                             </>
                                         )}
                                     </div>
+
+                                    {/* Caption / story */}
+                                    {pet.story && (
+                                        <p style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '13px', color: '#9A7A60', margin: '10px 0 0', textAlign: 'center', lineHeight: 1.6 }}>
+                                            {pet.story}
+                                        </p>
+                                    )}
 
                                     {/* Thumbnails */}
                                     {photos.length > 1 && (
@@ -438,7 +445,14 @@ export default function PetDetailPage() {
                                 <>
                                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
                                         {currentUser && pet.uploader_id === currentUser._id ? (
-                                            <span style={{ fontFamily: sans, fontSize: '13px', color: '#7A5C44', fontStyle: 'italic' }}>You uploaded this animal</span>
+                                            <button
+                                                onClick={() => navigate(`/pet/${pet.id}/edit`)}
+                                                style={{ fontFamily: sans, fontSize: '13px', color: '#2D1F14', background: 'transparent', border: '1.5px solid rgba(45,31,20,0.2)', borderRadius: '100px', padding: '10px 20px', cursor: 'pointer', transition: 'border-color 0.15s' }}
+                                                onMouseEnter={e => { e.currentTarget.style.borderColor = '#C07A4A'; }}
+                                                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(45,31,20,0.2)'; }}
+                                            >
+                                                Edit listing →
+                                            </button>
                                         ) : !isAdopted && (
                                         <button
                                             onClick={() => setAskOpen(o => !o)}
@@ -563,9 +577,14 @@ export default function PetDetailPage() {
                                     This animal has found a home 🎉
                                 </div>
                             ) : currentUser && pet.uploader_id === currentUser._id ? (
-                                <div style={{ fontFamily: serif, fontSize: '15px', fontStyle: 'italic', color: 'rgba(250,247,244,0.55)', textAlign: 'center', padding: '12px 0' }}>
-                                    You uploaded this animal
-                                </div>
+                                <button
+                                    onClick={() => navigate(`/pet/${pet.id}/edit`)}
+                                    style={{ width: '100%', fontFamily: serif, fontSize: '15px', fontStyle: 'italic', background: 'rgba(250,247,244,0.08)', color: '#FAF7F4', border: '1px solid rgba(250,247,244,0.15)', borderRadius: '100px', padding: '14px', cursor: 'pointer', transition: 'background 0.15s' }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(250,247,244,0.15)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(250,247,244,0.08)'; }}
+                                >
+                                    Edit listing →
+                                </button>
                             ) : (
                                 <>
                                     {/* Primary CTA */}
@@ -594,16 +613,18 @@ export default function PetDetailPage() {
                                         <span>{[pet.location_address, pet.location_city].filter(Boolean).join(', ')}</span>
                                     </div>
                                 )}
-                                {uploader && (
-                                    <div style={{ fontFamily: sans, fontSize: '12px', color: 'rgba(250,247,244,0.7)', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                        <span style={{ opacity: 0.5 }}>📅</span>
-                                        <span>Available for meetings</span>
+                                {pet.shelter_contact_email && (
+                                    <div style={{ fontFamily: sans, fontSize: '12px', color: '#FAF7F4', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                        <span style={{ opacity: 0.5 }}>✉</span>
+                                        <span>{pet.shelter_contact_email}</span>
                                     </div>
                                 )}
-                                <div style={{ fontFamily: sans, fontSize: '12px', color: 'rgba(250,247,244,0.5)', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                    <span>✉</span>
-                                    <span>Via Paws messaging</span>
-                                </div>
+                                {pet.shelter_contact_phone && (
+                                    <div style={{ fontFamily: sans, fontSize: '12px', color: '#FAF7F4', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                        <span style={{ opacity: 0.5 }}>☎</span>
+                                        <span>{pet.shelter_contact_phone}</span>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Divider */}

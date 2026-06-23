@@ -22,7 +22,6 @@ import donationRoutes from './routes/donations.routes.js';
 import { handleStripeWebhook } from './controllers/donation.controller.js';
 import userRoutes from './routes/user.routes.js';
 import messageRoutes from './routes/message.routes.js';
-import scheduledMeetingRoutes from './routes/scheduledMeeting.routes.js';
 import predictionRoutes from './routes/predictions.routes.js';
 import animalsRoutes from './routes/animals.routes.js';
 import aiRoutes from './routes/ai.routes.js';
@@ -115,7 +114,6 @@ app.use('/api/pets', petRoutes);
 app.use('/api/donations', donationRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/messages', messageRoutes);
-app.use('/api/meetings', scheduledMeetingRoutes);
 app.use('/api/predictions', predictionRoutes);
 app.use('/api/animals', animalsRoutes);
 app.use('/api/ai', aiRoutes);
@@ -190,6 +188,15 @@ async function runAdoptionRequestMigration() {
     }
 }
 
+async function runFoundHowMigration() {
+    try {
+        await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS found_how VARCHAR(120) DEFAULT NULL`);
+        console.log('found_how migration applied');
+    } catch (err) {
+        console.error('found_how migration error:', err.message);
+    }
+}
+
 async function start() {
     await connectPostgresDB();
     await connectMongoDB();
@@ -197,6 +204,7 @@ async function start() {
     await runDeletedAtMigration();
     await runPetCoordsMigration();
     await runAdoptionRequestMigration();
+    await runFoundHowMigration();
     app.listen(PORT, () => {
         console.log(`Server running on port ${PORT}`);
     });
