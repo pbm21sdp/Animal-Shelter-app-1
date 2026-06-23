@@ -102,6 +102,30 @@ function EmptyState({ text, note }) {
 // ── Status badge for upload cards ─────────────────────────────────────────────
 
 function StatusBadge({ pet }) {
+    if (pet.status === 'rejected') {
+        return (
+            <span style={{
+                fontFamily: sans, fontSize: 8, textTransform: 'uppercase',
+                letterSpacing: '0.08em', padding: '2px 6px', borderRadius: 2,
+                fontWeight: 600, background: 'rgba(153,60,29,0.1)', color: '#993C1D',
+                border: '1px solid rgba(153,60,29,0.25)',
+            }}>
+                Rejected
+            </span>
+        );
+    }
+    if (pet.status === 'pending') {
+        return (
+            <span style={{
+                fontFamily: sans, fontSize: 8, textTransform: 'uppercase',
+                letterSpacing: '0.08em', padding: '2px 6px', borderRadius: 2,
+                fontWeight: 600, background: '#FAF3E8', color: '#8B4E28',
+                border: '1px solid rgba(192,122,74,0.25)',
+            }}>
+                Pending review
+            </span>
+        );
+    }
     if (pet.is_adopted) {
         return (
             <span style={{

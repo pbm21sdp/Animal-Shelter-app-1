@@ -394,7 +394,7 @@ export const getUserPets = async (req, res) => {
         const result = await pool.query(
             `SELECT p.id, p.name, p.type, p.breed, p.age_category,
                     p.adoption_status, p.is_adopted, p.adopted_at,
-                    p.location_city, p.created_at,
+                    p.location_city, p.created_at, p.status,
                     pp.id AS primary_photo_id
              FROM pets p
              LEFT JOIN pet_photos pp ON pp.pet_id = p.id AND pp.is_primary = true

@@ -31,6 +31,8 @@ function timeAgo(dateStr) {
 function getBadge(pet) {
     const hs = (pet.health_status || '').toLowerCase();
     const as = (pet.adoption_status || '').toLowerCase();
+    if (pet.status === 'rejected') return { label: 'Rejected', bg: 'rgba(153,60,29,0.1)', color: '#993C1D', border: '1px solid rgba(153,60,29,0.25)' };
+    if (pet.status === 'pending') return { label: 'Pending review', bg: '#FAF3E8', color: '#8B4E28', border: '1px solid rgba(192,122,74,0.25)' };
     if (pet.is_adopted || as === 'adopted') return { label: 'Adopted', bg: 'rgba(15,110,86,0.12)', color: '#0F6E56', border: '1px solid rgba(15,110,86,0.2)' };
     if (hs.includes('urgent')) return { label: 'Urgent', bg: '#993C1D', color: '#FAF7F4', border: 'none' };
     if (hs.includes('vacc')) return { label: 'Vaccinated', bg: 'rgba(29,158,117,0.12)', color: '#0F6E56', border: '1px solid rgba(29,158,117,0.2)' };
@@ -52,6 +54,7 @@ export default function MyAnimalsPage() {
     const [adoptConfirming, setAdoptConfirming] = useState(false);
 
     useEffect(() => {
+        console.log('[MyAnimalsPage] currentUser at effect:', currentUser);
         if (!currentUser?._id) { setIsLoading(false); return; }
         axios.get(`${API}/users/${currentUser._id}/pets`, { withCredentials: true })
             .then(r => setMyPets(r.data.pets || []))
