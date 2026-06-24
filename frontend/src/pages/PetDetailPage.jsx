@@ -69,24 +69,30 @@ function PetTags({ pet, dark }) {
     if (tags.length === 0) return null;
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-            {tags.map((t, i) => (
-                <span key={i} style={{
-                    fontFamily: sans, fontSize: '8px', textTransform: 'uppercase',
-                    letterSpacing: '0.08em', padding: '3px 9px', borderRadius: '2px',
-                    fontWeight: 600,
-                    background: t.urgent
-                        ? '#993C1D'
-                        : dark ? 'rgba(250,247,244,0.12)' : 'rgba(45,31,20,0.08)',
-                    color: t.urgent
-                        ? '#FAF7F4'
-                        : dark ? '#FAF7F4' : '#7A5C44',
-                    border: t.urgent ? 'none' : dark
-                        ? '1px solid rgba(250,247,244,0.15)'
-                        : '1px solid rgba(45,31,20,0.12)',
-                }}>
-                    {t.label}
-                </span>
-            ))}
+            {tags.map((t, i) => {
+                const v = t.variant || 'default';
+                let bg, color, border;
+                if (v === 'urgent') {
+                    bg = '#993C1D'; color = '#FAF7F4'; border = 'none';
+                } else if (v === 'accent') {
+                    bg     = dark ? 'rgba(192,122,74,0.3)'           : 'rgba(192,122,74,0.18)';
+                    color  = dark ? '#FAF7F4'                         : '#8B4E28';
+                    border = dark ? '1px solid rgba(192,122,74,0.4)' : '1px solid rgba(192,122,74,0.35)';
+                } else {
+                    bg     = dark ? 'rgba(250,247,244,0.12)'          : 'rgba(45,31,20,0.08)';
+                    color  = dark ? '#FAF7F4'                          : '#7A5C44';
+                    border = dark ? '1px solid rgba(250,247,244,0.15)' : '1px solid rgba(45,31,20,0.12)';
+                }
+                return (
+                    <span key={i} style={{
+                        fontFamily: sans, fontSize: '8px', textTransform: 'uppercase',
+                        letterSpacing: '0.08em', padding: '3px 9px', borderRadius: '2px',
+                        fontWeight: 600, background: bg, color, border,
+                    }}>
+                        {t.label}
+                    </span>
+                );
+            })}
         </div>
     );
 }

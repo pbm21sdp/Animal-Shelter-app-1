@@ -40,16 +40,19 @@ function timeAgo(dateStr) {
 }
 
 // ── Tag chip — used on cards ──────────────────────────────────────────────────
-function TagChip({ label, urgent }) {
+function TagChip({ label, variant }) {
     const base = {
         fontFamily: sans, fontSize: '8px', textTransform: 'uppercase',
         letterSpacing: '0.08em', padding: '2px 7px', borderRadius: '2px',
         fontWeight: 600, whiteSpace: 'nowrap',
     };
-    const urgentStyle = { background: '#993C1D', color: '#FAF7F4', border: 'none' };
-    const normalStyle = { background: 'rgba(45,31,20,0.08)', color: '#7A5C44', border: '1px solid rgba(45,31,20,0.12)' };
+    const styles = {
+        urgent:  { background: '#993C1D', color: '#FAF7F4', border: 'none' },
+        accent:  { background: 'rgba(192,122,74,0.18)', color: '#8B4E28', border: '1px solid rgba(192,122,74,0.35)' },
+        default: { background: 'rgba(45,31,20,0.08)', color: '#7A5C44', border: '1px solid rgba(45,31,20,0.12)' },
+    };
     return (
-        <span style={{ ...base, ...(urgent ? urgentStyle : normalStyle) }}>
+        <span style={{ ...base, ...(styles[variant] || styles.default) }}>
             {label}
         </span>
     );
@@ -475,11 +478,11 @@ function AnimalCard({ pet, isSaved, onToggleSave }) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap', marginBottom: '7px', minHeight: '18px' }}>
                     {visible.length > 0 ? (
                         <>
-                            {visible.map((t, i) => <TagChip key={i} label={t.label} urgent={t.urgent} />)}
+                            {visible.map((t, i) => <TagChip key={i} label={t.label} variant={t.variant} />)}
                             {overflow > 0 && <MoreChip count={overflow} />}
                         </>
                     ) : (
-                        <TagChip label="Listed" urgent={false} />
+                        <TagChip label="Listed" variant="default" />
                     )}
                     <span style={{ marginLeft: 'auto', fontFamily: sans, fontSize: '9px', color: '#B09880', flexShrink: 0 }}>{timeAgo(pet.created_at)}</span>
                 </div>
