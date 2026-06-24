@@ -570,11 +570,20 @@ class AnimalDescriptionGenerator:
         neutered = data.get('neutered') or 'unknown'
         age = data.get('age') or 'Unknown'
         status = data.get('status') or ''
+        current_status_val = (data.get('currentStatus') or data.get('current_status') or '').lower()
+        situation_val = (data.get('situation') or '').lower()
         city = data.get('city') or ''
         breed = data.get('breed') or ''
+        breed_unsure = bool(data.get('breedUnsure') or data.get('breed_unsure'))
         color = data.get('color') or ''
         coat = data.get('coat') or ''
         traits = [t for t in (data.get('traits') or []) if t]
+
+        honest_traits_set = {
+            'stubborn', 'anxious', 'vocal / barks a lot', 'needs patient owner',
+            'not good with other animals', 'not good with children',
+            'territorial', 'reactive on leash', 'escape artist',
+        }
 
         random.seed(int(time.time() * 1000) % 10000)
 
@@ -603,43 +612,80 @@ class AnimalDescriptionGenerator:
 
         parts = [opening]
 
-        # Appearance sentence (breed / color / coat from AI analysis)
+        # Appearance sentence (breed / color / coat)
+        # For situation='other' with custom text, surface it after the opening
+        if situation_val == 'other' and found_how and found_how.lower() not in (
+            'found on the street', 'appears to be lost', 'went missing',
+            'owner surrendered it', 'rescued from danger', 'other', 'default',
+        ):
+            parts.append(f'Background: {found_how}.')
+
         if breed and (color or coat):
             coat_str = f'with a {color} coat' if color else f'with {coat} fur'
-            parts.append(f'This {animal_type} appears to be a {breed}, {coat_str}.')
+            if breed_unsure:
+                parts.append(f'This {animal_type} appears to be a {breed} mix, {coat_str}.')
+            else:
+                parts.append(f'This {animal_type} is a {breed}, {coat_str}.')
         elif breed:
-            parts.append(f'This {animal_type} appears to be a {breed}.')
+            if breed_unsure:
+                parts.append(random.choice([
+                    f'Their breed is uncertain, but this {animal_type} has many traits of a {breed}.',
+                    f'This {animal_type} appears to be a {breed} — though we cannot say for certain.',
+                    f'They seem to have a lot of {breed} in them, though the exact mix is unknown.',
+                ]))
+            else:
+                parts.append(f'This {animal_type} is a {breed}.')
         elif color:
             parts.append(f'This {animal_type} has a {color} coat.')
         elif coat:
             parts.append(f'This {animal_type} has {coat} fur.')
 
-        # Personality traits — multiple sentence patterns for variety
+        # Personality traits — positive traits get warm framing; honest/challenging traits get transparent framing
         if traits:
-            t_lower = [t.lower() for t in traits]
-            if len(t_lower) == 1:
-                trait_str = t_lower[0]
-            elif len(t_lower) == 2:
-                trait_str = f'{t_lower[0]} and {t_lower[1]}'
-            else:
-                trait_str = ', '.join(t_lower[:-1]) + f', and {t_lower[-1]}'
+            positive_traits = [t for t in traits if t.lower() not in honest_traits_set]
+            honest_traits   = [t for t in traits if t.lower() in honest_traits_set]
 
-            trait_templates = [
-                f'Known to be {trait_str}, they would make a wonderful companion for the right family.',
-                f'Their personality shines through — {trait_str} describes them perfectly.',
-                f'Those who know them best describe this {animal_type} as {trait_str}.',
-                f'A truly {trait_str} soul, this {animal_type} is looking for someone to share their days with.',
-                f'What makes them special? They are {trait_str} — and they wear it every single day.',
-                f'{trait_str} — that\'s this {animal_type} in a few words.',
-                f'This {animal_type} is {trait_str}, and it shows in everything they do.',
-                f'If you had to describe them in one breath, it would be: {trait_str}.',
-                f'Spend five minutes with this {animal_type} and you\'ll see it — {trait_str}, through and through.',
-                f'{trait_str}. That\'s not just a description, that\'s a promise of what you\'ll get.',
-                f'This {animal_type} wears their personality on their sleeve: {trait_str}.',
-                f'Ask anyone who\'s met them — {trait_str} is the first thing they\'ll say.',
-                f'Beneath the surface, this {animal_type} is simply {trait_str}.',
-            ]
-            parts.append(random.choice(trait_templates))
+            if positive_traits:
+                pt_lower = [t.lower() for t in positive_traits]
+                if len(pt_lower) == 1:
+                    trait_str = pt_lower[0]
+                elif len(pt_lower) == 2:
+                    trait_str = f'{pt_lower[0]} and {pt_lower[1]}'
+                else:
+                    trait_str = ', '.join(pt_lower[:-1]) + f', and {pt_lower[-1]}'
+
+                trait_templates = [
+                    f'Known to be {trait_str}, they would make a wonderful companion for the right family.',
+                    f'Their personality shines through — {trait_str} describes them perfectly.',
+                    f'Those who know them best describe this {animal_type} as {trait_str}.',
+                    f'A truly {trait_str} soul, this {animal_type} is looking for someone to share their days with.',
+                    f'What makes them special? They are {trait_str} — and they wear it every single day.',
+                    f'{trait_str} — that\'s this {animal_type} in a few words.',
+                    f'This {animal_type} is {trait_str}, and it shows in everything they do.',
+                    f'If you had to describe them in one breath, it would be: {trait_str}.',
+                    f'Spend five minutes with this {animal_type} and you\'ll see it — {trait_str}, through and through.',
+                    f'{trait_str}. That\'s not just a description, that\'s a promise of what you\'ll get.',
+                    f'This {animal_type} wears their personality on their sleeve: {trait_str}.',
+                    f'Ask anyone who\'s met them — {trait_str} is the first thing they\'ll say.',
+                    f'Beneath the surface, this {animal_type} is simply {trait_str}.',
+                ]
+                parts.append(random.choice(trait_templates))
+
+            if honest_traits:
+                ht_lower = [t.lower() for t in honest_traits]
+                if len(ht_lower) == 1:
+                    honest_str = ht_lower[0]
+                elif len(ht_lower) == 2:
+                    honest_str = f'{ht_lower[0]} and {ht_lower[1]}'
+                else:
+                    honest_str = ', '.join(ht_lower[:-1]) + f', and {ht_lower[-1]}'
+                honest_templates = [
+                    f'In the spirit of full honesty: they can be {honest_str}. The right owner will understand, and they will reward that patience.',
+                    f'A transparent note: this {animal_type} can be {honest_str}. They need someone who gets it, and they will be devoted to that person.',
+                    f'They come with a few quirks worth knowing — {honest_str}. The right home will find these manageable, and even endearing.',
+                    f'We believe in honest profiles: {honest_str}. That\'s not a dealbreaker — it\'s just the full picture.',
+                ]
+                parts.append(random.choice(honest_templates))
 
         # Age sentence — multiple options per bracket
         age_options = {
@@ -740,6 +786,38 @@ class AnimalDescriptionGenerator:
             parts.append(random.choice([
                 'This animal needs urgent care and a loving home as soon as possible — please reach out today.',
                 'Time is important here — this animal needs care urgently. If you can help, please get in touch.',
+            ]))
+
+        # New current_status sentences
+        if current_status_val == 'foster':
+            parts.append(random.choice([
+                f'Currently in foster care, this {animal_type} is being looked after in a loving temporary home while they wait for their forever family.',
+                f'This {animal_type} is staying with a foster family right now — a safe, warm space while the right permanent home is found.',
+            ]))
+        elif current_status_val == 'vet_check_pending':
+            parts.append(random.choice([
+                f'A veterinary assessment is scheduled for the near future to ensure they receive all the care they need.',
+                f'They are awaiting a vet check — routine precaution before welcoming them into a permanent home.',
+            ]))
+        elif current_status_val == 'in_recovery':
+            parts.append(random.choice([
+                f'Currently in recovery, this {animal_type} is receiving the care they need and is on track for a healthy future.',
+                f'This {animal_type} is recovering from a health issue and making good progress — they will be ready for adoption soon.',
+            ]))
+        elif current_status_val == 'ready_for_adoption':
+            parts.append(random.choice([
+                f'Fully assessed and cleared — this {animal_type} is completely ready for adoption.',
+                f'They have passed all health checks and are officially ready to go home.',
+            ]))
+        elif current_status_val == 'special_needs':
+            parts.append(random.choice([
+                f'This {animal_type} has some special needs, but with the right home and a little extra patience, they will thrive.',
+                f'They require some additional care, but those who know them say the extra effort is more than worth it.',
+            ]))
+        elif current_status_val == 'quarantine':
+            parts.append(random.choice([
+                f'Currently completing a routine quarantine as a precautionary health measure — this is expected to conclude shortly.',
+                f'As a standard precaution, this {animal_type} is in a brief quarantine period and will be available very soon.',
             ]))
 
         if found_key == 'lost':
