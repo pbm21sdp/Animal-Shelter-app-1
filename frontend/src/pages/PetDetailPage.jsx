@@ -9,6 +9,7 @@ import { usePetStore } from '../store/petStore';
 import { useAuthStore } from '../store/authStore';
 import UserAdoptionForm from '../components/UserAdoptionForm';
 import NotFoundPage from './NotFoundPage';
+import { buildPetTags } from '../utils/petTags';
 
 const API   = 'http://localhost:5000/api';
 const BASE  = 'http://localhost:5000';
@@ -61,39 +62,6 @@ function fmtLocation(address, city) {
     if (!addr) return cit;
     if (addr.toLowerCase() === cit.toLowerCase()) return cit;
     return [addr, cit].filter(Boolean).join(', ');
-}
-
-// ── Structured status tags from new DB columns ─────────────────────────────────
-const SITUATION_LABELS = {
-    found_on_street: 'Stray', appears_lost: 'Lost', went_missing: 'Missing',
-    owner_surrendered: 'Surrendered', rescued_from_danger: 'Rescued', other: 'Other',
-};
-const VACCINATION_LABELS = { fully: 'Vaccinated', partially: 'Partial vax', no: 'Unvaccinated', unknown: 'Vax?' };
-
-function buildPetTags(pet) {
-    const tags = [];
-    if (pet.current_status === 'needs_urgent_care') {
-        tags.push({ label: 'Urgent', urgent: true });
-    }
-    if (pet.situation) {
-        tags.push({ label: SITUATION_LABELS[pet.situation] || 'Other', urgent: false });
-    }
-    if (pet.microchip_status && pet.microchip_status !== 'unknown') {
-        const labels = { yes: 'Microchipped', no: 'No chip' };
-        tags.push({ label: labels[pet.microchip_status], urgent: false });
-    }
-    if (pet.neutered_spayed_status && pet.neutered_spayed_status !== 'unknown') {
-        const g = (pet.gender || '').toLowerCase();
-        const labels = {
-            yes: g === 'male' ? 'Neutered'     : g === 'female' ? 'Spayed'     : 'Fixed',
-            no:  g === 'male' ? 'Not neutered' : g === 'female' ? 'Not spayed' : 'Not fixed',
-        };
-        tags.push({ label: labels[pet.neutered_spayed_status], urgent: false });
-    }
-    if (pet.vaccination_status && pet.vaccination_status !== 'unknown') {
-        tags.push({ label: VACCINATION_LABELS[pet.vaccination_status], urgent: false });
-    }
-    return tags;
 }
 
 function PetTags({ pet, dark }) {
