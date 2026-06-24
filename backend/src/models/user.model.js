@@ -47,8 +47,11 @@ const userSchema = new mongoose.Schema({
     },
     privacySettings: {
         showAvgResponse:      { type: Boolean, default: true },
+        showFoundHomes:       { type: Boolean, default: true },
+        showSuccessRate:      { type: Boolean, default: true },
         showMessagesReceived: { type: Boolean, default: true },
         showUploads:          { type: Boolean, default: true },
+        showFoundAHome:       { type: Boolean, default: true },
         showAdoptedByMe:      { type: Boolean, default: true },
         showSaved:            { type: Boolean, default: true },
     },

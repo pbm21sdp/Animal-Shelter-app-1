@@ -307,8 +307,11 @@ export const updateUserAdminStatus = async (req, res) => {
 
 const PRIVACY_DEFAULTS = {
     showAvgResponse:      true,
+    showFoundHomes:       true,
+    showSuccessRate:      true,
     showMessagesReceived: true,
     showUploads:          true,
+    showFoundAHome:       true,
     showAdoptedByMe:      true,
     showSaved:            true,
 };
@@ -320,8 +323,11 @@ async function getPrivacySettingsFor(userId) {
         const ps = user.privacySettings || {};
         return {
             showAvgResponse:      ps.showAvgResponse      ?? true,
+            showFoundHomes:       ps.showFoundHomes       ?? true,
+            showSuccessRate:      ps.showSuccessRate      ?? true,
             showMessagesReceived: ps.showMessagesReceived ?? true,
             showUploads:          ps.showUploads          ?? true,
+            showFoundAHome:       ps.showFoundAHome       ?? true,
             showAdoptedByMe:      ps.showAdoptedByMe      ?? true,
             showSaved:            ps.showSaved            ?? true,
         };
@@ -350,7 +356,7 @@ export const getPrivacySettings = async (req, res) => {
 // PUT /api/users/me/privacy-settings
 export const updatePrivacySettings = async (req, res) => {
     try {
-        const allowed = ['showAvgResponse', 'showMessagesReceived', 'showUploads', 'showAdoptedByMe', 'showSaved'];
+        const allowed = ['showAvgResponse', 'showFoundHomes', 'showSuccessRate', 'showMessagesReceived', 'showUploads', 'showFoundAHome', 'showAdoptedByMe', 'showSaved'];
         const updates = {};
         for (const key of allowed) {
             if (req.body[key] !== undefined) {
@@ -484,8 +490,11 @@ export const getPublicUserProfile = async (req, res) => {
                 success_rate:        successRate,
                 privacySettings: {
                     showAvgResponse:      ps.showAvgResponse      ?? true,
+                    showFoundHomes:       ps.showFoundHomes       ?? true,
+                    showSuccessRate:      ps.showSuccessRate      ?? true,
                     showMessagesReceived: ps.showMessagesReceived ?? true,
                     showUploads:          ps.showUploads          ?? true,
+                    showFoundAHome:       ps.showFoundAHome       ?? true,
                     showAdoptedByMe:      ps.showAdoptedByMe      ?? true,
                     showSaved:            ps.showSaved            ?? true,
                 },
@@ -534,11 +543,23 @@ export const getUserPets = async (req, res) => {
     try {
         const { id } = req.params;
 
+        let isUploadsPrivate   = false;
+        let isFoundHomePrivate = false;
+
         if (!isOwnerRequest(req, id)) {
             const settings = await getPrivacySettingsFor(id);
-            if (settings && settings.showUploads === false)
-                return res.json({ success: true, isPrivate: true, pets: [] });
+            if (settings) {
+                isUploadsPrivate   = settings.showUploads   === false;
+                isFoundHomePrivate = settings.showFoundAHome === false;
+                if (isUploadsPrivate && isFoundHomePrivate)
+                    return res.json({ success: true, isPrivate: true, pets: [] });
+            }
         }
+
+        // Filter pets based on which sections are private
+        let adoptionFilter = '';
+        if (isUploadsPrivate)   adoptionFilter = 'AND p.is_adopted = true';
+        if (isFoundHomePrivate) adoptionFilter = 'AND p.is_adopted = false';
 
         const result = await pool.query(
             `SELECT p.id, p.name, p.type, p.breed, p.age_category,
@@ -547,12 +568,12 @@ export const getUserPets = async (req, res) => {
                     pp.id AS primary_photo_id
              FROM pets p
              LEFT JOIN pet_photos pp ON pp.pet_id = p.id AND pp.is_primary = true
-             WHERE p.uploader_id = $1
+             WHERE p.uploader_id = $1 ${adoptionFilter}
              ORDER BY p.created_at DESC`,
             [id]
         );
 
-        res.status(200).json({ success: true, pets: result.rows });
+        res.status(200).json({ success: true, pets: result.rows, isUploadsPrivate, isFoundHomePrivate });
     } catch (error) {
         console.error('Error in getUserPets:', error);
         res.status(500).json({ success: false, message: 'Server error' });
