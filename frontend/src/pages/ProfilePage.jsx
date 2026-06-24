@@ -807,7 +807,6 @@ export default function ProfilePage() {
                .map(p => ({ date: p.adopted_at, text: '', name: p.name, suffix: ' marked as adopted' })),
     ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 8);
 
-    // Tab config — always show all tabs; private ones show 🔒 indicator
     const tabs = [
         { key: 'uploads',    label: 'My uploads',    count: petsUploadsPrivate   ? 0 : activeUploads.length, privacyKey: 'showUploads' },
         { key: 'found_home', label: 'Found a home',  count: petsFoundHomePrivate ? 0 : foundHomePets.length,  privacyKey: 'showFoundAHome' },
@@ -1167,10 +1166,10 @@ export default function ProfilePage() {
                         const visitorHidesSuccessRate = !isOwnProfile && visitorPrivacy.showSuccessRate === false;
                         const visitorHidesAvgResponse = !isOwnProfile && visitorPrivacy.showAvgResponse === false;
                         const trustStats = [
-                            { label: 'Uploads',      value: uploadsCount,                                                                            color: '#FAF7F4', privacyKey: null },
-                            { label: 'Found homes',  value: visitorHidesFoundHomes  ? null : foundCount,                                             color: '#5DCAA5', privacyKey: 'showFoundHomes' },
-                            { label: 'Success rate', value: visitorHidesSuccessRate ? null : `${successRate}%`,                                      color: '#5DCAA5', privacyKey: 'showSuccessRate' },
-                            { label: 'Avg response', value: visitorHidesAvgResponse ? null : fmtAvgResponse(avgResponse),                           color: '#FAF7F4', privacyKey: 'showAvgResponse' },
+                            { label: 'Uploads',      value: uploadsCount, color: '#FAF7F4', privacyKey: null },
+                            { label: 'Found homes',  value: visitorHidesFoundHomes  ? null : foundCount, color: '#5DCAA5', privacyKey: 'showFoundHomes' },
+                            { label: 'Success rate', value: visitorHidesSuccessRate ? null : `${successRate}%`, color: '#5DCAA5', privacyKey: 'showSuccessRate' },
+                            { label: 'Avg response', value: visitorHidesAvgResponse ? null : fmtAvgResponse(avgResponse), color: '#FAF7F4', privacyKey: 'showAvgResponse' },
                         ];
                         return (
                             <div style={{ background: '#2D1F14', borderRadius: 4, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)' }}>
@@ -1184,7 +1183,7 @@ export default function ProfilePage() {
                                             </div>
                                             <div style={{ fontFamily: sans, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(250,247,244,0.5)', display: 'flex', alignItems: 'center', gap: 4 }}>
                                                 {label}
-                                                {ownerHidden && <span title="Hidden from visitors" style={{ fontSize: 8, opacity: 0.55 }}>🔒</span>}
+                                                {ownerHidden && <span title="Hidden from visitors" style={{ fontSize: 8, opacity: 0.55 }}>🔒︎</span>}
                                             </div>
                                         </div>
                                     );
@@ -1223,7 +1222,7 @@ export default function ProfilePage() {
                                 {label}
                                 {isPrivateTab && (
                                     <span title={isOwnProfile ? 'Hidden from visitors' : 'Private'} style={{ fontSize: 10, opacity: isOwnProfile ? 0.45 : 0.6, lineHeight: 1 }}>
-                                        🔒
+                                        🔒︎
                                     </span>
                                 )}
                                 {count > 0 && !isPrivateTab && <TabBadge n={count} />}
