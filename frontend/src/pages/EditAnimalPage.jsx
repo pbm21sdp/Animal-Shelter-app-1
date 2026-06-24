@@ -455,7 +455,21 @@ export default function EditAnimalPage() {
     // ── Submit ─────────────────────────────────────────────────────────────────
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!headline.trim()) { setSaveError('Please add a headline.'); return; }
+        const missing = [];
+        if (!headline.trim())              missing.push('headline');
+        if (!animalType)                   missing.push('type');
+        if (!description.trim())           missing.push('description');
+        if (!gender)                       missing.push('gender');
+        if (!foundHow)                     missing.push('situation');
+        if (!animalStatus)                 missing.push('current status');
+        if (!hasMicrochip)                 missing.push('microchip status');
+        if (!isNeutered)                   missing.push('neutered/spayed status');
+        if (!isVaccinated)                 missing.push('vaccination status');
+        if (!locValue.city && !locValue.county) missing.push('location (city or county)');
+        if (missing.length > 0) {
+            setSaveError(`Please fill in: ${missing.join(', ')}.`);
+            return;
+        }
         setSaveError(''); setSaving(true);
         try {
             const actualType     = animalType === 'Other' ? animalTypeOther : animalType;

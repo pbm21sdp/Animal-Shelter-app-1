@@ -249,6 +249,18 @@ export default function AddAnimalPage() {
 
     // ── Map step 1 answers → step 2 defaults when advancing ──────────────────
     const handleContinue = () => {
+        const e = {};
+        if (!foundHow)      e.foundHow     = 'Please select the situation.';
+        if (!animalType)    e.animalType   = 'Please select a type.';
+        if (animalType === 'Other' && !animalTypeOther.trim()) e.animalType = 'Please specify the type.';
+        if (!animalStatus)  e.animalStatus = 'Please select a current status.';
+        if (!hasMicrochip)  e.hasMicrochip = 'Please select one option.';
+        if (!isNeutered)    e.isNeutered   = 'Please select one option.';
+        if (!isVaccinated)  e.isVaccinated = 'Please select one option.';
+        if (!gender)        e.gender       = 'Please select a gender.';
+        if (!locValue.city && !locValue.county) e.location = 'Please add at least a city or county.';
+        if (Object.keys(e).length > 0) { setErrors(e); return; }
+        setErrors({});
         const statusMap = {
             'Vaccinated & healthy': 'Vaccinated',
             'Needs urgent care':    'Urgent',
@@ -370,13 +382,14 @@ export default function AddAnimalPage() {
         }
     };
 
-    // ── Validation ────────────────────────────────────────────────────────────
+    // ── Validation (step 2 submit) ────────────────────────────────────────────
     const validate = () => {
         const e = {};
         if (!headline.trim())    e.headline    = 'Please add a headline.';
-        if (!animalType)         e.animalType  = 'Please select a type in step 1.';
+        if (!animalType)         e.animalType  = 'Please select a type.';
         if (animalType === 'Other' && !animalTypeOther.trim()) e.animalType = 'Please specify the type of animal.';
         if (!description.trim()) e.description = 'Please describe the animal.';
+        if (previews.length < 1) e.photos      = 'Please add at least one photo.';
         if (!agreed)             e.agreed      = 'Please agree to the terms.';
         return e;
     };
@@ -522,12 +535,12 @@ export default function AddAnimalPage() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
                         <div>
-                            <FieldLabel>What's this animal's situation?</FieldLabel>
+                            <FieldLabel>What's this animal's situation? <span style={{ color: '#C07A4A' }}>*</span></FieldLabel>
                             <PillToggle
                                 large
                                 options={['Found on the street', 'Appears to be lost', 'Went missing', 'Owner surrendered it', 'Rescued from danger', 'Other']}
                                 value={foundHow}
-                                onChange={setFoundHow}
+                                onChange={v => { setFoundHow(v); if (errors.foundHow) setErrors(prev => ({ ...prev, foundHow: undefined })); }}
                             />
                             {foundHow === 'Other' && (
                                 <input
@@ -539,11 +552,12 @@ export default function AddAnimalPage() {
                                     style={{ width: '100%', marginTop: '10px', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }}
                                 />
                             )}
+                            {errors.foundHow && <div style={{ fontFamily: sans, fontSize: '11px', color: '#C07A4A', marginTop: '6px' }}>{errors.foundHow}</div>}
                         </div>
 
                         <div>
-                            <FieldLabel>Type of animal</FieldLabel>
-                            <PillToggle large options={['Dog', 'Cat', 'Rabbit', 'Bird', 'Fish', 'Hamster', 'Guinea pig', 'Reptile', 'Other']} value={animalType} onChange={setAnimalType} />
+                            <FieldLabel>Type of animal <span style={{ color: '#C07A4A' }}>*</span></FieldLabel>
+                            <PillToggle large options={['Dog', 'Cat', 'Rabbit', 'Bird', 'Fish', 'Hamster', 'Guinea pig', 'Reptile', 'Other']} value={animalType} onChange={v => { setAnimalType(v); if (errors.animalType) setErrors(prev => ({ ...prev, animalType: undefined })); }} />
                             {animalType === 'Other' && (
                                 <input
                                     type="text"
@@ -554,16 +568,18 @@ export default function AddAnimalPage() {
                                     style={{ width: '100%', marginTop: '10px', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }}
                                 />
                             )}
+                            {errors.animalType && <div style={{ fontFamily: sans, fontSize: '11px', color: '#C07A4A', marginTop: '6px' }}>{errors.animalType}</div>}
                         </div>
 
                         <div>
-                            <FieldLabel>Current status</FieldLabel>
+                            <FieldLabel>Current status <span style={{ color: '#C07A4A' }}>*</span></FieldLabel>
                             <PillToggle
                                 large
                                 options={['Found / Stray', 'Needs urgent care', 'Vaccinated & healthy', 'Foster', 'Vet check pending', 'In recovery', 'Ready for adoption', 'Special needs', 'Quarantine', 'Unknown']}
                                 value={animalStatus}
-                                onChange={setAnimalStatus}
+                                onChange={v => { setAnimalStatus(v); if (errors.animalStatus) setErrors(prev => ({ ...prev, animalStatus: undefined })); }}
                             />
+                            {errors.animalStatus && <div style={{ fontFamily: sans, fontSize: '11px', color: '#C07A4A', marginTop: '6px' }}>{errors.animalStatus}</div>}
                         </div>
 
                     </div>
@@ -575,20 +591,23 @@ export default function AddAnimalPage() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
                         <div>
-                            <FieldLabel>Microchip</FieldLabel>
-                            <PillToggle large options={['Yes', 'No', "Don't know"]} value={hasMicrochip} onChange={setHasMicrochip} />
+                            <FieldLabel>Microchip <span style={{ color: '#C07A4A' }}>*</span></FieldLabel>
+                            <PillToggle large options={['Yes', 'No', "Don't know"]} value={hasMicrochip} onChange={v => { setHasMicrochip(v); if (errors.hasMicrochip) setErrors(prev => ({ ...prev, hasMicrochip: undefined })); }} />
+                            {errors.hasMicrochip && <div style={{ fontFamily: sans, fontSize: '11px', color: '#C07A4A', marginTop: '6px' }}>{errors.hasMicrochip}</div>}
                         </div>
 
                         <div>
                             <FieldLabel>
-                                {gender === 'Male' ? 'Neutered' : gender === 'Female' ? 'Spayed' : 'Neutered / spayed'}
+                                {gender === 'Male' ? 'Neutered' : gender === 'Female' ? 'Spayed' : 'Neutered / spayed'} <span style={{ color: '#C07A4A' }}>*</span>
                             </FieldLabel>
-                            <PillToggle large options={['Yes', 'No', "Don't know"]} value={isNeutered} onChange={setIsNeutered} />
+                            <PillToggle large options={['Yes', 'No', "Don't know"]} value={isNeutered} onChange={v => { setIsNeutered(v); if (errors.isNeutered) setErrors(prev => ({ ...prev, isNeutered: undefined })); }} />
+                            {errors.isNeutered && <div style={{ fontFamily: sans, fontSize: '11px', color: '#C07A4A', marginTop: '6px' }}>{errors.isNeutered}</div>}
                         </div>
 
                         <div>
-                            <FieldLabel>Vaccinated</FieldLabel>
-                            <PillToggle large options={['Yes, fully', 'Partially', 'No', "Don't know"]} value={isVaccinated} onChange={setIsVaccinated} />
+                            <FieldLabel>Vaccinated <span style={{ color: '#C07A4A' }}>*</span></FieldLabel>
+                            <PillToggle large options={['Yes, fully', 'Partially', 'No', "Don't know"]} value={isVaccinated} onChange={v => { setIsVaccinated(v); if (errors.isVaccinated) setErrors(prev => ({ ...prev, isVaccinated: undefined })); }} />
+                            {errors.isVaccinated && <div style={{ fontFamily: sans, fontSize: '11px', color: '#C07A4A', marginTop: '6px' }}>{errors.isVaccinated}</div>}
                         </div>
 
                     </div>
@@ -600,8 +619,9 @@ export default function AddAnimalPage() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
                         <div>
-                            <FieldLabel>Gender</FieldLabel>
-                            <PillToggle large options={['Male', 'Female', 'Unknown']} value={gender} onChange={setGender} />
+                            <FieldLabel>Gender <span style={{ color: '#C07A4A' }}>*</span></FieldLabel>
+                            <PillToggle large options={['Male', 'Female', 'Unknown']} value={gender} onChange={v => { setGender(v); if (errors.gender) setErrors(prev => ({ ...prev, gender: undefined })); }} />
+                            {errors.gender && <div style={{ fontFamily: sans, fontSize: '11px', color: '#C07A4A', marginTop: '6px' }}>{errors.gender}</div>}
                         </div>
 
                         <div>
@@ -717,8 +737,9 @@ export default function AddAnimalPage() {
                     <SectionDivider />
 
                     {/* ── SECTION 4: Location ──────────────────────────────── */}
-                    <SectionLabel>Location</SectionLabel>
-                    <LocationPicker value={locValue} onChange={setLocValue} />
+                    <SectionLabel>Location <span style={{ color: '#C07A4A' }}>*</span></SectionLabel>
+                    <LocationPicker value={locValue} onChange={v => { setLocValue(v); if (errors.location) setErrors(prev => ({ ...prev, location: undefined })); }} />
+                    {errors.location && <div style={{ fontFamily: sans, fontSize: '11px', color: '#C07A4A', marginTop: '6px' }}>{errors.location}</div>}
                     {locValue.address && locValue.city &&
                         locValue.address.trim().toLowerCase() === locValue.city.trim().toLowerCase() && (
                         <div style={{ marginTop: '8px', fontFamily: sans, fontSize: '11px', color: '#8B4E28', background: 'rgba(192,122,74,0.08)', border: '1px solid rgba(192,122,74,0.2)', borderRadius: '4px', padding: '8px 12px' }}>
