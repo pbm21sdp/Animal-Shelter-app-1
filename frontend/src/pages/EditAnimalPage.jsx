@@ -885,13 +885,10 @@ export default function EditAnimalPage() {
                         <div style={{ height: '1px', backgroundColor: 'rgba(45,31,20,0.1)' }} />
                     </div>
 
-                    {/* ── TYPE + HEALTH STATUS ─────────────────────────────── */}
+                    {/* ── TYPE ─────────────────────────────────────────────── */}
                     <div style={{ marginTop: '20px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                         <span style={{ fontFamily: sans, fontSize: '9px', color: '#B09880', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Type:</span>
                         <PillToggle options={ANIMAL_TYPE_OPTIONS} value={animalType} onChange={setAnimalType} />
-                        <span style={{ color: '#D4C4B8', fontSize: '14px' }}>·</span>
-                        <span style={{ fontFamily: sans, fontSize: '9px', color: '#B09880', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Status:</span>
-                        <PillToggle options={['Found', 'Urgent', 'Vaccinated']} value={status} onChange={setStatus} />
                     </div>
                     {animalType === 'Other' && (
                         <input type="text" placeholder="Specify animal type…" value={animalTypeOther} onChange={e => setAnimalTypeOther(e.target.value)}
