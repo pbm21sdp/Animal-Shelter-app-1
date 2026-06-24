@@ -7,6 +7,18 @@ import LocationPicker from '../components/LocationPicker';
 import { usePetStore } from '../store/petStore';
 import { useAuthStore } from '../store/authStore';
 import { cropToFocalPoint } from '../utils/imageCrop.js';
+import { LOCALITIES_BY_COUNTY } from '../data/romaniaLocalities';
+
+function findCountyForCity(cityName) {
+    if (!cityName) return '';
+    const lower = cityName.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    for (const [county, cities] of Object.entries(LOCALITIES_BY_COUNTY)) {
+        if (cities.some(c => c.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '') === lower)) {
+            return county;
+        }
+    }
+    return '';
+}
 
 const API   = 'http://localhost:5000/api';
 const serif = "'Cormorant Garamond', serif";
@@ -299,10 +311,12 @@ export default function EditAnimalPage() {
         // Description
         setDescription(p.description || '');
 
-        // Location
+        // Location — reverse-lookup county from saved city name
+        const savedCity   = p.location_city || '';
+        const savedCounty = findCountyForCity(savedCity);
         setLocValue({
-            county:    '',
-            city:      p.location_city    || '',
+            county:    savedCounty,
+            city:      savedCity,
             address:   p.location_address || '',
             latitude:  p.latitude  ? parseFloat(p.latitude)  : null,
             longitude: p.longitude ? parseFloat(p.longitude) : null,
