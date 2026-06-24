@@ -5,19 +5,22 @@ import toast from 'react-hot-toast';
 import Navbar from '../components/Navbar';
 import { usePetStore } from '../store/petStore';
 import { useAuthStore } from '../store/authStore';
+import { buildPetTags } from '../utils/petTags';
+import { getCityCoords, haversineKm, NEAR_RADIUS_KM, WIDER_RADIUS_KM } from '../data/romaniaCities';
 
 const API = 'http://localhost:5000/api';
 const serif = "'Cormorant Garamond', serif";
 const sans  = "'DM Sans', sans-serif";
 
 const PHOTO_HEIGHT = 180;
+// Max tags shown inline on a card before collapsing to "+N more"
+const MAX_VISIBLE_TAGS = 3;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function getPrimaryPhotoUrl(photos) {
     if (!photos || photos.length === 0) return null;
     const primary = photos.find((p) => p.is_primary) || photos[0];
     if (!primary) return null;
-    // BYTEA photos are served by ID; URL photos have photo_url
     if (primary.id) return `${API}/pets/photos/${primary.id}`;
     if (primary.photo_url) return primary.photo_url;
     return null;
@@ -25,7 +28,6 @@ function getPrimaryPhotoUrl(photos) {
 
 function timeAgo(dateStr) {
     if (!dateStr) return '';
-    // Backend returns dates without timezone suffix — append Z to parse as UTC
     const parsed = dateStr.endsWith('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z';
     const diff = Date.now() - new Date(parsed).getTime();
     if (diff < 60000) return 'just now';
@@ -37,33 +39,59 @@ function timeAgo(dateStr) {
     return `${days}d ago`;
 }
 
-// ── Badge ─────────────────────────────────────────────────────────────────────
-function Badge({ type }) {
-    const styles = {
-        Found:      { background: '#2D1F14', color: '#FAF7F4', border: 'none' },
-        Urgent:     { background: '#993C1D', color: '#FAF7F4', border: 'none' },
-        Vaccinated: { background: 'rgba(29,158,117,0.12)', color: '#0F6E56', border: '1px solid rgba(29,158,117,0.2)' },
-        Adopted:    { background: 'rgba(15,110,86,0.12)', color: '#0F6E56', border: '1px solid rgba(15,110,86,0.2)' },
-        Lost:       { background: 'rgba(192,140,40,0.13)', color: '#7A5000', border: '1px solid rgba(192,140,40,0.28)' },
-        Missing:    { background: 'rgba(100,80,200,0.11)', color: '#4A3BAA', border: '1px solid rgba(100,80,200,0.22)' },
+// ── Tag chip — used on cards ──────────────────────────────────────────────────
+function TagChip({ label, urgent }) {
+    const base = {
+        fontFamily: sans, fontSize: '8px', textTransform: 'uppercase',
+        letterSpacing: '0.08em', padding: '2px 7px', borderRadius: '2px',
+        fontWeight: 600, whiteSpace: 'nowrap',
     };
-    const s = styles[type] || { background: 'rgba(45,31,20,0.08)', color: '#7A5C44', border: '1px solid rgba(45,31,20,0.12)' };
+    const urgentStyle = { background: '#993C1D', color: '#FAF7F4', border: 'none' };
+    const normalStyle = { background: 'rgba(45,31,20,0.08)', color: '#7A5C44', border: '1px solid rgba(45,31,20,0.12)' };
     return (
-        <span style={{ fontFamily: sans, fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '2px 7px', borderRadius: '2px', fontWeight: 600, ...s }}>
-            {type || 'Listed'}
+        <span style={{ ...base, ...(urgent ? urgentStyle : normalStyle) }}>
+            {label}
+        </span>
+    );
+}
+
+// Overflow chip "+N more"
+function MoreChip({ count }) {
+    return (
+        <span style={{
+            fontFamily: sans, fontSize: '8px', letterSpacing: '0.06em', padding: '2px 7px',
+            borderRadius: '2px', fontWeight: 600, whiteSpace: 'nowrap',
+            background: 'transparent', color: '#B09880', border: '1px solid rgba(45,31,20,0.1)',
+        }}>
+            +{count}
         </span>
     );
 }
 
 // ── Filter pill ───────────────────────────────────────────────────────────────
-function Pill({ label, active, onClick, urgent }) {
-    const base    = { fontFamily: sans, fontSize: '11px', padding: '5px 13px', borderRadius: '100px', cursor: 'pointer', borderWidth: '1px', borderStyle: 'solid', borderColor: 'rgba(45,31,20,0.15)', color: '#7A5C44', background: 'transparent', transition: 'all 0.15s', whiteSpace: 'nowrap' };
+function Pill({ label, active, onClick, urgent, disabled, tooltip }) {
+    const base = {
+        fontFamily: sans, fontSize: '11px', padding: '5px 13px', borderRadius: '100px',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        borderWidth: '1px', borderStyle: 'solid', borderColor: 'rgba(45,31,20,0.15)',
+        color: disabled ? '#C4B0A0' : '#7A5C44',
+        background: 'transparent', transition: 'all 0.15s', whiteSpace: 'nowrap',
+        opacity: disabled ? 0.55 : 1,
+        position: 'relative',
+    };
     const urgDef  = { borderColor: 'rgba(192,74,74,0.3)', color: '#993C1D' };
-    const actStyle = urgent ? { background: '#993C1D', color: '#FAF7F4', borderColor: '#993C1D' } : { background: '#2D1F14', color: '#FAF7F4', borderColor: '#2D1F14' };
+    const actStyle = urgent
+        ? { background: '#993C1D', color: '#FAF7F4', borderColor: '#993C1D' }
+        : { background: '#2D1F14', color: '#FAF7F4', borderColor: '#2D1F14' };
     return (
-        <button onClick={onClick} style={{ ...base, ...(urgent && !active ? urgDef : {}), ...(active ? actStyle : {}) }}>
-            {label}
-        </button>
+        <div style={{ position: 'relative', display: 'inline-block' }} title={disabled && tooltip ? tooltip : undefined}>
+            <button
+                onClick={disabled ? undefined : onClick}
+                style={{ ...base, ...(urgent && !active && !disabled ? urgDef : {}), ...(active && !disabled ? actStyle : {}) }}
+            >
+                {label}
+            </button>
+        </div>
     );
 }
 
@@ -90,26 +118,13 @@ export default function AnimalsPage() {
 
     const [typeFilter,    setTypeFilter]    = useState('all');
     const [otherSubtype,  setOtherSubtype]  = useState('');
-    const [statusFilter, setStatusFilter] = useState(initialStatus);
-    const [areaFilter,   setAreaFilter]   = useState('everywhere');
-    const [sortBy,       setSortBy]       = useState('recent');
-    const [searchQuery,  setSearchQuery]  = useState(searchParams.get('search') || '');
-    const [savedPets,    setSavedPets]    = useState(new Set());
-    const [adoptedPets,  setAdoptedPets]  = useState([]);
-    const [adoptedLoaded, setAdoptedLoaded] = useState(false);
+    const [statusFilter,  setStatusFilter]  = useState(initialStatus);
+    const [areaFilter,    setAreaFilter]    = useState('everywhere');
+    const [sortBy,        setSortBy]        = useState('recent');
+    const [searchQuery,   setSearchQuery]   = useState(searchParams.get('search') || '');
+    const [savedPets, setSavedPets] = useState(new Set());
 
-    useEffect(() => {
-        getAllPets();
-    }, [getAllPets]);
-
-    // Fetch adopted pets on demand when that filter is selected
-    useEffect(() => {
-        if (statusFilter !== 'adopted' || adoptedLoaded) return;
-        axios.get(`${API}/pets?showAll=true&adopted=true`)
-            .then(r => setAdoptedPets(r.data.pets || []))
-            .catch(() => {})
-            .finally(() => setAdoptedLoaded(true));
-    }, [statusFilter, adoptedLoaded]);
+    useEffect(() => { getAllPets(); }, [getAllPets]);
 
     useEffect(() => {
         const q = searchParams.get('search');
@@ -147,15 +162,33 @@ export default function AnimalsPage() {
                 setSavedPets(prev => new Set([...prev, petId]));
                 toast.success('Saved!');
             }
-        } catch {
-            // ignore
-        }
+        } catch { /* ignore */ }
     };
 
-    // ── Filtering & sorting ───────────────────────────────────────────────────
-    const source = statusFilter === 'adopted' ? adoptedPets : pets;
+    // ── Location filter helpers ───────────────────────────────────────────────
+    // Resolve user's city coordinates once; null means filter should be disabled
+    const userCoords = getCityCoords(currentUser?.city);
 
-    const filtered = source
+    // Whether proximity filters are usable
+    const proximityEnabled = !!userCoords;
+
+    function matchesAreaFilter(pet, filter) {
+        if (filter === 'everywhere') return true;
+        // Animals without location_city never match proximity filters
+        if (!pet.location_city) return false;
+        const petCoords = getCityCoords(pet.location_city);
+        // Animal city not in our list → exclude from proximity results
+        if (!petCoords) return false;
+        // User city not resolved → filters are disabled; treat as no match
+        if (!userCoords) return false;
+        const dist = haversineKm(userCoords.lat, userCoords.lng, petCoords.lat, petCoords.lng);
+        if (filter === 'near')      return dist <= NEAR_RADIUS_KM;
+        if (filter === 'timisoara') return dist <= WIDER_RADIUS_KM;
+        return true;
+    }
+
+    // ── Filtering & sorting ───────────────────────────────────────────────────
+    const filtered = pets
         .filter((p) => {
             const petType = (p.type || '').toLowerCase();
             const typeMatch =
@@ -163,21 +196,23 @@ export default function AnimalsPage() {
                 typeFilter === 'other'
                     ? (!['dog', 'cat'].includes(petType) && (otherSubtype === '' || petType === otherSubtype))
                     : petType === typeFilter;
-            const hs = (p.health_status || '').toLowerCase();
-            const as = (p.adoption_status || '').toLowerCase();
-            const fh = (p.found_how || '').toLowerCase();
+
+            const as          = (p.adoption_status || '').toLowerCase();
             const isAdoptedPet = p.is_adopted === true || as === 'adopted';
 
+            // Adopted animals never appear on this page
+            if (isAdoptedPet) return false;
+
+            // Status filter uses new columns where available, falls back to legacy
             const statusMatch =
-                statusFilter === 'adopted'    ? true :
-                isAdoptedPet                  ? false :
                 statusFilter === 'all'        ? true :
-                statusFilter === 'urgent'     ? (hs.includes('urgent') || as === 'urgent' || p.is_urgent === true) :
-                statusFilter === 'vaccinated' ? hs.includes('vacc') :
-                statusFilter === 'lost'       ? (fh.includes('lost') || fh.includes('appear')) :
-                statusFilter === 'missing'    ? fh.includes('missing') :
-                statusFilter === 'found'      ? (!fh.includes('missing') && !fh.includes('lost') && !fh.includes('appear') && (as === 'available' || hs.includes('found') || !fh)) :
+                statusFilter === 'urgent'     ? (p.current_status === 'needs_urgent_care' || (p.health_status || '').toLowerCase().includes('urgent') || p.is_urgent === true) :
+                statusFilter === 'vaccinated' ? (p.vaccination_status === 'fully' || (p.health_status || '').toLowerCase().includes('vacc')) :
+                statusFilter === 'lost'       ? (p.situation === 'appears_lost' || (p.found_how || '').toLowerCase().includes('lost') || (p.found_how || '').toLowerCase().includes('appear')) :
+                statusFilter === 'missing'    ? (p.situation === 'went_missing' || (p.found_how || '').toLowerCase().includes('missing')) :
+                statusFilter === 'found'      ? (p.situation === 'found_on_street' || p.situation === 'rescued_from_danger' || (!p.situation && !(p.found_how || '').toLowerCase().includes('missing') && !(p.found_how || '').toLowerCase().includes('lost') && !(p.found_how || '').toLowerCase().includes('appear') && (as === 'available' || !p.found_how))) :
                 true;
+
             const q = searchQuery.trim().toLowerCase();
             const qSingular = q.endsWith('s') && q.length > 3 ? q.slice(0, -1) : q;
             const searchMatch = !q
@@ -186,29 +221,24 @@ export default function AnimalsPage() {
                 || (p.name        || '').toLowerCase().includes(q)
                 || (p.description || '').toLowerCase().includes(q)
                 || (p.breed       || '').toLowerCase().includes(q);
-            const city = (p.location_city || '').toLowerCase();
-            const areaMatch =
-                areaFilter === 'everywhere' ? true :
-                areaFilter === 'timisoara'  ? city.includes('timi') :
-                areaFilter === 'near'       ? (
-                    currentUser?.city
-                        ? city.includes(currentUser.city.toLowerCase())
-                        : city.includes('timi')
-                ) : true;
+
+            const areaMatch = matchesAreaFilter(p, areaFilter);
+
             return typeMatch && statusMatch && searchMatch && areaMatch;
         })
         .sort((a, b) => {
             if (sortBy === 'urgent') {
-                const aU = (a.health_status || '').toLowerCase().includes('urgent');
-                const bU = (b.health_status || '').toLowerCase().includes('urgent');
+                const aU = a.current_status === 'needs_urgent_care' || (a.health_status || '').toLowerCase().includes('urgent');
+                const bU = b.current_status === 'needs_urgent_care' || (b.health_status || '').toLowerCase().includes('urgent');
                 if (aU && !bU) return -1;
                 if (bU && !aU) return  1;
             }
-            if (sortBy === 'nearest') {
-                const userCity = (currentUser?.city || 'timișoara').toLowerCase();
-                const aMatch = (a.location_city || '').toLowerCase().includes(userCity) ? 0 : 1;
-                const bMatch = (b.location_city || '').toLowerCase().includes(userCity) ? 0 : 1;
-                if (aMatch !== bMatch) return aMatch - bMatch;
+            if (sortBy === 'nearest' && userCoords) {
+                const aCoords = getCityCoords(a.location_city);
+                const bCoords = getCityCoords(b.location_city);
+                const aDist = aCoords ? haversineKm(userCoords.lat, userCoords.lng, aCoords.lat, aCoords.lng) : Infinity;
+                const bDist = bCoords ? haversineKm(userCoords.lat, userCoords.lng, bCoords.lat, bCoords.lng) : Infinity;
+                if (aDist !== bDist) return aDist - bDist;
             }
             return new Date(b.created_at) - new Date(a.created_at);
         });
@@ -227,13 +257,14 @@ export default function AnimalsPage() {
         { label: 'Found',      value: 'found',      urgent: false },
         { label: 'Lost',       value: 'lost',       urgent: false },
         { label: 'Missing',    value: 'missing',    urgent: false },
-        { label: 'Adopted',    value: 'adopted',    urgent: false },
     ];
 
+    const proximityTooltip = 'Add your city in profile settings to use this filter';
+
     const areaPills = [
-        { label: 'Near me',       value: 'near'       },
-        { label: 'Wider vicinity', value: 'timisoara'  },
-        { label: 'Everywhere',    value: 'everywhere' },
+        { label: 'Near me',         value: 'near',       disabled: !proximityEnabled, tooltip: proximityTooltip },
+        { label: 'Wider vicinity',  value: 'timisoara',  disabled: !proximityEnabled, tooltip: proximityTooltip },
+        { label: 'Everywhere',      value: 'everywhere', disabled: false,             tooltip: '' },
     ];
 
     return (
@@ -315,9 +346,23 @@ export default function AnimalsPage() {
                 <Sep />
 
                 <FilterLabel>Area</FilterLabel>
-                {areaPills.map(({ label, value }) => (
-                    <Pill key={value} label={label} active={areaFilter === value} onClick={() => setAreaFilter(value)} />
+                {areaPills.map(({ label, value, disabled, tooltip }) => (
+                    <Pill
+                        key={value}
+                        label={label}
+                        active={areaFilter === value}
+                        disabled={disabled}
+                        tooltip={tooltip}
+                        onClick={() => setAreaFilter(value)}
+                    />
                 ))}
+
+                {/* Inline hint when proximity filters are disabled */}
+                {!proximityEnabled && (
+                    <span style={{ fontFamily: sans, fontSize: '10px', color: '#B09880', fontStyle: 'italic' }}>
+                        Set your city in profile to use Near me
+                    </span>
+                )}
 
                 <Sep />
 
@@ -335,14 +380,14 @@ export default function AnimalsPage() {
                     }}
                 >
                     <option value="recent">Most recent</option>
-                    <option value="nearest">Nearest</option>
+                    <option value="nearest" disabled={!proximityEnabled}>Nearest{!proximityEnabled ? ' (set city in profile)' : ''}</option>
                     <option value="urgent">Urgent first</option>
                 </select>
             </div>
 
             {/* ── GRID ─────────────────────────────────────────────────── */}
             <div style={{ padding: '20px 48px 40px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', alignItems: 'start' }}>
-                {(isLoading || (statusFilter === 'adopted' && !adoptedLoaded)) ? (
+                {isLoading ? (
                     <div style={{ gridColumn: '1/-1', padding: '48px 0', textAlign: 'center', fontFamily: serif, fontSize: '18px', fontStyle: 'italic', color: '#B09880' }}>
                         Loading animals…
                     </div>
@@ -365,19 +410,6 @@ export default function AnimalsPage() {
     );
 }
 
-// ── Badge type helper ─────────────────────────────────────────────────────────
-function getBadgeType(pet) {
-    const as = (pet.adoption_status || '').toLowerCase();
-    if (as === 'adopted' || pet.is_adopted) return 'Adopted';
-    const fh = (pet.found_how || '').toLowerCase();
-    if (fh.includes('missing')) return 'Missing';
-    if (fh.includes('lost') || fh.includes('appear')) return 'Lost';
-    const hs = (pet.health_status || '').toLowerCase();
-    if (hs.includes('urgent')) return 'Urgent';
-    if (hs.includes('vacc')) return 'Vaccinated';
-    return 'Found';
-}
-
 // ── Animal card ───────────────────────────────────────────────────────────────
 function AnimalCard({ pet, isSaved, onToggleSave }) {
     const navigate = useNavigate();
@@ -386,8 +418,11 @@ function AnimalCard({ pet, isSaved, onToggleSave }) {
 
     const location = pet.location_city || pet.location_address || '';
     const age      = pet.age_category  || '';
-    const badge    = getBadgeType(pet);
     const title    = pet.name          || 'Unknown animal';
+
+    const allTags   = buildPetTags(pet);
+    const visible   = allTags.slice(0, MAX_VISIBLE_TAGS);
+    const overflow  = allTags.length - visible.length;
 
     return (
         <div
@@ -436,9 +471,17 @@ function AnimalCard({ pet, isSaved, onToggleSave }) {
                 </button>
             </div>
             <div style={{ padding: '10px 12px 12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '7px' }}>
-                    <Badge type={badge} />
-                    <span style={{ fontFamily: sans, fontSize: '9px', color: '#B09880' }}>{timeAgo(pet.created_at)}</span>
+                {/* Tags row */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap', marginBottom: '7px', minHeight: '18px' }}>
+                    {visible.length > 0 ? (
+                        <>
+                            {visible.map((t, i) => <TagChip key={i} label={t.label} urgent={t.urgent} />)}
+                            {overflow > 0 && <MoreChip count={overflow} />}
+                        </>
+                    ) : (
+                        <TagChip label="Listed" urgent={false} />
+                    )}
+                    <span style={{ marginLeft: 'auto', fontFamily: sans, fontSize: '9px', color: '#B09880', flexShrink: 0 }}>{timeAgo(pet.created_at)}</span>
                 </div>
                 <div style={{ fontFamily: serif, fontSize: '15px', fontWeight: 700, color: '#2D1F14', lineHeight: 1.25, marginBottom: '6px' }}>
                     {title}
