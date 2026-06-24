@@ -26,13 +26,19 @@ const sans  = "'DM Sans', sans-serif";
 
 const sentenceCase = str => str ? str.charAt(0).toUpperCase() + str.slice(1).toLowerCase() : '';
 
-const COAT_COLOR_OPTIONS  = ['Black', 'White', 'Brown', 'Tan / Fawn', 'Gray', 'Golden', 'Cream', 'Black & white', 'Brindle', 'Tricolor', 'Other'];
+const COAT_COLOR_OPTIONS  = ['Black', 'White', 'Brown', 'Tan / Fawn', 'Gray', 'Silver', 'Golden', 'Cream', 'Orange / Red', 'Chocolate', 'Sable', 'Black & white', 'Brindle', 'Tricolor', 'Calico', 'Merle', 'Spotted', 'Other'];
 const COAT_TYPE_OPTIONS   = ['Short', 'Medium', 'Long', 'Curly', 'Wire-haired', 'Hairless', 'Unknown'];
-const TRAITS              = ['Friendly', 'Playful', 'Calm', 'Affectionate', 'Gentle', 'Energetic', 'Curious', 'Loyal', 'Sociable', 'Independent', 'Shy', 'Good with kids', 'Good with dogs', 'Good with cats', 'House-trained'];
+const TRAITS              = [
+    'Friendly', 'Playful', 'Calm', 'Affectionate', 'Gentle', 'Energetic', 'Curious', 'Loyal', 'Sociable', 'Independent',
+    'Shy', 'Good with kids', 'Good with dogs', 'Good with cats', 'House-trained',
+    'Food motivated', 'Stubborn', 'Anxious', 'Vocal / Barks a lot',
+    'Needs patient owner', 'Not good with other animals', 'Not good with children',
+    'Territorial', 'Reactive on leash', 'Escape artist',
+];
 const AGE_OPTIONS         = ['Under 3 months', '3–12 months', '1–3 years', '3–7 years', 'Over 7 years', 'Unknown'];
 const SIZE_OPTIONS        = ['Very small (under 5kg)', 'Small (5–10kg)', 'Medium (10–25kg)', 'Large (over 25kg)', 'Unknown'];
 const FOUND_HOW_OPTIONS   = ['Found on the street', 'Appears to be lost', 'Went missing', 'Owner surrendered it', 'Rescued from danger', 'Other'];
-const ANIMAL_STATUS_OPTIONS = ['Found / Stray', 'Needs urgent care', 'Vaccinated & healthy', 'Unknown'];
+const ANIMAL_STATUS_OPTIONS = ['Found / Stray', 'Needs urgent care', 'Vaccinated & healthy', 'Foster', 'Vet check pending', 'In recovery', 'Ready for adoption', 'Special needs', 'Quarantine', 'Unknown'];
 const ANIMAL_TYPE_OPTIONS = ['Dog', 'Cat', 'Rabbit', 'Bird', 'Fish', 'Hamster', 'Guinea pig', 'Reptile', 'Other'];
 
 const SITUATION_MAP = {
@@ -47,11 +53,17 @@ const SITUATION_REVERSE = {
 };
 const CURRENT_STATUS_MAP = {
     'Found / Stray': 'found_stray', 'Needs urgent care': 'needs_urgent_care',
-    'Vaccinated & healthy': 'vaccinated_healthy', 'Unknown': 'unknown',
+    'Vaccinated & healthy': 'vaccinated_healthy', 'Foster': 'foster',
+    'Vet check pending': 'vet_check_pending', 'In recovery': 'in_recovery',
+    'Ready for adoption': 'ready_for_adoption', 'Special needs': 'special_needs',
+    'Quarantine': 'quarantine', 'Unknown': 'unknown',
 };
 const CURRENT_STATUS_REVERSE = {
     found_stray: 'Found / Stray', needs_urgent_care: 'Needs urgent care',
-    vaccinated_healthy: 'Vaccinated & healthy', unknown: 'Unknown',
+    vaccinated_healthy: 'Vaccinated & healthy', foster: 'Foster',
+    vet_check_pending: 'Vet check pending', in_recovery: 'In recovery',
+    ready_for_adoption: 'Ready for adoption', special_needs: 'Special needs',
+    quarantine: 'Quarantine', unknown: 'Unknown',
 };
 const MICROCHIP_MAP     = { 'Yes': 'yes', 'No': 'no', "Don't know": 'unknown' };
 const MICROCHIP_REVERSE = { yes: 'Yes', no: 'No', unknown: "Don't know" };
@@ -143,6 +155,7 @@ export default function EditAnimalPage() {
     const [coatColorOther,   setCoatColorOther]   = useState('');
     const [coatType,         setCoatType]         = useState('');
     const [breed,            setBreed]            = useState('');
+    const [breedUnsure,      setBreedUnsure]      = useState(false);
     const [gender,           setGender]           = useState('');
 
     // Step-2 fields
@@ -303,6 +316,7 @@ export default function EditAnimalPage() {
 
         // Breed
         setBreed(p.breed || '');
+        setBreedUnsure(!!p.breed_unsure);
 
         // Gender
         const gMap = { male: 'Male', female: 'Female', unknown: 'Unknown' };
@@ -368,18 +382,21 @@ export default function EditAnimalPage() {
         setAiLoading(true); setAiError(''); setAiGenerated(false);
         try {
             const res = await axios.post(`${API}/ai/generate-description`, {
-                type:       actualType || animalType,
-                status:     animalStatus,
-                age:        exactAge || approxAge,
-                size:       exactWeight ? `${exactWeight}${approxSize ? ` (${approxSize})` : ''}` : approxSize,
-                vaccinated: isVaccinated,
-                neutered:   isNeutered,
-                microchip:  hasMicrochip,
-                foundHow:   actualFoundHow || foundHow,
-                breed, color: effectiveColors.join(', '), coat: coatType,
-                gender:     gender || '',
-                city:       locValue.city || locValue.county || '',
-                traits:     selectedTraits,
+                type:          actualType || animalType,
+                status:        animalStatus,
+                currentStatus: CURRENT_STATUS_MAP[animalStatus] || null,
+                situation:     SITUATION_MAP[foundHow] || (foundHow ? 'other' : null),
+                age:           exactAge || approxAge,
+                size:          exactWeight ? `${exactWeight}${approxSize ? ` (${approxSize})` : ''}` : approxSize,
+                vaccinated:    isVaccinated,
+                neutered:      isNeutered,
+                microchip:     hasMicrochip,
+                foundHow:      actualFoundHow || foundHow,
+                breed, breedUnsure,
+                color: effectiveColors.join(', '), coat: coatType,
+                gender:        gender || '',
+                city:          locValue.city || locValue.county || '',
+                traits:        selectedTraits,
             }, { withCredentials: true });
             setDescription(res.data.description || '');
             setDescVersion(v => v + 1);
@@ -471,6 +488,7 @@ export default function EditAnimalPage() {
                 microchip_status:      MICROCHIP_MAP[hasMicrochip] || null,
                 neutered_spayed_status: NEUTERED_MAP[isNeutered] || null,
                 vaccination_status:    VACCINATION_MAP[isVaccinated] || null,
+                breed_unsure:          breedUnsure,
             };
 
             if (user?.isAdmin) payload.status = moderationStatus;
@@ -651,13 +669,13 @@ export default function EditAnimalPage() {
 
                         <div>
                             <FieldLabel>Size</FieldLabel>
-                            <PillToggle large options={SIZE_OPTIONS} value={approxSize} onChange={setApproxSize} />
+                            <PillToggle large options={SIZE_OPTIONS} value={approxSize} onChange={v => { setApproxSize(v); if (v) setExactWeight(''); }} />
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '12px 0 0' }}>
                                 <div style={{ flex: 1, height: '1px', background: 'rgba(45,31,20,0.1)' }} />
                                 <span style={{ fontFamily: sans, fontSize: '10px', color: '#B09880', whiteSpace: 'nowrap' }}>or enter exact weight</span>
                                 <div style={{ flex: 1, height: '1px', background: 'rgba(45,31,20,0.1)' }} />
                             </div>
-                            <input type="text" placeholder="e.g. 14 kg" value={exactWeight} onChange={e => setExactWeight(e.target.value)}
+                            <input type="text" placeholder="e.g. 14 kg" value={exactWeight} onChange={e => { setExactWeight(e.target.value); if (e.target.value) setApproxSize(''); }}
                                 style={{ width: '100%', marginTop: '8px', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }} />
                         </div>
 
@@ -688,8 +706,19 @@ export default function EditAnimalPage() {
 
                         <div>
                             <FieldLabel>Breed (if known)</FieldLabel>
-                            <input type="text" placeholder="e.g. Labrador mix, unknown" value={breed} onChange={e => setBreed(e.target.value)}
+                            <input type="text" placeholder="e.g. Labrador, German Shepherd" value={breed} onChange={e => setBreed(e.target.value)}
                                 style={{ width: '100%', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }} />
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px', cursor: 'pointer' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={breedUnsure}
+                                    onChange={e => setBreedUnsure(e.target.checked)}
+                                    style={{ width: '14px', height: '14px', cursor: 'pointer', accentColor: '#C07A4A' }}
+                                />
+                                <span style={{ fontFamily: sans, fontSize: '11px', color: '#7A5C44' }}>
+                                    I'm not 100% sure of the breed
+                                </span>
+                            </label>
                         </div>
 
                     </div>
