@@ -42,6 +42,14 @@ function fmtMemberFor(d) {
     return m > 0 ? `${y}y ${m}m` : `${y}y`;
 }
 
+function fmtAvgResponse(avgMinutes) {
+    if (avgMinutes === null || avgMinutes === undefined) return '—';
+    if (avgMinutes < 60) return '< 1h';
+    const h = Math.ceil(avgMinutes / 60);
+    if (h < 24) return `< ${h}h`;
+    return `${Math.round(avgMinutes / (24 * 60))} days`;
+}
+
 function getInitial(name) {
     return name?.trim().charAt(0).toUpperCase() || '?';
 }
@@ -363,6 +371,43 @@ function StatCell({ value, label, trend }) {
     );
 }
 
+// ── Privacy toggle switch ──────────────────────────────────────────────────────
+
+function PrivacyToggle({ label, description, checked, onChange }) {
+    return (
+        <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '14px 0', borderBottom: '1px solid rgba(45,31,20,0.08)',
+        }}>
+            <div>
+                <div style={{ fontFamily: sans, fontSize: 13, color: '#2D1F14' }}>{label}</div>
+                {description && (
+                    <div style={{ fontFamily: sans, fontSize: 11, color: '#9A7A60', marginTop: 2 }}>
+                        {description}
+                    </div>
+                )}
+            </div>
+            <button
+                onClick={() => onChange(!checked)}
+                style={{
+                    width: 40, height: 22, borderRadius: 11, padding: 2,
+                    background: checked ? '#C07A4A' : 'rgba(45,31,20,0.15)',
+                    border: 'none', cursor: 'pointer', position: 'relative',
+                    transition: 'background 0.2s', flexShrink: 0, marginLeft: 16,
+                }}
+            >
+                <div style={{
+                    width: 18, height: 18, borderRadius: '50%', background: '#fff',
+                    position: 'absolute', top: 2,
+                    left: checked ? 20 : 2,
+                    transition: 'left 0.2s',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                }} />
+            </button>
+        </div>
+    );
+}
+
 // ── ProfilePage ────────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
@@ -380,6 +425,23 @@ export default function ProfilePage() {
     const [savedPets,        setSavedPets]        = useState([]);
     const [receivedMsgCount, setReceivedMsgCount] = useState(null);
     const [activeTab,     setActiveTab]     = useState('uploads');
+
+    // avg response time
+    const [avgResponse, setAvgResponse] = useState(null);
+
+    // privacy: editable settings (own profile) + visitor-facing settings
+    const DEFAULT_PRIVACY = { showAvgResponse: true, showMessagesReceived: true, showUploads: true, showAdoptedByMe: true, showSaved: true };
+    const [privacySettings, setPrivacySettings] = useState(DEFAULT_PRIVACY);
+    const [privacyLoaded,   setPrivacyLoaded]   = useState(false);
+    const [visitorPrivacy,  setVisitorPrivacy]  = useState(DEFAULT_PRIVACY);
+
+    // fetch-once guards
+    const [adoptedFetched, setAdoptedFetched] = useState(false);
+    const [savedFetched,   setSavedFetched]   = useState(false);
+
+    // isPrivate flags for activity stats
+    const [adoptedIsPrivate, setAdoptedIsPrivate] = useState(false);
+    const [savedIsPrivate,   setSavedIsPrivate]   = useState(false);
     const [isEditingBio,  setIsEditingBio]  = useState(false);
     const [bioValue,      setBioValue]      = useState('');
     const [isEditingInfo, setIsEditingInfo] = useState(false);
@@ -412,6 +474,16 @@ export default function ProfilePage() {
             const res = await axios.get(`${API}/users/${profileId}/profile`, { withCredentials: true });
             setProfileData(res.data.profile);
             setBioValue(res.data.profile?.bio || '');
+            if (!isOwnProfile && res.data.profile?.privacySettings) {
+                const ps = res.data.profile.privacySettings;
+                setVisitorPrivacy({
+                    showAvgResponse:      ps.showAvgResponse      ?? true,
+                    showMessagesReceived: ps.showMessagesReceived ?? true,
+                    showUploads:          ps.showUploads          ?? true,
+                    showAdoptedByMe:      ps.showAdoptedByMe      ?? true,
+                    showSaved:            ps.showSaved            ?? true,
+                });
+            }
         } catch (err) {
             // fallback to currentUser for own profile
             if (isOwnProfile && currentUser) {
@@ -432,24 +504,38 @@ export default function ProfilePage() {
     }, [profileId]);
 
     const fetchAdopted = useCallback(async () => {
-        if (!profileId || adoptedPets.length > 0) return;
+        if (!profileId || adoptedFetched) return;
+        setAdoptedFetched(true);
         try {
             const res = await axios.get(`${API}/users/${profileId}/adoptions`, { withCredentials: true });
-            setAdoptedPets(res.data.pets || []);
+            if (res.data.isPrivate) {
+                setAdoptedIsPrivate(true);
+                setAdoptedPets([]);
+            } else {
+                setAdoptedIsPrivate(false);
+                setAdoptedPets(res.data.pets || []);
+            }
         } catch (err) {
             setAdoptedPets([]);
         }
-    }, [profileId, adoptedPets.length]);
+    }, [profileId, adoptedFetched]);
 
     const fetchSaved = useCallback(async () => {
-        if (!profileId) return;
+        if (!profileId || savedFetched) return;
+        setSavedFetched(true);
         try {
             const res = await axios.get(`${API}/users/${profileId}/saved`, { withCredentials: true });
-            setSavedPets(res.data.pets || []);
+            if (res.data.isPrivate) {
+                setSavedIsPrivate(true);
+                setSavedPets([]);
+            } else {
+                setSavedIsPrivate(false);
+                setSavedPets(res.data.pets || []);
+            }
         } catch {
             setSavedPets([]);
         }
-    }, [profileId]);
+    }, [profileId, savedFetched]);
 
     // ── Effects ──────────────────────────────────────────────────────────────
 
@@ -467,11 +553,45 @@ export default function ProfilePage() {
     }, [activeTab, fetchSaved]);
 
     useEffect(() => {
-        if (activeTab !== 'activity' || receivedMsgCount !== null) return;
-        axios.get('http://localhost:5000/api/conversations/received-count', { withCredentials: true })
-            .then(res => setReceivedMsgCount(res.data.count ?? 0))
+        if (activeTab !== 'activity' || receivedMsgCount !== null || !profileId) return;
+        axios.get(`${API}/users/${profileId}/received-count`, { withCredentials: true })
+            .then(res => {
+                if (res.data.isPrivate) setReceivedMsgCount('private');
+                else setReceivedMsgCount(res.data.count ?? 0);
+            })
             .catch(() => setReceivedMsgCount(0));
-    }, [activeTab, receivedMsgCount]);
+    }, [activeTab, receivedMsgCount, profileId]);
+
+    // Fetch avg response time
+    useEffect(() => {
+        if (!profileId) return;
+        axios.get(`${API}/users/${profileId}/avg-response-time`, { withCredentials: true })
+            .then(res => {
+                if (res.data.isPrivate || !res.data.hasEnoughData) setAvgResponse(null);
+                else setAvgResponse(res.data.avgMinutes ?? null);
+            })
+            .catch(() => setAvgResponse(null));
+    }, [profileId]);
+
+    // Fetch own privacy settings for editing
+    useEffect(() => {
+        if (!isOwnProfile || privacyLoaded) return;
+        axios.get(`${API}/users/me/privacy-settings`, { withCredentials: true })
+            .then(res => { if (res.data.settings) setPrivacySettings(res.data.settings); })
+            .catch(() => {})
+            .finally(() => setPrivacyLoaded(true));
+    }, [isOwnProfile, privacyLoaded]);
+
+    // If active tab becomes hidden due to visitor privacy, redirect to activity
+    useEffect(() => {
+        if (isOwnProfile) return;
+        setActiveTab(prev => {
+            if (!visitorPrivacy.showUploads && (prev === 'uploads' || prev === 'found_home')) return 'activity';
+            if (!visitorPrivacy.showAdoptedByMe && prev === 'adopted') return 'activity';
+            if (!visitorPrivacy.showSaved && prev === 'saved') return 'activity';
+            return prev;
+        });
+    }, [visitorPrivacy, isOwnProfile]);
 
     // ── Bio save ─────────────────────────────────────────────────────────────
 
@@ -631,6 +751,19 @@ export default function ProfilePage() {
         }
     };
 
+    // ── Privacy settings change ───────────────────────────────────────────────
+
+    const handlePrivacyChange = async (key, value) => {
+        setPrivacySettings(prev => ({ ...prev, [key]: value }));
+        try {
+            await axios.put(`${API}/users/me/privacy-settings`, { [key]: value }, { withCredentials: true });
+            toast.success('Privacy settings updated.');
+        } catch {
+            setPrivacySettings(prev => ({ ...prev, [key]: !value }));
+            toast.error('Failed to save setting.');
+        }
+    };
+
     // ── Derived display values ────────────────────────────────────────────────
 
     // For own profile: prefer live currentUser for avatar/name (stays in sync with uploads)
@@ -641,11 +774,15 @@ export default function ProfilePage() {
     const displayAvail  = profileData?.contactAvailability ?? (isOwnProfile ? currentUser?.contactAvailability : null);
     const createdAt     = isOwnProfile ? (currentUser?.createdAt || profileData?.createdAt) : profileData?.createdAt;
 
-    const uploadsCount    = pets.length;
+    // For own profile use live pets array; for visitors use profileData (always public, no privacy filter)
+    const uploadsCount  = isOwnProfile ? pets.length : (profileData?.uploads_count ?? pets.length);
+    const foundCount    = isOwnProfile ? pets.filter(p => p.is_adopted).length : (profileData?.adopted_count ?? pets.filter(p => p.is_adopted).length);
+    const successRate   = isOwnProfile
+        ? (pets.length > 0 ? Math.round((pets.filter(p => p.is_adopted).length / pets.length) * 100) : 0)
+        : (profileData?.success_rate ?? 0);
+
     const activeUploads   = pets.filter(p => !p.is_adopted);
     const foundHomePets   = pets.filter(p => p.is_adopted);
-    const foundCount      = foundHomePets.length;
-    const successRate     = uploadsCount > 0 ? Math.round((foundCount / uploadsCount) * 100) : 0;
 
     // Activity feed — generated client-side from pets
     const activityEvents = [
@@ -654,14 +791,21 @@ export default function ProfilePage() {
                .map(p => ({ date: p.adopted_at, text: '', name: p.name, suffix: ' marked as adopted' })),
     ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 8);
 
-    // Tab config
+    // Tab config — filter hidden tabs for visitors
     const tabs = [
         { key: 'uploads',    label: 'My uploads',    count: activeUploads.length },
         { key: 'found_home', label: 'Found a home',  count: foundCount },
         { key: 'activity',   label: 'Activity',      count: 0 },
         { key: 'adopted',    label: 'Adopted by me', count: adoptedPets.length },
         { key: 'saved',      label: 'Saved',          count: savedPets.length },
-    ];
+        ...(isOwnProfile ? [{ key: 'settings', label: 'Settings', count: 0 }] : []),
+    ].filter(({ key }) => {
+        if (isOwnProfile) return true;
+        if ((key === 'uploads' || key === 'found_home') && !visitorPrivacy.showUploads) return false;
+        if (key === 'adopted' && !visitorPrivacy.showAdoptedByMe) return false;
+        if (key === 'saved'   && !visitorPrivacy.showSaved)       return false;
+        return true;
+    });
 
     if (!currentUser) return null;
 
@@ -1016,7 +1160,7 @@ export default function ProfilePage() {
                             { label: 'Uploads',      value: uploadsCount,        color: '#FAF7F4' },
                             { label: 'Found homes',  value: foundCount,          color: '#5DCAA5' },
                             { label: 'Success rate', value: `${successRate}%`,   color: '#5DCAA5' },
-                            { label: 'Avg response', value: '< 2h',              color: '#FAF7F4' },
+                            { label: 'Avg response', value: fmtAvgResponse(avgResponse), color: '#FAF7F4' },
                         ].map(({ label, value, color }, i, arr) => (
                             <div key={label} style={{
                                 padding: '14px 20px',
@@ -1130,9 +1274,9 @@ export default function ProfilePage() {
                         }}>
                             <StatCell value={uploadsCount}            label="Animals uploaded" />
                             <StatCell value={foundCount}              label="Found a home"       trend={foundCount > 0 ? `↑ ${foundCount} total` : null} />
-                            <StatCell value={receivedMsgCount ?? '—'} label="Messages received" />
-                            <StatCell value={adoptedPets.length} label="Adopted personally" />
-                            <StatCell value={savedPets.length}   label="Saved for later" />
+                            <StatCell value={receivedMsgCount === 'private' ? '—' : (receivedMsgCount ?? '—')} label="Messages received" />
+                            <StatCell value={adoptedIsPrivate ? '—' : adoptedPets.length} label="Adopted personally" />
+                            <StatCell value={savedIsPrivate   ? '—' : savedPets.length}   label="Saved for later" />
                             <StatCell value={fmtMemberFor(createdAt)} label="Member for" />
                         </div>
 
@@ -1251,6 +1395,48 @@ export default function ProfilePage() {
                                 })}
                             </div>
                         )}
+                    </div>
+                )}
+
+                {/* ── TAB 6: SETTINGS (own profile only) ────────────────────── */}
+                {activeTab === 'settings' && isOwnProfile && (
+                    <div>
+                        <SectionLabel>Privacy settings</SectionLabel>
+                        <div style={{ fontFamily: sans, fontSize: 11, color: '#7A5C44', marginBottom: 24, maxWidth: 520 }}>
+                            Control what visitors see when they browse your profile. These settings never affect your own view.
+                        </div>
+                        <div style={{ maxWidth: 520 }}>
+                            <PrivacyToggle
+                                label="Avg response time"
+                                description="Show your response speed in the Trust Bar"
+                                checked={privacySettings.showAvgResponse}
+                                onChange={(val) => handlePrivacyChange('showAvgResponse', val)}
+                            />
+                            <PrivacyToggle
+                                label="Messages received"
+                                description="Show message count in your Activity tab"
+                                checked={privacySettings.showMessagesReceived}
+                                onChange={(val) => handlePrivacyChange('showMessagesReceived', val)}
+                            />
+                            <PrivacyToggle
+                                label="My uploads & Found a home"
+                                description="Show your listings and animals that found homes"
+                                checked={privacySettings.showUploads}
+                                onChange={(val) => handlePrivacyChange('showUploads', val)}
+                            />
+                            <PrivacyToggle
+                                label="Adopted by me"
+                                description="Show animals you've adopted through Paws"
+                                checked={privacySettings.showAdoptedByMe}
+                                onChange={(val) => handlePrivacyChange('showAdoptedByMe', val)}
+                            />
+                            <PrivacyToggle
+                                label="Saved animals"
+                                description="Show your saved animals list"
+                                checked={privacySettings.showSaved}
+                                onChange={(val) => handlePrivacyChange('showSaved', val)}
+                            />
+                        </div>
                     </div>
                 )}
 
