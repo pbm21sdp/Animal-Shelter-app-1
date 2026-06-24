@@ -371,6 +371,19 @@ function StatCell({ value, label, trend }) {
     );
 }
 
+// ── Private section placeholder ───────────────────────────────────────────────
+
+function PrivateSection() {
+    return (
+        <div style={{ padding: '56px 0', textAlign: 'center' }}>
+            <div style={{ fontSize: 28, marginBottom: 10, opacity: 0.35 }}>🔒</div>
+            <div style={{ fontFamily: serif, fontSize: 16, fontStyle: 'italic', color: '#B09880' }}>
+                This user's activity is hidden.
+            </div>
+        </div>
+    );
+}
+
 // ── Privacy toggle switch ──────────────────────────────────────────────────────
 
 function PrivacyToggle({ label, description, checked, onChange }) {
@@ -430,7 +443,7 @@ export default function ProfilePage() {
     const [avgResponse, setAvgResponse] = useState(null);
 
     // privacy: editable settings (own profile) + visitor-facing settings
-    const DEFAULT_PRIVACY = { showAvgResponse: true, showMessagesReceived: true, showUploads: true, showAdoptedByMe: true, showSaved: true };
+    const DEFAULT_PRIVACY = { showAvgResponse: true, showFoundHomes: true, showSuccessRate: true, showMessagesReceived: true, showUploads: true, showFoundAHome: true, showAdoptedByMe: true, showSaved: true };
     const [privacySettings, setPrivacySettings] = useState(DEFAULT_PRIVACY);
     const [privacyLoaded,   setPrivacyLoaded]   = useState(false);
     const [visitorPrivacy,  setVisitorPrivacy]  = useState(DEFAULT_PRIVACY);
@@ -439,9 +452,11 @@ export default function ProfilePage() {
     const [adoptedFetched, setAdoptedFetched] = useState(false);
     const [savedFetched,   setSavedFetched]   = useState(false);
 
-    // isPrivate flags for activity stats
-    const [adoptedIsPrivate, setAdoptedIsPrivate] = useState(false);
-    const [savedIsPrivate,   setSavedIsPrivate]   = useState(false);
+    // isPrivate flags for activity stats and tab content
+    const [adoptedIsPrivate,     setAdoptedIsPrivate]     = useState(false);
+    const [savedIsPrivate,       setSavedIsPrivate]       = useState(false);
+    const [petsUploadsPrivate,   setPetsUploadsPrivate]   = useState(false);
+    const [petsFoundHomePrivate, setPetsFoundHomePrivate] = useState(false);
     const [isEditingBio,  setIsEditingBio]  = useState(false);
     const [bioValue,      setBioValue]      = useState('');
     const [isEditingInfo, setIsEditingInfo] = useState(false);
@@ -478,8 +493,11 @@ export default function ProfilePage() {
                 const ps = res.data.profile.privacySettings;
                 setVisitorPrivacy({
                     showAvgResponse:      ps.showAvgResponse      ?? true,
+                    showFoundHomes:       ps.showFoundHomes       ?? true,
+                    showSuccessRate:      ps.showSuccessRate      ?? true,
                     showMessagesReceived: ps.showMessagesReceived ?? true,
                     showUploads:          ps.showUploads          ?? true,
+                    showFoundAHome:       ps.showFoundAHome       ?? true,
                     showAdoptedByMe:      ps.showAdoptedByMe      ?? true,
                     showSaved:            ps.showSaved            ?? true,
                 });
@@ -497,7 +515,15 @@ export default function ProfilePage() {
         if (!profileId) return;
         try {
             const res = await axios.get(`${API}/users/${profileId}/pets`, { withCredentials: true });
-            setPets(res.data.pets || []);
+            if (res.data.isPrivate) {
+                setPetsUploadsPrivate(true);
+                setPetsFoundHomePrivate(true);
+                setPets([]);
+            } else {
+                setPetsUploadsPrivate(res.data.isUploadsPrivate || false);
+                setPetsFoundHomePrivate(res.data.isFoundHomePrivate || false);
+                setPets(res.data.pets || []);
+            }
         } catch (err) {
             setPets([]);
         }
@@ -582,16 +608,6 @@ export default function ProfilePage() {
             .finally(() => setPrivacyLoaded(true));
     }, [isOwnProfile, privacyLoaded]);
 
-    // If active tab becomes hidden due to visitor privacy, redirect to activity
-    useEffect(() => {
-        if (isOwnProfile) return;
-        setActiveTab(prev => {
-            if (!visitorPrivacy.showUploads && (prev === 'uploads' || prev === 'found_home')) return 'activity';
-            if (!visitorPrivacy.showAdoptedByMe && prev === 'adopted') return 'activity';
-            if (!visitorPrivacy.showSaved && prev === 'saved') return 'activity';
-            return prev;
-        });
-    }, [visitorPrivacy, isOwnProfile]);
 
     // ── Bio save ─────────────────────────────────────────────────────────────
 
@@ -791,21 +807,15 @@ export default function ProfilePage() {
                .map(p => ({ date: p.adopted_at, text: '', name: p.name, suffix: ' marked as adopted' })),
     ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 8);
 
-    // Tab config — filter hidden tabs for visitors
+    // Tab config — always show all tabs; private ones show 🔒 indicator
     const tabs = [
-        { key: 'uploads',    label: 'My uploads',    count: activeUploads.length },
-        { key: 'found_home', label: 'Found a home',  count: foundCount },
-        { key: 'activity',   label: 'Activity',      count: 0 },
-        { key: 'adopted',    label: 'Adopted by me', count: adoptedPets.length },
-        { key: 'saved',      label: 'Saved',          count: savedPets.length },
-        ...(isOwnProfile ? [{ key: 'settings', label: 'Settings', count: 0 }] : []),
-    ].filter(({ key }) => {
-        if (isOwnProfile) return true;
-        if ((key === 'uploads' || key === 'found_home') && !visitorPrivacy.showUploads) return false;
-        if (key === 'adopted' && !visitorPrivacy.showAdoptedByMe) return false;
-        if (key === 'saved'   && !visitorPrivacy.showSaved)       return false;
-        return true;
-    });
+        { key: 'uploads',    label: 'My uploads',    count: petsUploadsPrivate   ? 0 : activeUploads.length, privacyKey: 'showUploads' },
+        { key: 'found_home', label: 'Found a home',  count: petsFoundHomePrivate ? 0 : foundHomePets.length,  privacyKey: 'showFoundAHome' },
+        { key: 'activity',   label: 'Activity',      count: 0,                                                privacyKey: null },
+        { key: 'adopted',    label: 'Adopted by me', count: adoptedIsPrivate     ? 0 : adoptedPets.length,   privacyKey: 'showAdoptedByMe' },
+        { key: 'saved',      label: 'Saved',          count: savedIsPrivate      ? 0 : savedPets.length,     privacyKey: 'showSaved' },
+        ...(isOwnProfile ? [{ key: 'settings', label: 'Settings', count: 0, privacyKey: null }] : []),
+    ];
 
     if (!currentUser) return null;
 
@@ -1152,35 +1162,36 @@ export default function ProfilePage() {
                     </div>
 
                     {/* Bottom: Horizontal trust bar */}
-                    <div style={{
-                        background: '#2D1F14', borderRadius: 4,
-                        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
-                    }}>
-                        {[
-                            { label: 'Uploads',      value: uploadsCount,        color: '#FAF7F4' },
-                            { label: 'Found homes',  value: foundCount,          color: '#5DCAA5' },
-                            { label: 'Success rate', value: `${successRate}%`,   color: '#5DCAA5' },
-                            { label: 'Avg response', value: fmtAvgResponse(avgResponse), color: '#FAF7F4' },
-                        ].map(({ label, value, color }, i, arr) => (
-                            <div key={label} style={{
-                                padding: '14px 20px',
-                                borderRight: i < arr.length - 1 ? '1px solid rgba(250,247,244,0.08)' : 'none',
-                            }}>
-                                <div style={{
-                                    fontFamily: serif, fontSize: 22, fontWeight: 700,
-                                    color, lineHeight: 1.1, marginBottom: 3,
-                                }}>
-                                    {value}
-                                </div>
-                                <div style={{
-                                    fontFamily: sans, fontSize: 9, textTransform: 'uppercase',
-                                    letterSpacing: '0.1em', color: 'rgba(250,247,244,0.5)',
-                                }}>
-                                    {label}
-                                </div>
+                    {(() => {
+                        const visitorHidesFoundHomes  = !isOwnProfile && visitorPrivacy.showFoundHomes  === false;
+                        const visitorHidesSuccessRate = !isOwnProfile && visitorPrivacy.showSuccessRate === false;
+                        const visitorHidesAvgResponse = !isOwnProfile && visitorPrivacy.showAvgResponse === false;
+                        const trustStats = [
+                            { label: 'Uploads',      value: uploadsCount,                                                                            color: '#FAF7F4', privacyKey: null },
+                            { label: 'Found homes',  value: visitorHidesFoundHomes  ? null : foundCount,                                             color: '#5DCAA5', privacyKey: 'showFoundHomes' },
+                            { label: 'Success rate', value: visitorHidesSuccessRate ? null : `${successRate}%`,                                      color: '#5DCAA5', privacyKey: 'showSuccessRate' },
+                            { label: 'Avg response', value: visitorHidesAvgResponse ? null : fmtAvgResponse(avgResponse),                           color: '#FAF7F4', privacyKey: 'showAvgResponse' },
+                        ];
+                        return (
+                            <div style={{ background: '#2D1F14', borderRadius: 4, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)' }}>
+                                {trustStats.map(({ label, value, color, privacyKey }, i, arr) => {
+                                    const ownerHidden = isOwnProfile && privacyKey && privacySettings[privacyKey] === false;
+                                    const isHidden    = value === null;
+                                    return (
+                                        <div key={label} style={{ padding: '14px 20px', borderRight: i < arr.length - 1 ? '1px solid rgba(250,247,244,0.08)' : 'none' }}>
+                                            <div style={{ fontFamily: serif, fontSize: 22, fontWeight: 700, color: isHidden ? 'rgba(250,247,244,0.25)' : color, lineHeight: 1.1, marginBottom: 3 }}>
+                                                {isHidden ? '—' : value}
+                                            </div>
+                                            <div style={{ fontFamily: sans, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(250,247,244,0.5)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                {label}
+                                                {ownerHidden && <span title="Hidden from visitors" style={{ fontSize: 8, opacity: 0.55 }}>🔒</span>}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
-                        ))}
-                    </div>
+                        );
+                    })()}
                 </div>
 
                 {/* ── TABS ─────────────────────────────────────────────────── */}
@@ -1188,8 +1199,12 @@ export default function ProfilePage() {
                     display: 'flex', borderBottom: '1px solid rgba(45,31,20,0.12)',
                     marginBottom: 28,
                 }}>
-                    {tabs.map(({ key, label, count }) => {
+                    {tabs.map(({ key, label, count, privacyKey }) => {
                         const active = activeTab === key;
+                        const isPrivateTab = privacyKey && (isOwnProfile
+                            ? privacySettings[privacyKey] === false
+                            : visitorPrivacy[privacyKey] === false
+                        );
                         return (
                             <button
                                 key={key}
@@ -1201,12 +1216,17 @@ export default function ProfilePage() {
                                     color: active ? '#2D1F14' : '#7A5C44',
                                     fontWeight: active ? 500 : 400,
                                     cursor: 'pointer', marginBottom: -1,
-                                    display: 'flex', alignItems: 'center',
+                                    display: 'flex', alignItems: 'center', gap: 4,
                                     transition: 'color 0.15s',
                                 }}
                             >
                                 {label}
-                                {count > 0 && <TabBadge n={count} />}
+                                {isPrivateTab && (
+                                    <span title={isOwnProfile ? 'Hidden from visitors' : 'Private'} style={{ fontSize: 10, opacity: isOwnProfile ? 0.45 : 0.6, lineHeight: 1 }}>
+                                        🔒
+                                    </span>
+                                )}
+                                {count > 0 && !isPrivateTab && <TabBadge n={count} />}
                             </button>
                         );
                     })}
@@ -1216,7 +1236,7 @@ export default function ProfilePage() {
                 {activeTab === 'uploads' && (
                     <div>
                         <SectionLabel>Animals I uploaded</SectionLabel>
-                        {isLoading ? (
+                        {petsUploadsPrivate ? <PrivateSection /> : isLoading ? (
                             <div style={{ fontFamily: serif, fontSize: 15, fontStyle: 'italic', color: '#B09880', padding: '32px 0' }}>
                                 Loading…
                             </div>
@@ -1243,7 +1263,7 @@ export default function ProfilePage() {
                 {activeTab === 'found_home' && (
                     <div>
                         <SectionLabel>Animals that found a home</SectionLabel>
-                        {foundHomePets.length === 0 ? (
+                        {petsFoundHomePrivate ? <PrivateSection /> : foundHomePets.length === 0 ? (
                             <EmptyState text="No animals marked as adopted yet." />
                         ) : (
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
@@ -1318,7 +1338,7 @@ export default function ProfilePage() {
                 {activeTab === 'adopted' && (
                     <div>
                         <SectionLabel>Animals I adopted through Paws</SectionLabel>
-                        {adoptedPets.length === 0 ? (
+                        {!isOwnProfile && adoptedIsPrivate ? <PrivateSection /> : adoptedPets.length === 0 ? (
                             <EmptyState text="No adoptions yet." />
                         ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -1332,7 +1352,7 @@ export default function ProfilePage() {
                 {activeTab === 'saved' && (
                     <div>
                         <SectionLabel>Saved for later</SectionLabel>
-                        {savedPets.length === 0 ? (
+                        {!isOwnProfile && savedIsPrivate ? <PrivateSection /> : savedPets.length === 0 ? (
                             <EmptyState text="No saved animals yet." note="Tap the bookmark on any animal listing to save it." />
                         ) : (
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
@@ -1402,39 +1422,85 @@ export default function ProfilePage() {
                 {activeTab === 'settings' && isOwnProfile && (
                     <div>
                         <SectionLabel>Privacy settings</SectionLabel>
-                        <div style={{ fontFamily: sans, fontSize: 11, color: '#7A5C44', marginBottom: 24, maxWidth: 520 }}>
+                        <div style={{ fontFamily: sans, fontSize: 11, color: '#7A5C44', marginBottom: 28, maxWidth: 520 }}>
                             Control what visitors see when they browse your profile. These settings never affect your own view.
                         </div>
-                        <div style={{ maxWidth: 520 }}>
+
+                        {/* ── Trust Bar ── */}
+                        <div style={{ maxWidth: 520, marginBottom: 28 }}>
+                            <div style={{ fontFamily: sans, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#C07A4A', fontWeight: 600, marginBottom: 4 }}>
+                                Trust Bar stats
+                            </div>
+                            <div style={{ fontFamily: sans, fontSize: 11, color: '#9A7A60', marginBottom: 12 }}>
+                                Visible at the bottom of your profile header.
+                            </div>
+                            <PrivacyToggle
+                                label="Found homes"
+                                description="How many animals you've helped find a home"
+                                checked={privacySettings.showFoundHomes}
+                                onChange={(val) => handlePrivacyChange('showFoundHomes', val)}
+                            />
+                            <PrivacyToggle
+                                label="Success rate"
+                                description="Percentage of your listings that found a home"
+                                checked={privacySettings.showSuccessRate}
+                                onChange={(val) => handlePrivacyChange('showSuccessRate', val)}
+                            />
                             <PrivacyToggle
                                 label="Avg response time"
-                                description="Show your response speed in the Trust Bar"
+                                description="How quickly you reply to messages"
                                 checked={privacySettings.showAvgResponse}
                                 onChange={(val) => handlePrivacyChange('showAvgResponse', val)}
                             />
+                        </div>
+
+                        {/* ── Tabs & content ── */}
+                        <div style={{ maxWidth: 520, marginBottom: 28 }}>
+                            <div style={{ fontFamily: sans, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#C07A4A', fontWeight: 600, marginBottom: 4 }}>
+                                Tabs &amp; content
+                            </div>
+                            <div style={{ fontFamily: sans, fontSize: 11, color: '#9A7A60', marginBottom: 12 }}>
+                                Control which tabs visitors can browse.
+                            </div>
                             <PrivacyToggle
-                                label="Messages received"
-                                description="Show message count in your Activity tab"
-                                checked={privacySettings.showMessagesReceived}
-                                onChange={(val) => handlePrivacyChange('showMessagesReceived', val)}
-                            />
-                            <PrivacyToggle
-                                label="My uploads & Found a home"
-                                description="Show your listings and animals that found homes"
+                                label="My uploads"
+                                description="Active listings you've posted on Paws"
                                 checked={privacySettings.showUploads}
                                 onChange={(val) => handlePrivacyChange('showUploads', val)}
                             />
                             <PrivacyToggle
+                                label="Found a home"
+                                description="Animals you've uploaded that found their owner"
+                                checked={privacySettings.showFoundAHome}
+                                onChange={(val) => handlePrivacyChange('showFoundAHome', val)}
+                            />
+                            <PrivacyToggle
                                 label="Adopted by me"
-                                description="Show animals you've adopted through Paws"
+                                description="Animals you've adopted through Paws"
                                 checked={privacySettings.showAdoptedByMe}
                                 onChange={(val) => handlePrivacyChange('showAdoptedByMe', val)}
                             />
                             <PrivacyToggle
                                 label="Saved animals"
-                                description="Show your saved animals list"
+                                description="Your bookmarked animal listings"
                                 checked={privacySettings.showSaved}
                                 onChange={(val) => handlePrivacyChange('showSaved', val)}
+                            />
+                        </div>
+
+                        {/* ── Activity stats ── */}
+                        <div style={{ maxWidth: 520 }}>
+                            <div style={{ fontFamily: sans, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#C07A4A', fontWeight: 600, marginBottom: 4 }}>
+                                Activity stats
+                            </div>
+                            <div style={{ fontFamily: sans, fontSize: 11, color: '#9A7A60', marginBottom: 12 }}>
+                                Numbers shown in the Activity tab.
+                            </div>
+                            <PrivacyToggle
+                                label="Messages received"
+                                description="Total messages sent to you by other users"
+                                checked={privacySettings.showMessagesReceived}
+                                onChange={(val) => handlePrivacyChange('showMessagesReceived', val)}
                             />
                         </div>
                     </div>
