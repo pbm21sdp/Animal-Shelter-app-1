@@ -83,7 +83,7 @@ export default function PawsHomepage() {
             label: 'Community',
             title: `${stats.found_home || 0} animals found homes through Paws`,
             desc:  'Thanks to hundreds of community uploads and connections made on the platform, our city is making a real difference one animal at a time.',
-            href:  '/animals',
+            href:  '/community',
         },
         {
             label: 'Tips',
@@ -244,15 +244,18 @@ export default function PawsHomepage() {
                 </div>
 
                 {/* Col 2 */}
-                <div style={{ padding: '14px 0', borderRight: `1px solid ${C.border}`, textAlign: 'center' }}>
+                <Link to="/community" style={{ textDecoration: 'none', display: 'block', padding: '14px 0', borderRight: `1px solid ${C.border}`, textAlign: 'center', transition: 'background 0.15s' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(192,122,74,0.04)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                >
                     <div style={{ fontFamily: serif, fontSize: '32px', fontWeight: 700, color: C.espresso, lineHeight: 1 }}>{stats.found_home}</div>
                     <div style={{ fontFamily: sans, fontSize: '11px', color: C.muted, marginTop: '5px' }}>
-                        Found a loving home
+                        Found a loving home ↗
                     </div>
                     <div style={{ fontFamily: sans, fontSize: '10px', color: C.lightMuted, marginTop: '2px' }}>
                         {stats.total_uploaded > 0 ? Math.round((stats.found_home / stats.total_uploaded) * 100) : 0}% success rate
                     </div>
-                </div>
+                </Link>
 
                 {/* Col 3 */}
                 <div style={{ padding: '14px 0', textAlign: 'center' }}>
@@ -553,25 +556,21 @@ export default function PawsHomepage() {
                                 gap: '16px',
                             }}>
                                 {[
-                                    { num: stats.total_uploaded || '0', label: 'Uploaded' },
-                                    { num: stats.found_home || '0', label: 'Found a home' },
-                                    { num: `${stats.total_uploaded > 0 ? Math.round((stats.found_home / stats.total_uploaded) * 100) : 0}%`, label: 'Success rate' },
-                                ].map(({ num, label }) => (
-                                    <div key={label}>
-                                        <div style={{
-                                            fontFamily: serif,
-                                            fontSize: '20px',
-                                            fontWeight: 700,
-                                            color: '#FAF7F4',
-                                            lineHeight: 1,
-                                        }}>{num}</div>
-                                        <div style={{
-                                            fontFamily: sans,
-                                            fontSize: '9px',
-                                            color: 'rgba(250,247,244,0.45)',
-                                            marginTop: '3px',
-                                        }}>{label}</div>
-                                    </div>
+                                    { num: stats.total_uploaded || '0', label: 'Uploaded', href: null },
+                                    { num: stats.found_home || '0', label: 'Found a home', href: '/community' },
+                                    { num: `${stats.total_uploaded > 0 ? Math.round((stats.found_home / stats.total_uploaded) * 100) : 0}%`, label: 'Success rate', href: null },
+                                ].map(({ num, label, href }) => (
+                                    href ? (
+                                        <Link key={label} to={href} style={{ textDecoration: 'none' }}>
+                                            <div style={{ fontFamily: serif, fontSize: '20px', fontWeight: 700, color: '#FAF7F4', lineHeight: 1 }}>{num}</div>
+                                            <div style={{ fontFamily: sans, fontSize: '9px', color: 'rgba(250,247,244,0.6)', marginTop: '3px', textDecoration: 'underline', textUnderlineOffset: '2px' }}>{label} ↗</div>
+                                        </Link>
+                                    ) : (
+                                        <div key={label}>
+                                            <div style={{ fontFamily: serif, fontSize: '20px', fontWeight: 700, color: '#FAF7F4', lineHeight: 1 }}>{num}</div>
+                                            <div style={{ fontFamily: sans, fontSize: '9px', color: 'rgba(250,247,244,0.45)', marginTop: '3px' }}>{label}</div>
+                                        </div>
+                                    )
                                 ))}
                             </div>
                         </div>
