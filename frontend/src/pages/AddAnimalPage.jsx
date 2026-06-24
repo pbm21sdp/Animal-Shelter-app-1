@@ -4,6 +4,7 @@ import axios from 'axios';
 import Navbar from '../components/Navbar';
 import LocationPicker from '../components/LocationPicker';
 import { cropToFocalPoint } from '../utils/imageCrop.js';
+import { useAuthStore } from '../store/authStore';
 
 const API   = 'http://localhost:5000/api';
 const serif = "'Cormorant Garamond', serif";
@@ -12,6 +13,24 @@ const sans  = "'DM Sans', sans-serif";
 const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
 const sentenceCase = str => str ? str.charAt(0).toUpperCase() + str.slice(1).toLowerCase() : '';
+
+const SITUATION_MAP = {
+    'Found on the street': 'found_on_street',
+    'Appears to be lost': 'appears_lost',
+    'Went missing': 'went_missing',
+    'Owner surrendered it': 'owner_surrendered',
+    'Rescued from danger': 'rescued_from_danger',
+    'Other': 'other',
+};
+const CURRENT_STATUS_MAP = {
+    'Found / Stray': 'found_stray',
+    'Needs urgent care': 'needs_urgent_care',
+    'Vaccinated & healthy': 'vaccinated_healthy',
+    'Unknown': 'unknown',
+};
+const MICROCHIP_MAP = { 'Yes': 'yes', 'No': 'no', "Don't know": 'unknown' };
+const NEUTERED_MAP  = { 'Yes': 'yes', 'No': 'no', "Don't know": 'unknown' };
+const VACCINATION_MAP = { 'Yes, fully': 'fully', 'Partially': 'partially', 'No': 'no', "Don't know": 'unknown' };
 
 // ── Pill toggle (single-select) ───────────────────────────────────────────────
 function PillToggle({ options, value, onChange, large }) {
@@ -124,6 +143,7 @@ function SectionDivider() {
 // ── Main component ────────────────────────────────────────────────────────────
 export default function AddAnimalPage() {
     const navigate = useNavigate();
+    const { user } = useAuthStore();
     const fileInputRef          = useRef(null);
     const descTextareaRef       = useRef(null);
     const pageContainerRef      = useRef(null);
@@ -197,6 +217,11 @@ export default function AddAnimalPage() {
     const [publishedId, setPublishedId] = useState(null);
 
     const [selectedTraits, setSelectedTraits] = useState([]);
+
+    // ── Auto-fill contact email from logged-in user ───────────────────────────
+    useEffect(() => {
+        if (user?.email && !contact) setContact(user.email);
+    }, [user?.email]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // ── AI generation state ───────────────────────────────────────────────────
     const [aiLoading,   setAiLoading]   = useState(false);
@@ -382,6 +407,11 @@ export default function AddAnimalPage() {
                 shelter_contact_phone: !looksLikeEmail ? contact.trim() : '',
                 zip_code:              '',
                 found_how:             actualFoundHow || '',
+                situation:             SITUATION_MAP[foundHow] || (foundHow ? 'other' : null),
+                current_status:        CURRENT_STATUS_MAP[animalStatus] || null,
+                microchip_status:      MICROCHIP_MAP[hasMicrochip] || null,
+                neutered_spayed_status: NEUTERED_MAP[isNeutered] || null,
+                vaccination_status:    VACCINATION_MAP[isVaccinated] || null,
             };
 
             const response = await axios.post(`${API}/pets`, petPayload, { withCredentials: true });
@@ -539,7 +569,9 @@ export default function AddAnimalPage() {
                         </div>
 
                         <div>
-                            <FieldLabel>Neutered / spayed</FieldLabel>
+                            <FieldLabel>
+                                {gender === 'Male' ? 'Neutered' : gender === 'Female' ? 'Spayed' : 'Neutered / spayed'}
+                            </FieldLabel>
                             <PillToggle large options={['Yes', 'No', "Don't know"]} value={isNeutered} onChange={setIsNeutered} />
                         </div>
 
@@ -665,6 +697,12 @@ export default function AddAnimalPage() {
                     {/* ── SECTION 4: Location ──────────────────────────────── */}
                     <SectionLabel>Location</SectionLabel>
                     <LocationPicker value={locValue} onChange={setLocValue} />
+                    {locValue.address && locValue.city &&
+                        locValue.address.trim().toLowerCase() === locValue.city.trim().toLowerCase() && (
+                        <div style={{ marginTop: '8px', fontFamily: sans, fontSize: '11px', color: '#8B4E28', background: 'rgba(192,122,74,0.08)', border: '1px solid rgba(192,122,74,0.2)', borderRadius: '4px', padding: '8px 12px' }}>
+                            Ai introdus orașul și la adresă — strada e opțională, poți lăsa gol dacă nu o specifici.
+                        </div>
+                    )}
 
                     {/* Continue button */}
                     <div style={{ display: 'flex', justifyContent: 'center', marginTop: '32px' }}>

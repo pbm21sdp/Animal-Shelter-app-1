@@ -23,6 +23,31 @@ const FOUND_HOW_OPTIONS   = ['Found on the street', 'Appears to be lost', 'Went 
 const ANIMAL_STATUS_OPTIONS = ['Found / Stray', 'Needs urgent care', 'Vaccinated & healthy', 'Unknown'];
 const ANIMAL_TYPE_OPTIONS = ['Dog', 'Cat', 'Rabbit', 'Bird', 'Fish', 'Hamster', 'Guinea pig', 'Reptile', 'Other'];
 
+const SITUATION_MAP = {
+    'Found on the street': 'found_on_street', 'Appears to be lost': 'appears_lost',
+    'Went missing': 'went_missing', 'Owner surrendered it': 'owner_surrendered',
+    'Rescued from danger': 'rescued_from_danger', 'Other': 'other',
+};
+const SITUATION_REVERSE = {
+    found_on_street: 'Found on the street', appears_lost: 'Appears to be lost',
+    went_missing: 'Went missing', owner_surrendered: 'Owner surrendered it',
+    rescued_from_danger: 'Rescued from danger', other: 'Other',
+};
+const CURRENT_STATUS_MAP = {
+    'Found / Stray': 'found_stray', 'Needs urgent care': 'needs_urgent_care',
+    'Vaccinated & healthy': 'vaccinated_healthy', 'Unknown': 'unknown',
+};
+const CURRENT_STATUS_REVERSE = {
+    found_stray: 'Found / Stray', needs_urgent_care: 'Needs urgent care',
+    vaccinated_healthy: 'Vaccinated & healthy', unknown: 'Unknown',
+};
+const MICROCHIP_MAP     = { 'Yes': 'yes', 'No': 'no', "Don't know": 'unknown' };
+const MICROCHIP_REVERSE = { yes: 'Yes', no: 'No', unknown: "Don't know" };
+const NEUTERED_MAP      = { 'Yes': 'yes', 'No': 'no', "Don't know": 'unknown' };
+const NEUTERED_REVERSE  = { yes: 'Yes', no: 'No', unknown: "Don't know" };
+const VACCINATION_MAP   = { 'Yes, fully': 'fully', 'Partially': 'partially', 'No': 'no', "Don't know": 'unknown' };
+const VACCINATION_REVERSE = { fully: 'Yes, fully', partially: 'Partially', no: 'No', unknown: "Don't know" };
+
 // ── Shared UI primitives ─────────────────────────────────────────────────────
 function PillToggle({ options, value, onChange, large }) {
     return (
@@ -119,6 +144,9 @@ export default function EditAnimalPage() {
     // Admin moderation
     const [moderationStatus, setModerationStatus] = useState('pending');
 
+    // Contact info
+    const [contact, setContact] = useState('');
+
     // Photos
     const [existingPhotos,      setExistingPhotos]      = useState([]);
     const [newPreviews,         setNewPreviews]          = useState([]);
@@ -206,18 +234,34 @@ export default function EditAnimalPage() {
         setAnimalType(mappedType);
         if (mappedType === 'Other') setAnimalTypeOther(p.type || '');
 
-        // Found how
-        const fh = p.found_how || '';
-        if (FOUND_HOW_OPTIONS.includes(fh)) { setFoundHow(fh); }
-        else if (fh) { setFoundHow('Other'); setFoundHowOther(fh); }
+        // Found how — prefer new 'situation' column, fall back to legacy 'found_how'
+        if (p.situation) {
+            const rev = SITUATION_REVERSE[p.situation];
+            if (rev) { setFoundHow(rev); }
+            else { setFoundHow('Other'); setFoundHowOther(p.found_how || ''); }
+        } else {
+            const fh = p.found_how || '';
+            if (FOUND_HOW_OPTIONS.includes(fh)) { setFoundHow(fh); }
+            else if (fh) { setFoundHow('Other'); setFoundHowOther(fh); }
+        }
 
-        // Health status → both status pill and animalStatus
-        const hsRev = { Vaccinated: 'Vaccinated & healthy', Urgent: 'Needs urgent care', Found: 'Found / Stray' };
+        // Current status — prefer new 'current_status' column, fall back to health_status
         setStatus(p.health_status || '');
-        setAnimalStatus(hsRev[p.health_status] || '');
-        setHasMicrochip('');
-        setIsVaccinated('');
-        setIsNeutered('');
+        if (p.current_status) {
+            setAnimalStatus(CURRENT_STATUS_REVERSE[p.current_status] || '');
+        } else {
+            const hsRev = { Vaccinated: 'Vaccinated & healthy', Urgent: 'Needs urgent care', Found: 'Found / Stray' };
+            setAnimalStatus(hsRev[p.health_status] || '');
+        }
+
+        // Structured health fields from new columns (empty string if NULL → no selection)
+        setHasMicrochip(MICROCHIP_REVERSE[p.microchip_status] || '');
+        setIsNeutered(NEUTERED_REVERSE[p.neutered_spayed_status] || '');
+        setIsVaccinated(VACCINATION_REVERSE[p.vaccination_status] || '');
+
+        // Contact — prefer email, then phone; if neither, offer user's own email
+        const existingContact = p.shelter_contact_email || p.shelter_contact_phone || '';
+        setContact(existingContact || user?.email || '');
 
         // Age
         const age = p.age_category || '';
@@ -386,23 +430,33 @@ export default function EditAnimalPage() {
             const actualType     = animalType === 'Other' ? animalTypeOther : animalType;
             const actualFoundHow = foundHow   === 'Other' ? foundHowOther   : foundHow;
 
+            const contactTrimmed   = contact.trim();
+            const looksLikeEmail   = contactTrimmed.includes('@');
+
             const payload = {
-                name:             headline.trim(),
-                type:             actualType.toLowerCase(),
-                breed:            breed || '',
-                age_category:     exactAge || approxAge || '',
-                size:             exactWeight ? `${approxSize ? `${approxSize} — ` : ''}${exactWeight}` : (approxSize || ''),
-                color:            effectiveColors.join(', ') || '',
-                coat:             coatType || '',
-                gender:           gender.toLowerCase() || '',
-                description:      description.trim(),
-                traits:           selectedTraits,
-                health_status:    status || '',
-                location_address: locValue.address || '',
-                location_city:    locValue.city || locValue.county || '',
-                latitude:         locValue.latitude  ?? null,
-                longitude:        locValue.longitude ?? null,
-                found_how:        actualFoundHow || '',
+                name:                  headline.trim(),
+                type:                  actualType.toLowerCase(),
+                breed:                 breed || '',
+                age_category:          exactAge || approxAge || '',
+                size:                  exactWeight ? `${approxSize ? `${approxSize} — ` : ''}${exactWeight}` : (approxSize || ''),
+                color:                 effectiveColors.join(', ') || '',
+                coat:                  coatType || '',
+                gender:                gender.toLowerCase() || '',
+                description:           description.trim(),
+                traits:                selectedTraits,
+                health_status:         status || '',
+                location_address:      locValue.address || '',
+                location_city:         locValue.city || locValue.county || '',
+                latitude:              locValue.latitude  ?? null,
+                longitude:             locValue.longitude ?? null,
+                found_how:             actualFoundHow || '',
+                shelter_contact_email: looksLikeEmail ? contactTrimmed : '',
+                shelter_contact_phone: !looksLikeEmail ? contactTrimmed : '',
+                situation:             SITUATION_MAP[foundHow] || (foundHow ? 'other' : null),
+                current_status:        CURRENT_STATUS_MAP[animalStatus] || null,
+                microchip_status:      MICROCHIP_MAP[hasMicrochip] || null,
+                neutered_spayed_status: NEUTERED_MAP[isNeutered] || null,
+                vaccination_status:    VACCINATION_MAP[isVaccinated] || null,
             };
 
             if (user?.isAdmin) payload.status = moderationStatus;
@@ -545,7 +599,9 @@ export default function EditAnimalPage() {
                             <PillToggle large options={['Yes', 'No', "Don't know"]} value={hasMicrochip} onChange={setHasMicrochip} />
                         </div>
                         <div>
-                            <FieldLabel>Neutered / spayed</FieldLabel>
+                            <FieldLabel>
+                                {gender === 'Male' ? 'Neutered' : gender === 'Female' ? 'Spayed' : 'Neutered / spayed'}
+                            </FieldLabel>
                             <PillToggle large options={['Yes', 'No', "Don't know"]} value={isNeutered} onChange={setIsNeutered} />
                         </div>
                         <div>
@@ -630,6 +686,12 @@ export default function EditAnimalPage() {
                     <SectionLabel>Location</SectionLabel>
                     <div style={{ marginBottom: '24px' }}>
                         <LocationPicker value={locValue} onChange={setLocValue} />
+                        {locValue.address && locValue.city &&
+                            locValue.address.trim().toLowerCase() === locValue.city.trim().toLowerCase() && (
+                            <div style={{ marginTop: '8px', fontFamily: sans, fontSize: '11px', color: '#8B4E28', background: 'rgba(192,122,74,0.08)', border: '1px solid rgba(192,122,74,0.2)', borderRadius: '4px', padding: '8px 12px' }}>
+                                Ai introdus orașul și la adresă — strada e opțională, poți lăsa gol dacă nu o specifici.
+                            </div>
+                        )}
                     </div>
 
                     <SectionDivider />
@@ -838,6 +900,20 @@ export default function EditAnimalPage() {
                             <SectionDivider />
                         </>
                     )}
+
+                    {/* ── CONTACT ─────────────────────────────────────────── */}
+                    <SectionLabel>Contact info</SectionLabel>
+                    <div style={{ marginBottom: '24px' }}>
+                        <input
+                            type="text"
+                            placeholder="Phone or email (visible to logged-in users)"
+                            value={contact}
+                            onChange={e => setContact(e.target.value)}
+                            style={{ fontFamily: sans, fontSize: '13px', color: '#2D1F14', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', outline: 'none', width: '100%', boxSizing: 'border-box', padding: '6px 0' }}
+                        />
+                    </div>
+
+                    <SectionDivider />
 
                     {/* ── SAVE ────────────────────────────────────────────── */}
                     {saveError && (

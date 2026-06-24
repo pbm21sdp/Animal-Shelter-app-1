@@ -54,7 +54,77 @@ function formatTrait(trait) {
     return trait.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
-// ── Status badge (matches AnimalsPage Badge style) ─────────────────────────────
+// ── Location formatter: removes duplicate "City, City" ────────────────────────
+function fmtLocation(address, city) {
+    const addr = (address || '').trim();
+    const cit  = (city || '').trim();
+    if (!addr) return cit;
+    if (addr.toLowerCase() === cit.toLowerCase()) return cit;
+    return [addr, cit].filter(Boolean).join(', ');
+}
+
+// ── Structured status tags from new DB columns ─────────────────────────────────
+const SITUATION_LABELS = {
+    found_on_street: 'Stray', appears_lost: 'Lost', went_missing: 'Missing',
+    owner_surrendered: 'Surrendered', rescued_from_danger: 'Rescued', other: 'Other',
+};
+const VACCINATION_LABELS = { fully: 'Vaccinated', partially: 'Partial vax', no: 'Unvaccinated', unknown: 'Vax?' };
+
+function buildPetTags(pet) {
+    const tags = [];
+    if (pet.current_status === 'needs_urgent_care') {
+        tags.push({ label: 'Urgent', urgent: true });
+    }
+    if (pet.situation) {
+        tags.push({ label: SITUATION_LABELS[pet.situation] || 'Other', urgent: false });
+    }
+    if (pet.microchip_status) {
+        const labels = { yes: 'Microchipped', no: 'No chip', unknown: 'Chip?' };
+        tags.push({ label: labels[pet.microchip_status] || 'Chip?', urgent: false });
+    }
+    if (pet.neutered_spayed_status) {
+        const g = (pet.gender || '').toLowerCase();
+        const labels = {
+            yes:     g === 'male' ? 'Neutered'     : g === 'female' ? 'Spayed'     : 'Fixed',
+            no:      g === 'male' ? 'Not neutered' : g === 'female' ? 'Not spayed' : 'Not fixed',
+            unknown: g === 'male' ? 'Neuter?'      : g === 'female' ? 'Spay?'      : 'Fix?',
+        };
+        tags.push({ label: labels[pet.neutered_spayed_status] || 'Fix?', urgent: false });
+    }
+    if (pet.vaccination_status) {
+        tags.push({ label: VACCINATION_LABELS[pet.vaccination_status] || 'Vax?', urgent: false });
+    }
+    return tags;
+}
+
+function PetTags({ pet, dark }) {
+    const tags = buildPetTags(pet);
+    if (tags.length === 0) return null;
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            {tags.map((t, i) => (
+                <span key={i} style={{
+                    fontFamily: sans, fontSize: '8px', textTransform: 'uppercase',
+                    letterSpacing: '0.08em', padding: '3px 9px', borderRadius: '2px',
+                    fontWeight: 600,
+                    background: t.urgent
+                        ? '#993C1D'
+                        : dark ? 'rgba(250,247,244,0.12)' : 'rgba(45,31,20,0.08)',
+                    color: t.urgent
+                        ? '#FAF7F4'
+                        : dark ? '#FAF7F4' : '#7A5C44',
+                    border: t.urgent ? 'none' : dark
+                        ? '1px solid rgba(250,247,244,0.15)'
+                        : '1px solid rgba(45,31,20,0.12)',
+                }}>
+                    {t.label}
+                </span>
+            ))}
+        </div>
+    );
+}
+
+// ── Status badge (legacy — kept for backward compat display) ───────────────────
 function StatusBadge({ status }) {
     const styles = {
         Found:      { background: '#2D1F14',                        color: '#FAF7F4', border: 'none' },
@@ -243,8 +313,7 @@ export default function PetDetailPage() {
     // Mini-table rows for right card — only show if value exists
     const cardRows = [
         { label: 'Type',     value: cap(pet.type) },
-        { label: 'Status',   value: pet.health_status },
-        { label: 'Location', value: [pet.location_address, pet.location_city].filter(Boolean).join(', ') || pet.location_city },
+        { label: 'Location', value: fmtLocation(pet.location_address, pet.location_city) || null },
         { label: 'Posted',   value: timeAgo(pet.created_at) },
         { label: 'Uploader', value: uploader?.name },
     ].filter(r => r.value);
@@ -270,11 +339,12 @@ export default function PetDetailPage() {
                 <div style={{ textAlign: 'center', paddingBottom: '24px', borderBottom: '3px double rgba(45,31,20,0.15)', marginBottom: '40px' }}>
 
                     {/* Eyebrow */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
                         <span style={{ fontFamily: sans, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.14em', color: '#C07A4A' }}>
                             The Paws Daily · Pet profile
                         </span>
-                        <StatusBadge status={pet.health_status} />
+                        <PetTags pet={pet} dark={false} />
+                        {buildPetTags(pet).length === 0 && <StatusBadge status={pet.health_status} />}
                     </div>
 
                     {/* H1 — use greeting only for single-word names */}
@@ -286,7 +356,7 @@ export default function PetDetailPage() {
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', flexWrap: 'wrap', fontFamily: sans, fontSize: '12px', color: '#9A7A60' }}>
                         {pet.breed        && <><span style={{ fontStyle: 'italic' }}>{pet.breed}</span><Dot /></>}
                         {pet.type         && <><span>{cap(pet.type)}</span><Dot /></>}
-                        {(pet.location_address || pet.location_city) && <><span>◎ {[pet.location_address, pet.location_city].filter(Boolean).join(', ')}</span><Dot /></>}
+                        {(pet.location_address || pet.location_city) && <><span>◎ {fmtLocation(pet.location_address, pet.location_city)}</span><Dot /></>}
                         {pet.age_category && <><span>{pet.age_category}</span><Dot /></>}
                         {pet.gender       && <><span>{cap(pet.gender)}</span><Dot /></>}
                         {pet.created_at   && <span>{timeAgo(pet.created_at)}</span>}
@@ -566,7 +636,7 @@ export default function PetDetailPage() {
                     {/* ════════════════════════════════════════════════
                         RIGHT COLUMN — sticky contact card
                     ════════════════════════════════════════════════ */}
-                    <div style={{ position: 'sticky', top: '24px' }}>
+                    <div style={{ position: 'sticky', top: '80px' }}>
                         <div style={{ background: '#2D1F14', borderRadius: '4px', padding: '28px 24px' }}>
 
                             {/* Eyebrow */}
@@ -607,12 +677,19 @@ export default function PetDetailPage() {
                             {/* Divider */}
                             <div style={{ height: '1px', background: 'rgba(250,247,244,0.08)', margin: '16px 0' }} />
 
+                            {/* Structured status tags */}
+                            {buildPetTags(pet).length > 0 && (
+                                <div style={{ marginBottom: '16px' }}>
+                                    <PetTags pet={pet} dark={true} />
+                                </div>
+                            )}
+
                             {/* Location / contact details */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
                                 {(pet.location_address || pet.location_city) && (
                                     <div style={{ fontFamily: sans, fontSize: '12px', color: '#FAF7F4', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
                                         <span style={{ opacity: 0.5, flexShrink: 0 }}>◎</span>
-                                        <span>{[pet.location_address, pet.location_city].filter(Boolean).join(', ')}</span>
+                                        <span>{fmtLocation(pet.location_address, pet.location_city)}</span>
                                     </div>
                                 )}
                                 {pet.shelter_contact_email && (
