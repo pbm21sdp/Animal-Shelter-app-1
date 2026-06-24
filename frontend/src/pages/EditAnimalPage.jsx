@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Navbar from '../components/Navbar';
 import LocationPicker from '../components/LocationPicker';
 import { usePetStore } from '../store/petStore';
 import { useAuthStore } from '../store/authStore';
+import { cropToFocalPoint } from '../utils/imageCrop.js';
 
 const API   = 'http://localhost:5000/api';
 const serif = "'Cormorant Garamond', serif";
@@ -69,16 +70,24 @@ function SectionDivider() {
 export default function EditAnimalPage() {
     const { id }       = useParams();
     const navigate     = useNavigate();
+    const location     = useLocation();
+    const returnTo     = location.state?.from || null;
     const { user }     = useAuthStore();
     const { getPetById, clearSelectedPet } = usePetStore();
 
-    const fileInputRef    = useRef(null);
-    const descTextareaRef = useRef(null);
+    const fileInputRef          = useRef(null);
+    const descTextareaRef       = useRef(null);
+    const leadPhotoContainerRef = useRef(null);
+    const dragStateRef          = useRef(null);
 
     // Loading / saving
     const [isLoading,  setIsLoading]  = useState(true);
     const [saving,     setSaving]     = useState(false);
     const [saveError,  setSaveError]  = useState('');
+
+    // Lead photo focal point
+    const [leadFocalPoint,    setLeadFocalPoint]    = useState({ x: 50, y: 50 });
+    const [focalPointChanged, setFocalPointChanged] = useState(false);
 
     // Step-1 fields
     const [foundHow,         setFoundHow]         = useState('');
@@ -97,6 +106,7 @@ export default function EditAnimalPage() {
     const [coatColorOther,   setCoatColorOther]   = useState('');
     const [coatType,         setCoatType]         = useState('');
     const [breed,            setBreed]            = useState('');
+    const [gender,           setGender]           = useState('');
 
     // Step-2 fields
     const [headline,         setHeadline]         = useState('');
@@ -132,6 +142,30 @@ export default function EditAnimalPage() {
         ...(coatColors.includes('Other') && coatColorOther ? [coatColorOther] : []),
     ];
     const totalPhotos = existingPhotos.length + newPreviews.length;
+
+    // ── Drag-to-reposition for lead photo ─────────────────────────────────────
+    useEffect(() => {
+        const onMove = (e) => {
+            if (!dragStateRef.current) return;
+            const { startX, startY, startFocalX, startFocalY, w, h } = dragStateRef.current;
+            setLeadFocalPoint({
+                x: Math.max(0, Math.min(100, startFocalX - ((e.clientX - startX) / w) * 100)),
+                y: Math.max(0, Math.min(100, startFocalY - ((e.clientY - startY) / h) * 100)),
+            });
+            setFocalPointChanged(true);
+        };
+        const onUp = () => { dragStateRef.current = null; };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+        return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    }, []);
+
+    const handlePhotoMouseDown = (e) => {
+        e.preventDefault();
+        const rect = leadPhotoContainerRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        dragStateRef.current = { startX: e.clientX, startY: e.clientY, startFocalX: leadFocalPoint.x, startFocalY: leadFocalPoint.y, w: rect.width, h: rect.height };
+    };
 
     // ── Load on mount ──────────────────────────────────────────────────────────
     useEffect(() => {
@@ -214,6 +248,10 @@ export default function EditAnimalPage() {
         // Breed
         setBreed(p.breed || '');
 
+        // Gender
+        const gMap = { male: 'Male', female: 'Female', unknown: 'Unknown' };
+        setGender(gMap[(p.gender || '').toLowerCase()] || '');
+
         // Description
         setDescription(p.description || '');
 
@@ -281,6 +319,7 @@ export default function EditAnimalPage() {
                 microchip:  hasMicrochip,
                 foundHow:   actualFoundHow || foundHow,
                 breed, color: effectiveColors.join(', '), coat: coatType,
+                gender:     gender || '',
                 city:       locValue.city || locValue.county || '',
                 traits:     selectedTraits,
             }, { withCredentials: true });
@@ -355,6 +394,7 @@ export default function EditAnimalPage() {
                 size:             exactWeight ? `${approxSize ? `${approxSize} — ` : ''}${exactWeight}` : (approxSize || ''),
                 color:            effectiveColors.join(', ') || '',
                 coat:             coatType || '',
+                gender:           gender.toLowerCase() || '',
                 description:      description.trim(),
                 traits:           selectedTraits,
                 health_status:    status || '',
@@ -366,6 +406,23 @@ export default function EditAnimalPage() {
             };
 
             if (user?.isAdmin) payload.status = moderationStatus;
+
+            // Re-crop lead photo if focal point was moved
+            const leadExistingPhoto = existingPhotos.find(p => p.is_primary);
+            if (focalPointChanged && leadExistingPhoto) {
+                const resp = await fetch(`${API}/pets/photos/${leadExistingPhoto.id}`, { credentials: 'include' });
+                const blob = await resp.blob();
+                const file = new File([blob], `lead-${leadExistingPhoto.id}.jpg`, { type: 'image/jpeg' });
+                const cropped = await cropToFocalPoint(file, leadFocalPoint.x, leadFocalPoint.y);
+                const cropForm = new FormData();
+                cropForm.append('photo', cropped);
+                // Upload first — so primary flag auto-transfers on delete (ORDER BY created_at DESC)
+                await axios.post(`${API}/pets/${id}/photos`, cropForm, {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                    withCredentials: true,
+                });
+                await axios.delete(`${API}/pets/${id}/photos/${leadExistingPhoto.id}`, { withCredentials: true });
+            }
 
             await axios.patch(`${API}/pets/${id}`, payload, { withCredentials: true });
 
@@ -379,7 +436,7 @@ export default function EditAnimalPage() {
             }
 
             toast.success('Listing updated!');
-            navigate(`/pet/${id}`);
+            navigate(returnTo || `/pet/${id}`);
         } catch (err) {
             setSaveError(err.response?.data?.message || 'Failed to save changes.');
         } finally {
@@ -427,14 +484,16 @@ export default function EditAnimalPage() {
 
                 <form onSubmit={handleSubmit} style={{ maxWidth: '680px', margin: '0 auto', padding: '36px 48px 80px', width: '100%', boxSizing: 'border-box' }}>
 
-                    {/* Back */}
-                    <button type="button" onClick={() => navigate(`/pet/${id}`)}
-                        style={{ fontFamily: sans, fontSize: '11px', color: '#9A7A60', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: '24px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                        onMouseEnter={e => { e.currentTarget.style.color = '#C07A4A'; }}
-                        onMouseLeave={e => { e.currentTarget.style.color = '#9A7A60'; }}
-                    >
-                        ← Back to listing
-                    </button>
+                    {/* Cancel */}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+                        <button type="button" onClick={() => navigate(-1)}
+                            style={{ fontFamily: sans, fontSize: '11px', color: '#9A7A60', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                            onMouseEnter={e => { e.currentTarget.style.color = '#C07A4A'; }}
+                            onMouseLeave={e => { e.currentTarget.style.color = '#9A7A60'; }}
+                        >
+                            ✕ Cancel
+                        </button>
+                    </div>
 
                     {/* Masthead */}
                     <div style={{ textAlign: 'center', paddingBottom: '24px', borderBottom: '3px double rgba(45,31,20,0.15)', marginBottom: '32px' }}>
@@ -456,41 +515,188 @@ export default function EditAnimalPage() {
                         />
                     </div>
 
+                    {/* ── WHEREABOUTS & SITUATION ─────────────────────────── */}
+                    <SectionLabel>Whereabouts &amp; situation</SectionLabel>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
+
+                        <div>
+                            <FieldLabel>What's this animal's situation?</FieldLabel>
+                            <PillToggle large options={FOUND_HOW_OPTIONS} value={foundHow} onChange={setFoundHow} />
+                            {foundHow === 'Other' && (
+                                <input type="text" placeholder="Please describe…" value={foundHowOther} onChange={e => setFoundHowOther(e.target.value)} autoFocus
+                                    style={{ width: '100%', marginTop: '10px', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }} />
+                            )}
+                        </div>
+
+                        <div>
+                            <FieldLabel>Current status</FieldLabel>
+                            <PillToggle large options={ANIMAL_STATUS_OPTIONS} value={animalStatus} onChange={setAnimalStatus} />
+                        </div>
+
+                    </div>
+
+                    <SectionDivider />
+
+                    {/* ── HEALTH ──────────────────────────────────────────── */}
+                    <SectionLabel>Health</SectionLabel>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
+                        <div>
+                            <FieldLabel>Microchip</FieldLabel>
+                            <PillToggle large options={['Yes', 'No', "Don't know"]} value={hasMicrochip} onChange={setHasMicrochip} />
+                        </div>
+                        <div>
+                            <FieldLabel>Neutered / spayed</FieldLabel>
+                            <PillToggle large options={['Yes', 'No', "Don't know"]} value={isNeutered} onChange={setIsNeutered} />
+                        </div>
+                        <div>
+                            <FieldLabel>Vaccinated</FieldLabel>
+                            <PillToggle large options={['Yes, fully', 'Partially', 'No', "Don't know"]} value={isVaccinated} onChange={setIsVaccinated} />
+                        </div>
+                    </div>
+
+                    <SectionDivider />
+
+                    {/* ── APPEARANCE ──────────────────────────────────────── */}
+                    <SectionLabel>Appearance</SectionLabel>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
+
+                        <div>
+                            <FieldLabel>Gender</FieldLabel>
+                            <PillToggle large options={['Male', 'Female', 'Unknown']} value={gender} onChange={setGender} />
+                        </div>
+
+                        <div>
+                            <FieldLabel>Age</FieldLabel>
+                            <PillToggle large options={AGE_OPTIONS} value={approxAge}
+                                onChange={v => { setApproxAge(v); if (v) setExactAge(''); }} />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '12px 0 0' }}>
+                                <div style={{ flex: 1, height: '1px', background: 'rgba(45,31,20,0.1)' }} />
+                                <span style={{ fontFamily: sans, fontSize: '10px', color: '#B09880', whiteSpace: 'nowrap' }}>or enter exact age</span>
+                                <div style={{ flex: 1, height: '1px', background: 'rgba(45,31,20,0.1)' }} />
+                            </div>
+                            <input type="text" placeholder="e.g. 2 years, 4 months" value={exactAge}
+                                onChange={e => { setExactAge(e.target.value); if (e.target.value) setApproxAge(''); }}
+                                style={{ width: '100%', marginTop: '8px', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }} />
+                        </div>
+
+                        <div>
+                            <FieldLabel>Size</FieldLabel>
+                            <PillToggle large options={SIZE_OPTIONS} value={approxSize} onChange={setApproxSize} />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '12px 0 0' }}>
+                                <div style={{ flex: 1, height: '1px', background: 'rgba(45,31,20,0.1)' }} />
+                                <span style={{ fontFamily: sans, fontSize: '10px', color: '#B09880', whiteSpace: 'nowrap' }}>or enter exact weight</span>
+                                <div style={{ flex: 1, height: '1px', background: 'rgba(45,31,20,0.1)' }} />
+                            </div>
+                            <input type="text" placeholder="e.g. 14 kg" value={exactWeight} onChange={e => setExactWeight(e.target.value)}
+                                style={{ width: '100%', marginTop: '8px', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }} />
+                        </div>
+
+                        <div>
+                            <FieldLabel>Coat color <span style={{ fontFamily: sans, fontSize: '10px', fontWeight: 400, color: '#B09880' }}>— select all that apply</span></FieldLabel>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                {COAT_COLOR_OPTIONS.map(c => {
+                                    const active = coatColors.includes(c);
+                                    return (
+                                        <button key={c} type="button"
+                                            onClick={() => setCoatColors(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c])}
+                                            style={{ fontFamily: sans, fontSize: '12px', padding: '6px 16px', borderRadius: '100px', cursor: 'pointer', border: `1px solid ${active ? '#2D1F14' : 'rgba(45,31,20,0.15)'}`, background: active ? '#2D1F14' : 'transparent', color: active ? '#FAF7F4' : '#7A5C44', transition: 'all 0.15s' }}>
+                                            {c}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            {coatColors.includes('Other') && (
+                                <input type="text" placeholder="Describe the coat color…" value={coatColorOther} onChange={e => setCoatColorOther(e.target.value)}
+                                    style={{ width: '100%', marginTop: '10px', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }} />
+                            )}
+                        </div>
+
+                        <div>
+                            <FieldLabel>Coat type</FieldLabel>
+                            <PillToggle large options={COAT_TYPE_OPTIONS} value={coatType} onChange={setCoatType} />
+                        </div>
+
+                        <div>
+                            <FieldLabel>Breed (if known)</FieldLabel>
+                            <input type="text" placeholder="e.g. Labrador mix, unknown" value={breed} onChange={e => setBreed(e.target.value)}
+                                style={{ width: '100%', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }} />
+                        </div>
+
+                    </div>
+
+                    <SectionDivider />
+
+                    {/* ── LOCATION ────────────────────────────────────────── */}
+                    <SectionLabel>Location</SectionLabel>
+                    <div style={{ marginBottom: '24px' }}>
+                        <LocationPicker value={locValue} onChange={setLocValue} />
+                    </div>
+
+                    <SectionDivider />
+
                     {/* ── PHOTOS ──────────────────────────────────────────── */}
                     <div style={{ marginBottom: '32px' }}>
                         <SectionLabel>Photos</SectionLabel>
 
                         {/* Existing photos */}
-                        {existingPhotos.length > 0 && (
-                            <div style={{ marginBottom: '12px' }}>
-                                <div style={{ fontFamily: sans, fontSize: '10px', color: '#B09880', marginBottom: '8px' }}>Current photos</div>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                                    {existingPhotos.map((photo) => (
-                                        <div key={photo.id} style={{ position: 'relative', flexShrink: 0 }}>
-                                            <img
-                                                src={`${API}/pets/photos/${photo.id}`}
-                                                alt=""
-                                                style={{
-                                                    width: photo.is_primary ? '120px' : '80px',
-                                                    height: photo.is_primary ? '90px' : '80px',
-                                                    objectFit: 'cover', borderRadius: '3px',
-                                                    border: photo.is_primary ? '2px solid #C07A4A' : '1px solid rgba(45,31,20,0.1)',
-                                                    display: 'block',
-                                                }}
-                                                onError={e => { e.target.style.display = 'none'; }}
-                                            />
-                                            {photo.is_primary && (
-                                                <div style={{ position: 'absolute', bottom: '4px', left: '4px', fontFamily: sans, fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#FAF7F4', background: '#C07A4A', padding: '2px 5px', borderRadius: '2px' }}>Lead</div>
-                                            )}
-                                            <button type="button" onClick={() => handleDeleteExistingPhoto(photo.id)}
-                                                style={{ position: 'absolute', top: '-6px', right: '-6px', width: '18px', height: '18px', borderRadius: '50%', background: '#2D1F14', color: '#FAF7F4', border: 'none', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
-                                                ×
-                                            </button>
+                        {existingPhotos.length > 0 && (() => {
+                            const lead       = existingPhotos.find(p => p.is_primary);
+                            const secondary  = existingPhotos.filter(p => !p.is_primary);
+                            return (
+                                <div style={{ marginBottom: '12px' }}>
+                                    <div style={{ fontFamily: sans, fontSize: '10px', color: '#B09880', marginBottom: '8px' }}>Current photos</div>
+
+                                    {/* Lead photo — drag-to-reposition widget */}
+                                    {lead && (
+                                        <div style={{ marginBottom: secondary.length > 0 ? '10px' : 0 }}>
+                                            <div
+                                                ref={leadPhotoContainerRef}
+                                                style={{ position: 'relative', borderRadius: '2px', overflow: 'hidden', cursor: 'grab', userSelect: 'none' }}
+                                                onMouseDown={handlePhotoMouseDown}
+                                            >
+                                                <img
+                                                    src={`${API}/pets/photos/${lead.id}`}
+                                                    alt="Lead"
+                                                    draggable={false}
+                                                    style={{ width: '100%', height: '240px', objectFit: 'cover', objectPosition: `${leadFocalPoint.x}% ${leadFocalPoint.y}%`, borderRadius: '2px', display: 'block', pointerEvents: 'none', border: '2px solid #C07A4A' }}
+                                                    onError={e => { e.target.style.display = 'none'; }}
+                                                />
+                                                <div style={{ position: 'absolute', bottom: '8px', left: '50%', transform: 'translateX(-50%)', fontFamily: sans, fontSize: '10px', color: 'rgba(250,247,244,0.85)', background: 'rgba(45,31,20,0.45)', padding: '3px 10px', borderRadius: '100px', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
+                                                    Drag to reposition
+                                                </div>
+                                                <div style={{ position: 'absolute', top: '8px', left: '8px', fontFamily: sans, fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#FAF7F4', background: '#C07A4A', padding: '2px 5px', borderRadius: '2px', pointerEvents: 'none' }}>
+                                                    Lead
+                                                </div>
+                                                <button type="button" onClick={() => handleDeleteExistingPhoto(lead.id)}
+                                                    style={{ position: 'absolute', top: '8px', right: '8px', width: '20px', height: '20px', borderRadius: '50%', backgroundColor: 'rgba(45,31,20,0.7)', color: '#FAF7F4', border: 'none', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    ×
+                                                </button>
+                                            </div>
                                         </div>
-                                    ))}
+                                    )}
+
+                                    {/* Secondary photos — thumbnails */}
+                                    {secondary.length > 0 && (
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                                            {secondary.map((photo) => (
+                                                <div key={photo.id} style={{ position: 'relative', flexShrink: 0 }}>
+                                                    <img
+                                                        src={`${API}/pets/photos/${photo.id}`}
+                                                        alt=""
+                                                        style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '3px', border: '1px solid rgba(45,31,20,0.1)', display: 'block' }}
+                                                        onError={e => { e.target.style.display = 'none'; }}
+                                                    />
+                                                    <button type="button" onClick={() => handleDeleteExistingPhoto(photo.id)}
+                                                        style={{ position: 'absolute', top: '-6px', right: '-6px', width: '18px', height: '18px', borderRadius: '50%', background: '#2D1F14', color: '#FAF7F4', border: 'none', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
+                                                        ×
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
-                            </div>
-                        )}
+                            );
+                        })()}
 
                         {/* New previews */}
                         {newPreviews.length > 0 && (
@@ -618,122 +824,9 @@ export default function EditAnimalPage() {
 
                     <SectionDivider />
 
-                    {/* ── WHEREABOUTS & SITUATION ─────────────────────────── */}
-                    <SectionLabel>Whereabouts &amp; situation</SectionLabel>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
-
-                        <div>
-                            <FieldLabel>What's this animal's situation?</FieldLabel>
-                            <PillToggle large options={FOUND_HOW_OPTIONS} value={foundHow} onChange={setFoundHow} />
-                            {foundHow === 'Other' && (
-                                <input type="text" placeholder="Please describe…" value={foundHowOther} onChange={e => setFoundHowOther(e.target.value)} autoFocus
-                                    style={{ width: '100%', marginTop: '10px', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }} />
-                            )}
-                        </div>
-
-                        <div>
-                            <FieldLabel>Current status</FieldLabel>
-                            <PillToggle large options={ANIMAL_STATUS_OPTIONS} value={animalStatus} onChange={setAnimalStatus} />
-                        </div>
-
-                    </div>
-
-                    <SectionDivider />
-
-                    {/* ── HEALTH ──────────────────────────────────────────── */}
-                    <SectionLabel>Health</SectionLabel>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
-                        <div>
-                            <FieldLabel>Microchip</FieldLabel>
-                            <PillToggle large options={['Yes', 'No', "Don't know"]} value={hasMicrochip} onChange={setHasMicrochip} />
-                        </div>
-                        <div>
-                            <FieldLabel>Neutered / spayed</FieldLabel>
-                            <PillToggle large options={['Yes', 'No', "Don't know"]} value={isNeutered} onChange={setIsNeutered} />
-                        </div>
-                        <div>
-                            <FieldLabel>Vaccinated</FieldLabel>
-                            <PillToggle large options={['Yes, fully', 'Partially', 'No', "Don't know"]} value={isVaccinated} onChange={setIsVaccinated} />
-                        </div>
-                    </div>
-
-                    <SectionDivider />
-
-                    {/* ── APPEARANCE ──────────────────────────────────────── */}
-                    <SectionLabel>Appearance</SectionLabel>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
-
-                        <div>
-                            <FieldLabel>Age</FieldLabel>
-                            <PillToggle large options={AGE_OPTIONS} value={approxAge}
-                                onChange={v => { setApproxAge(v); if (v) setExactAge(''); }} />
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '12px 0 0' }}>
-                                <div style={{ flex: 1, height: '1px', background: 'rgba(45,31,20,0.1)' }} />
-                                <span style={{ fontFamily: sans, fontSize: '10px', color: '#B09880', whiteSpace: 'nowrap' }}>or enter exact age</span>
-                                <div style={{ flex: 1, height: '1px', background: 'rgba(45,31,20,0.1)' }} />
-                            </div>
-                            <input type="text" placeholder="e.g. 2 years, 4 months" value={exactAge}
-                                onChange={e => { setExactAge(e.target.value); if (e.target.value) setApproxAge(''); }}
-                                style={{ width: '100%', marginTop: '8px', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }} />
-                        </div>
-
-                        <div>
-                            <FieldLabel>Size</FieldLabel>
-                            <PillToggle large options={SIZE_OPTIONS} value={approxSize} onChange={setApproxSize} />
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '12px 0 0' }}>
-                                <div style={{ flex: 1, height: '1px', background: 'rgba(45,31,20,0.1)' }} />
-                                <span style={{ fontFamily: sans, fontSize: '10px', color: '#B09880', whiteSpace: 'nowrap' }}>or enter exact weight</span>
-                                <div style={{ flex: 1, height: '1px', background: 'rgba(45,31,20,0.1)' }} />
-                            </div>
-                            <input type="text" placeholder="e.g. 14 kg" value={exactWeight} onChange={e => setExactWeight(e.target.value)}
-                                style={{ width: '100%', marginTop: '8px', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }} />
-                        </div>
-
-                        <div>
-                            <FieldLabel>Coat color <span style={{ fontFamily: sans, fontSize: '10px', fontWeight: 400, color: '#B09880' }}>— select all that apply</span></FieldLabel>
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                {COAT_COLOR_OPTIONS.map(c => {
-                                    const active = coatColors.includes(c);
-                                    return (
-                                        <button key={c} type="button"
-                                            onClick={() => setCoatColors(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c])}
-                                            style={{ fontFamily: sans, fontSize: '12px', padding: '6px 16px', borderRadius: '100px', cursor: 'pointer', border: `1px solid ${active ? '#2D1F14' : 'rgba(45,31,20,0.15)'}`, background: active ? '#2D1F14' : 'transparent', color: active ? '#FAF7F4' : '#7A5C44', transition: 'all 0.15s' }}>
-                                            {c}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                            {coatColors.includes('Other') && (
-                                <input type="text" placeholder="Describe the coat color…" value={coatColorOther} onChange={e => setCoatColorOther(e.target.value)}
-                                    style={{ width: '100%', marginTop: '10px', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }} />
-                            )}
-                        </div>
-
-                        <div>
-                            <FieldLabel>Coat type</FieldLabel>
-                            <PillToggle large options={COAT_TYPE_OPTIONS} value={coatType} onChange={setCoatType} />
-                        </div>
-
-                        <div>
-                            <FieldLabel>Breed (if known)</FieldLabel>
-                            <input type="text" placeholder="e.g. Labrador mix, unknown" value={breed} onChange={e => setBreed(e.target.value)}
-                                style={{ width: '100%', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }} />
-                        </div>
-
-                    </div>
-
-                    <SectionDivider />
-
-                    {/* ── LOCATION ────────────────────────────────────────── */}
-                    <SectionLabel>Location</SectionLabel>
-                    <div style={{ marginBottom: '24px' }}>
-                        <LocationPicker value={locValue} onChange={setLocValue} />
-                    </div>
-
                     {/* ── MODERATION STATUS (admin only) ───────────────────── */}
                     {user?.isAdmin && (
                         <>
-                            <SectionDivider />
                             <SectionLabel>Moderation status <span style={{ color: '#B09880', textTransform: 'none', letterSpacing: 0, fontWeight: 400 }}>— admin only</span></SectionLabel>
                             <div style={{ marginBottom: '24px' }}>
                                 <PillToggle large
@@ -742,10 +835,9 @@ export default function EditAnimalPage() {
                                     onChange={v => { if (v) setModerationStatus(v); }}
                                 />
                             </div>
+                            <SectionDivider />
                         </>
                     )}
-
-                    <SectionDivider />
 
                     {/* ── SAVE ────────────────────────────────────────────── */}
                     {saveError && (

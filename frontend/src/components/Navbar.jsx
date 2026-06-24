@@ -83,7 +83,7 @@ export default function Navbar() {
             flexShrink: 0,
         }}>
             {/* Logo — left */}
-            <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '7px', textDecoration: 'none', flexShrink: 0, marginRight: '36px' }}>
+            <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '7px', textDecoration: 'none', outline: 'none', flexShrink: 0, marginRight: '36px' }}>
                 <span style={{
                     width: '8px', height: '8px',
                     borderRadius: '50%',
@@ -327,6 +327,25 @@ export default function Navbar() {
                                                 {label}
                                             </Link>
                                         ))}
+                                        {user?.isAdmin && (
+                                            <Link
+                                                to="/admin/pets"
+                                                style={{
+                                                    display: 'block',
+                                                    padding: '10px 16px',
+                                                    color: '#C07A4A',
+                                                    fontSize: '13px',
+                                                    textDecoration: 'none',
+                                                    transition: 'background-color 0.12s',
+                                                    fontWeight: 500,
+                                                }}
+                                                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#FDEADE'; }}
+                                                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                                onClick={() => setShowProfileDropdown(false)}
+                                            >
+                                                Admin Dashboard
+                                            </Link>
+                                        )}
                                         <button
                                             onClick={() => { logout(); setShowProfileDropdown(false); }}
                                             style={{

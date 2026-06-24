@@ -22,7 +22,7 @@ import {
     deletePhoto,
     setPrimaryPhoto
 } from '../controllers/photo.controller.js';
-import { verifyToken } from '../middleware/verifyToken.js';
+import { verifyToken, optionalVerifyToken } from '../middleware/verifyToken.js';
 import { isAdmin } from '../middleware/adminCheck.js';
 import { upload } from '../handlers/dbPhotoUpload.js';
 
@@ -31,7 +31,7 @@ const router = express.Router();
 // Public routes - anyone can access these
 router.get('/suggestions', getSearchSuggestions); // This must come BEFORE /:id routes
 router.get('/search', searchPets);
-router.get('/', getAllPets);
+router.get('/', optionalVerifyToken, getAllPets);
 
 // Admin moderation routes — must come BEFORE /:id to avoid route shadowing
 router.get('/admin/pending', verifyToken, isAdmin, getPendingPets);

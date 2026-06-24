@@ -192,11 +192,33 @@ export const sendMessage = async (req, res) => {
         if (convCheck.rows.length === 0)
             return res.status(403).json({ success: false, message: 'Not authorized' });
 
-        await pool.query(
-            `INSERT INTO conversation_messages (conversation_id, sender_id, content) VALUES ($1, $2, $3)`,
+        const insertResult = await pool.query(
+            `INSERT INTO conversation_messages (conversation_id, sender_id, content) VALUES ($1, $2, $3) RETURNING id, created_at`,
             [id, userId, content.trim()]
         );
+        const newMsgId        = insertResult.rows[0].id;
+        const newMsgCreatedAt = insertResult.rows[0].created_at;
+
         await pool.query(`UPDATE conversations SET updated_at=NOW() WHERE id=$1`, [id]);
+
+        // Mark unreplied messages from the other participant, but ONLY those from the current
+        // "conversation round" — messages sent after our previous last message.
+        // Fallback: if we never sent before, use a 7-day window to avoid marking ancient messages.
+        const conv = convCheck.rows[0];
+        const otherUserId = conv.participant_one === userId ? conv.participant_two : conv.participant_one;
+        await pool.query(
+            `UPDATE conversation_messages
+             SET replied_at = $4
+             WHERE conversation_id = $1
+               AND sender_id = $2
+               AND replied_at IS NULL
+               AND created_at > COALESCE(
+                   (SELECT MAX(created_at) FROM conversation_messages
+                    WHERE conversation_id = $1 AND sender_id = $3 AND id != $5),
+                   $4 - INTERVAL '7 days'
+               )`,
+            [id, otherUserId, userId, newMsgCreatedAt, newMsgId]
+        );
 
         res.status(201).json({ success: true });
     } catch (err) {

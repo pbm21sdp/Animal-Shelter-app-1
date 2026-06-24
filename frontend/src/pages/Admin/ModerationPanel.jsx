@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { CheckCircle, XCircle, RefreshCw, Clock, MapPin, User, Tag, AlertTriangle } from 'lucide-react';
+import { CheckCircle, XCircle, RefreshCw, Clock, MapPin, User, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API   = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const serif = "'Cormorant Garamond', serif";
+const sans  = "'DM Sans', sans-serif";
 
 const getPetPhotoUrl = (pet) => {
     if (!pet.photos || pet.photos.length === 0) return null;
@@ -16,18 +18,23 @@ const getPetPhotoUrl = (pet) => {
 
 const formatDate = (dateStr) => {
     if (!dateStr) return '—';
-    return new Date(dateStr).toLocaleDateString('en-GB', {
+    return new Date(dateStr).toLocaleString('ro-RO', {
         day: '2-digit', month: 'short', year: 'numeric',
-        hour: '2-digit', minute: '2-digit'
+        hour: '2-digit', minute: '2-digit',
+        timeZone: 'Europe/Bucharest',
     });
 };
 
 const TYPE_LABELS = { dog: 'Dog', cat: 'Cat', bird: 'Bird', rabbit: 'Rabbit', other: 'Other' };
-const AGE_LABELS = { baby: 'Baby', young: 'Young', adult: 'Adult', senior: 'Senior' };
 
+const cap = str => str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
+
+// ── Reject dialog ──────────────────────────────────────────────────────────────
 const RejectDialog = ({ pet, onConfirm, onCancel }) => {
     const [reason, setReason] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [hoverCancel, setHoverCancel] = useState(false);
+    const [hoverReject, setHoverReject] = useState(false);
 
     const handleSubmit = async () => {
         if (!reason.trim()) return;
@@ -37,41 +44,87 @@ const RejectDialog = ({ pet, onConfirm, onCancel }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
-                <div className="flex items-center gap-3 mb-4">
-                    <AlertTriangle className="h-6 w-6 text-red-500 shrink-0" />
-                    <h3 className="text-lg font-semibold text-gray-900">Reject Listing</h3>
+        <div style={{
+            position: 'fixed', inset: 0, zIndex: 50,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            backgroundColor: 'rgba(45,31,20,0.45)', padding: '16px',
+        }}>
+            <div style={{
+                backgroundColor: '#FFFAF7',
+                border: '1px solid rgba(45,31,20,0.1)',
+                borderRadius: '12px',
+                boxShadow: '0 8px 32px rgba(45,31,20,0.12)',
+                width: '100%', maxWidth: '440px',
+                padding: '24px',
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                    <AlertTriangle style={{ width: '18px', height: '18px', color: '#993C1D', flexShrink: 0 }} />
+                    <h3 style={{ fontFamily: serif, fontSize: '20px', fontWeight: 600, color: '#2D1F14', margin: 0 }}>
+                        Reject listing
+                    </h3>
                 </div>
-                <p className="text-sm text-gray-600 mb-1">
-                    You are rejecting <span className="font-medium text-gray-900">"{pet.name}"</span>.
+
+                <p style={{ fontFamily: sans, fontSize: '13px', color: '#7A5C44', marginBottom: '16px', lineHeight: 1.6 }}>
+                    You are rejecting <span style={{ fontWeight: 600, color: '#2D1F14' }}>"{pet.name}"</span>.
                     The uploader will receive a notification with your reason.
                 </p>
-                <label className="block text-sm font-medium text-gray-700 mt-4 mb-1">
-                    Reason <span className="text-red-500">*</span>
+
+                <label style={{ fontFamily: sans, fontSize: '11px', fontWeight: 600, color: '#2D1F14', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '8px' }}>
+                    Reason <span style={{ color: '#993C1D' }}>*</span>
                 </label>
                 <textarea
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 resize-none"
                     rows={4}
                     placeholder="E.g. Photo quality too low, description insufficient, duplicate listing…"
                     value={reason}
                     onChange={e => setReason(e.target.value)}
                     autoFocus
+                    style={{
+                        width: '100%', boxSizing: 'border-box',
+                        border: '1px solid rgba(45,31,20,0.2)', borderRadius: '6px',
+                        padding: '10px 12px',
+                        fontFamily: sans, fontSize: '13px', color: '#2D1F14',
+                        background: '#FAF7F4', resize: 'none', outline: 'none',
+                        transition: 'border-color 0.15s',
+                    }}
+                    onFocus={e => { e.target.style.borderColor = '#C07A4A'; }}
+                    onBlur={e => { e.target.style.borderColor = 'rgba(45,31,20,0.2)'; }}
                 />
-                <div className="flex justify-end gap-3 mt-4">
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
                     <button
                         onClick={onCancel}
                         disabled={submitting}
-                        className="px-4 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                        onMouseEnter={() => setHoverCancel(true)}
+                        onMouseLeave={() => setHoverCancel(false)}
+                        style={{
+                            fontFamily: sans, fontSize: '12px', fontWeight: 500,
+                            padding: '8px 16px', borderRadius: '6px', cursor: 'pointer',
+                            border: '1px solid rgba(45,31,20,0.2)',
+                            background: hoverCancel ? 'rgba(45,31,20,0.04)' : 'transparent',
+                            color: '#7A5C44',
+                            transition: 'background 0.12s',
+                            opacity: submitting ? 0.5 : 1,
+                        }}
                     >
                         Cancel
                     </button>
                     <button
                         onClick={handleSubmit}
                         disabled={!reason.trim() || submitting}
-                        className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        onMouseEnter={() => setHoverReject(true)}
+                        onMouseLeave={() => setHoverReject(false)}
+                        style={{
+                            fontFamily: sans, fontSize: '12px', fontWeight: 600,
+                            padding: '8px 16px', borderRadius: '6px', cursor: 'pointer',
+                            border: 'none',
+                            background: hoverReject && reason.trim() && !submitting ? '#7A2010' : '#993C1D',
+                            color: '#FAF7F4',
+                            display: 'flex', alignItems: 'center', gap: '6px',
+                            transition: 'background 0.12s',
+                            opacity: (!reason.trim() || submitting) ? 0.5 : 1,
+                        }}
                     >
-                        {submitting && <RefreshCw className="h-4 w-4 animate-spin" />}
+                        {submitting && <RefreshCw style={{ width: '13px', height: '13px' }} className="animate-spin" />}
                         Reject listing
                     </button>
                 </div>
@@ -80,8 +133,12 @@ const RejectDialog = ({ pet, onConfirm, onCancel }) => {
     );
 };
 
+// ── Pet card ──────────────────────────────────────────────────────────────────
 const PetModerationCard = ({ pet, onApprove, onReject }) => {
     const [approving, setApproving] = useState(false);
+    const [hoverApprove, setHoverApprove] = useState(false);
+    const [hoverReject, setHoverReject] = useState(false);
+    const [hoverCard, setHoverCard] = useState(false);
     const photoUrl = getPetPhotoUrl(pet);
 
     const handleApprove = async () => {
@@ -90,107 +147,172 @@ const PetModerationCard = ({ pet, onApprove, onReject }) => {
         setApproving(false);
     };
 
+    const uploaderLabel = pet.uploader_name || pet.uploader_email || null;
+
     return (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
-            {/* Photo strip */}
-            <div className="h-40 bg-gray-100 relative overflow-hidden">
+        <div
+            onMouseEnter={() => setHoverCard(true)}
+            onMouseLeave={() => setHoverCard(false)}
+            style={{
+                backgroundColor: '#FFFAF7',
+                border: `1px solid ${hoverCard ? 'rgba(192,122,74,0.25)' : 'rgba(45,31,20,0.1)'}`,
+                borderRadius: '10px',
+                overflow: 'hidden',
+                display: 'flex', flexDirection: 'column',
+                boxShadow: hoverCard ? '0 4px 16px rgba(45,31,20,0.08)' : '0 1px 4px rgba(45,31,20,0.05)',
+                transition: 'border-color 0.15s, box-shadow 0.15s',
+            }}
+        >
+            {/* Photo */}
+            <div style={{ height: '160px', backgroundColor: '#E8D4C8', position: 'relative', overflow: 'hidden' }}>
                 {photoUrl ? (
                     <img
                         src={photoUrl}
                         alt={pet.name}
-                        className="w-full h-full object-cover"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         onError={e => { e.target.style.display = 'none'; }}
                     />
                 ) : (
-                    <div className="flex items-center justify-center h-full text-gray-400 text-sm">No photo</div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontFamily: sans, fontSize: '12px', color: '#B09880' }}>
+                        No photo
+                    </div>
                 )}
-                {/* Pet type badge */}
-                <span className="absolute top-2 left-2 bg-white/90 text-gray-700 text-xs font-medium px-2 py-1 rounded-full shadow-sm">
-                    {TYPE_LABELS[pet.type] || pet.type}
+                <span style={{
+                    position: 'absolute', top: '8px', left: '8px',
+                    background: 'rgba(250,247,244,0.92)', borderRadius: '100px',
+                    fontFamily: sans, fontSize: '10px', fontWeight: 600,
+                    color: '#2D1F14', padding: '3px 9px',
+                }}>
+                    {TYPE_LABELS[pet.type] || cap(pet.type)}
                 </span>
-                {/* Photo count */}
                 {pet.photos && pet.photos.length > 1 && (
-                    <span className="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
-                        +{pet.photos.length - 1} photos
+                    <span style={{
+                        position: 'absolute', top: '8px', right: '8px',
+                        background: 'rgba(45,31,20,0.55)', borderRadius: '100px',
+                        fontFamily: sans, fontSize: '10px', color: '#FAF7F4',
+                        padding: '3px 8px',
+                    }}>
+                        +{pet.photos.length - 1}
                     </span>
                 )}
             </div>
 
             {/* Content */}
-            <div className="p-4 flex flex-col flex-1 gap-3">
+            <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
+
                 {/* Name + gender */}
-                <div className="flex items-start justify-between gap-2">
-                    <h3 className="text-base font-semibold text-gray-900 leading-tight">{pet.name}</h3>
-                    <span className={`text-sm font-medium shrink-0 ${pet.gender === 'male' ? 'text-blue-500' : 'text-pink-500'}`}>
-                        {pet.gender === 'male' ? '♂' : '♀'}
-                    </span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                    <h3 style={{ fontFamily: serif, fontSize: '18px', fontWeight: 700, color: '#2D1F14', margin: 0, lineHeight: 1.2 }}>
+                        {pet.name}
+                    </h3>
+                    {pet.gender && pet.gender !== 'unknown' && (
+                        <span style={{ fontFamily: sans, fontSize: '13px', color: '#B09880', flexShrink: 0 }}>
+                            {pet.gender === 'male' ? '♂' : '♀'}
+                        </span>
+                    )}
                 </div>
 
-                {/* Details */}
-                <div className="flex flex-col gap-1 text-sm text-gray-600">
-                    <span className="font-medium text-gray-800">{pet.breed || 'Unknown breed'}</span>
-                    <span>{AGE_LABELS[pet.age_category] || pet.age_category} · {pet.size} · {pet.color}</span>
+                {/* Breed / age / size */}
+                <div style={{ fontFamily: sans, fontSize: '12px', color: '#7A5C44', lineHeight: 1.5 }}>
+                    <div style={{ fontWeight: 500, color: '#5C4030' }}>{pet.breed || 'Unknown breed'}</div>
+                    <div>{[pet.age_category, pet.size, pet.color].filter(Boolean).join(' · ')}</div>
                 </div>
 
                 {/* Location */}
                 {(pet.location_city || pet.location_address) && (
-                    <div className="flex items-center gap-1 text-xs text-gray-500">
-                        <MapPin className="h-3.5 w-3.5 shrink-0" />
-                        <span className="truncate">{[pet.location_city, pet.location_country].filter(Boolean).join(', ')}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontFamily: sans, fontSize: '11px', color: '#B09880' }}>
+                        <MapPin style={{ width: '12px', height: '12px', flexShrink: 0 }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {[pet.location_city, pet.location_country].filter(Boolean).join(', ')}
+                        </span>
                     </div>
                 )}
 
                 {/* Traits */}
                 {pet.traits && pet.traits.length > 0 && (
-                    <div className="flex items-start gap-1 flex-wrap">
-                        <Tag className="h-3.5 w-3.5 text-gray-400 mt-0.5 shrink-0" />
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                         {pet.traits.slice(0, 4).map((t, i) => (
-                            <span key={i} className="text-xs bg-teal-50 text-teal-700 px-1.5 py-0.5 rounded">
+                            <span key={i} style={{
+                                fontFamily: sans, fontSize: '10px',
+                                background: 'rgba(192,122,74,0.08)',
+                                border: '1px solid rgba(192,122,74,0.18)',
+                                borderRadius: '100px', padding: '2px 8px',
+                                color: '#7A5C44',
+                            }}>
                                 {t}
                             </span>
                         ))}
                         {pet.traits.length > 4 && (
-                            <span className="text-xs text-gray-400">+{pet.traits.length - 4}</span>
+                            <span style={{ fontFamily: sans, fontSize: '10px', color: '#B09880' }}>+{pet.traits.length - 4}</span>
                         )}
                     </div>
                 )}
 
                 {/* Description excerpt */}
                 {pet.description && (
-                    <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">{pet.description}</p>
+                    <p style={{
+                        fontFamily: sans, fontSize: '11px', color: '#9A7A60',
+                        margin: 0, lineHeight: 1.6,
+                        display: '-webkit-box', WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                    }}>
+                        {pet.description}
+                    </p>
                 )}
 
                 {/* Submitted at */}
-                <div className="flex items-center gap-1 text-xs text-gray-400 mt-auto">
-                    <Clock className="h-3.5 w-3.5 shrink-0" />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontFamily: sans, fontSize: '11px', color: '#B09880', marginTop: 'auto' }}>
+                    <Clock style={{ width: '12px', height: '12px', flexShrink: 0 }} />
                     <span>Submitted {formatDate(pet.created_at)}</span>
                 </div>
 
-                {/* Uploader ID (MongoDB ObjectId shown as truncated reference) */}
-                {pet.uploader_id && (
-                    <div className="flex items-center gap-1 text-xs text-gray-400">
-                        <User className="h-3.5 w-3.5 shrink-0" />
-                        <span className="font-mono truncate">uid: {pet.uploader_id.slice(-8)}</span>
+                {/* Uploader */}
+                {uploaderLabel && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontFamily: sans, fontSize: '11px', color: '#B09880' }}>
+                        <User style={{ width: '12px', height: '12px', flexShrink: 0 }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{uploaderLabel}</span>
                     </div>
                 )}
 
                 {/* Actions */}
-                <div className="flex gap-2 pt-2 border-t border-gray-100">
+                <div style={{ display: 'flex', gap: '8px', paddingTop: '10px', borderTop: '1px solid rgba(45,31,20,0.08)' }}>
                     <button
                         onClick={handleApprove}
                         disabled={approving}
-                        className="flex-1 flex items-center justify-center gap-1.5 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-medium py-2 px-3 rounded-lg transition-colors"
+                        onMouseEnter={() => setHoverApprove(true)}
+                        onMouseLeave={() => setHoverApprove(false)}
+                        style={{
+                            flex: 1,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                            fontFamily: sans, fontSize: '12px', fontWeight: 600,
+                            padding: '8px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                            background: hoverApprove && !approving ? '#1A4A2A' : 'rgba(34,197,94,0.12)',
+                            color: hoverApprove && !approving ? '#FAF7F4' : '#166534',
+                            transition: 'background 0.12s, color 0.12s',
+                            opacity: approving ? 0.6 : 1,
+                        }}
                     >
                         {approving
-                            ? <RefreshCw className="h-4 w-4 animate-spin" />
-                            : <CheckCircle className="h-4 w-4" />}
+                            ? <RefreshCw style={{ width: '13px', height: '13px' }} className="animate-spin" />
+                            : <CheckCircle style={{ width: '13px', height: '13px' }} />}
                         Approve
                     </button>
                     <button
                         onClick={() => onReject(pet)}
-                        className="flex-1 flex items-center justify-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-700 text-sm font-medium py-2 px-3 rounded-lg border border-red-200 transition-colors"
+                        onMouseEnter={() => setHoverReject(true)}
+                        onMouseLeave={() => setHoverReject(false)}
+                        style={{
+                            flex: 1,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                            fontFamily: sans, fontSize: '12px', fontWeight: 600,
+                            padding: '8px 12px', borderRadius: '6px', cursor: 'pointer',
+                            border: `1px solid ${hoverReject ? '#993C1D' : 'rgba(153,60,29,0.25)'}`,
+                            background: hoverReject ? 'rgba(153,60,29,0.06)' : 'transparent',
+                            color: '#993C1D',
+                            transition: 'background 0.12s, border-color 0.12s',
+                        }}
                     >
-                        <XCircle className="h-4 w-4" />
+                        <XCircle style={{ width: '13px', height: '13px' }} />
                         Reject
                     </button>
                 </div>
@@ -199,11 +321,13 @@ const PetModerationCard = ({ pet, onApprove, onReject }) => {
     );
 };
 
+// ── Main panel ────────────────────────────────────────────────────────────────
 const ModerationPanel = () => {
     const [pets, setPets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [rejectTarget, setRejectTarget] = useState(null);
+    const [hoverRefresh, setHoverRefresh] = useState(false);
 
     const fetchPending = useCallback(async () => {
         setLoading(true);
@@ -230,7 +354,7 @@ const ModerationPanel = () => {
         }
     };
 
-    const handleRejectOpen = (pet) => setRejectTarget(pet);
+    const handleRejectOpen   = (pet) => setRejectTarget(pet);
     const handleRejectCancel = () => setRejectTarget(null);
 
     const handleRejectConfirm = async (petId, reason) => {
@@ -247,53 +371,76 @@ const ModerationPanel = () => {
     return (
         <div>
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '24px' }}>
                 <div>
-                    <h2 className="text-xl font-bold text-gray-900">Content Moderation</h2>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                        Review community-submitted animal listings before they go public.
+                    <h2 style={{ fontFamily: serif, fontSize: '24px', fontWeight: 700, color: '#2D1F14', margin: '0 0 4px' }}>
+                        Content Moderation
+                    </h2>
+                    <p style={{ fontFamily: sans, fontSize: '13px', color: '#B09880', margin: 0 }}>
+                        Review community-submitted listings before they go public.
                     </p>
                 </div>
                 <button
                     onClick={fetchPending}
                     disabled={loading}
-                    className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-200 rounded-lg px-3 py-2 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                    onMouseEnter={() => setHoverRefresh(true)}
+                    onMouseLeave={() => setHoverRefresh(false)}
+                    style={{
+                        display: 'flex', alignItems: 'center', gap: '6px',
+                        fontFamily: sans, fontSize: '12px', fontWeight: 500,
+                        color: '#7A5C44', cursor: 'pointer',
+                        border: '1px solid rgba(45,31,20,0.15)',
+                        borderRadius: '6px', padding: '7px 14px',
+                        background: hoverRefresh ? 'rgba(45,31,20,0.04)' : 'transparent',
+                        transition: 'background 0.12s',
+                        opacity: loading ? 0.5 : 1,
+                    }}
                 >
-                    <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                    <RefreshCw style={{ width: '13px', height: '13px' }} className={loading ? 'animate-spin' : ''} />
                     Refresh
                 </button>
             </div>
 
             {/* Loading */}
             {loading && (
-                <div className="flex items-center justify-center py-20 text-gray-400">
-                    <RefreshCw className="h-6 w-6 animate-spin mr-2" />
-                    <span className="text-sm">Loading pending listings…</span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0', fontFamily: sans, fontSize: '13px', color: '#B09880', gap: '8px' }}>
+                    <RefreshCw style={{ width: '18px', height: '18px' }} className="animate-spin" />
+                    Loading pending listings…
                 </div>
             )}
 
             {/* Error */}
             {!loading && error && (
-                <div className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 text-sm">
-                    <AlertTriangle className="h-5 w-5 shrink-0" />
-                    <span>{error}</span>
+                <div style={{
+                    display: 'flex', alignItems: 'center', gap: '10px',
+                    background: 'rgba(153,60,29,0.06)', border: '1px solid rgba(153,60,29,0.2)',
+                    borderRadius: '8px', padding: '14px 16px',
+                    fontFamily: sans, fontSize: '13px', color: '#993C1D',
+                }}>
+                    <AlertTriangle style={{ width: '16px', height: '16px', flexShrink: 0 }} />
+                    {error}
                 </div>
             )}
 
             {/* Empty state */}
             {!loading && !error && pets.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-24 text-gray-400 gap-3">
-                    <CheckCircle className="h-12 w-12 text-teal-400" />
-                    <p className="text-base font-medium text-gray-600">All caught up!</p>
-                    <p className="text-sm">No listings are waiting for review.</p>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 0', gap: '12px' }}>
+                    <CheckCircle style={{ width: '40px', height: '40px', color: '#C07A4A', opacity: 0.4 }} />
+                    <p style={{ fontFamily: serif, fontSize: '20px', fontWeight: 600, color: '#2D1F14', margin: 0 }}>All caught up!</p>
+                    <p style={{ fontFamily: sans, fontSize: '13px', color: '#B09880', margin: 0 }}>No listings are waiting for review.</p>
                 </div>
             )}
 
             {/* Count badge */}
             {!loading && !error && pets.length > 0 && (
-                <div className="mb-4 flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 text-sm font-medium px-3 py-1 rounded-full">
-                        <Clock className="h-4 w-4" />
+                <div style={{ marginBottom: '16px' }}>
+                    <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                        background: 'rgba(192,122,74,0.1)', border: '1px solid rgba(192,122,74,0.25)',
+                        borderRadius: '100px', padding: '5px 12px',
+                        fontFamily: sans, fontSize: '12px', fontWeight: 500, color: '#7A5C44',
+                    }}>
+                        <Clock style={{ width: '13px', height: '13px' }} />
                         {pets.length} pending {pets.length === 1 ? 'listing' : 'listings'}
                     </span>
                 </div>

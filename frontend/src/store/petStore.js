@@ -33,7 +33,7 @@ export const usePetStore = create((set) => ({
 
             // Get filtered pets (with limit if specified)
             const queryParams = new URLSearchParams(cleanFilters).toString();
-            const response = await axios.get(`${API_URL}?${queryParams}`);
+            const response = await axios.get(`${API_URL}?${queryParams}`, { withCredentials: true });
 
             // Get total count without limit if a limit was specified
             let totalPets = 0;

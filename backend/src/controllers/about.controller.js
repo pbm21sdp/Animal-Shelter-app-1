@@ -50,9 +50,9 @@ export const getStats = async (req, res) => {
             vaccinatedRow,
             avgDaysRow,
         ] = await Promise.all([
-            safeQuery('SELECT COUNT(*)::int AS count FROM pets'),
+            safeQuery("SELECT COUNT(*)::int AS count FROM pets WHERE status = 'approved'"),
             // is_adopted added by migration — safe fallback if column missing
-            safeQuery('SELECT COUNT(*)::int AS count FROM pets WHERE is_adopted = true'),
+            safeQuery("SELECT COUNT(*)::int AS count FROM pets WHERE is_adopted = true AND status = 'approved'"),
             safeQuery("SELECT COUNT(*)::int AS count FROM pets WHERE is_available = true AND adoption_status = 'available' AND is_adopted = false"),
             safeQuery("SELECT COUNT(*)::int AS count FROM pets WHERE LOWER(health_status) LIKE '%vacc%'"),
             // adopted_at also from migration — fallback to 0 avg if missing

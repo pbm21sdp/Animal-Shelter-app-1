@@ -302,6 +302,147 @@ export const updateUserAdminStatus = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Privacy helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+const PRIVACY_DEFAULTS = {
+    showAvgResponse:      true,
+    showFoundHomes:       true,
+    showSuccessRate:      true,
+    showMessagesReceived: true,
+    showUploads:          true,
+    showFoundAHome:       true,
+    showAdoptedByMe:      true,
+    showSaved:            true,
+};
+
+async function getPrivacySettingsFor(userId) {
+    try {
+        const user = await User.findById(userId).select('privacySettings');
+        if (!user) return null;
+        const ps = user.privacySettings || {};
+        return {
+            showAvgResponse:      ps.showAvgResponse      ?? true,
+            showFoundHomes:       ps.showFoundHomes       ?? true,
+            showSuccessRate:      ps.showSuccessRate      ?? true,
+            showMessagesReceived: ps.showMessagesReceived ?? true,
+            showUploads:          ps.showUploads          ?? true,
+            showFoundAHome:       ps.showFoundAHome       ?? true,
+            showAdoptedByMe:      ps.showAdoptedByMe      ?? true,
+            showSaved:            ps.showSaved            ?? true,
+        };
+    } catch {
+        return null;
+    }
+}
+
+function isOwnerRequest(req, targetId) {
+    return req.userId && req.userId.toString() === targetId.toString();
+}
+
+// GET /api/users/me/privacy-settings
+export const getPrivacySettings = async (req, res) => {
+    try {
+        const user = await User.findById(req.userId).select('privacySettings');
+        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+        const ps = user.privacySettings || {};
+        res.json({ success: true, settings: { ...PRIVACY_DEFAULTS, ...ps.toObject?.() || ps } });
+    } catch (err) {
+        console.error('getPrivacySettings error:', err);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+// PUT /api/users/me/privacy-settings
+export const updatePrivacySettings = async (req, res) => {
+    try {
+        const allowed = ['showAvgResponse', 'showFoundHomes', 'showSuccessRate', 'showMessagesReceived', 'showUploads', 'showFoundAHome', 'showAdoptedByMe', 'showSaved'];
+        const updates = {};
+        for (const key of allowed) {
+            if (req.body[key] !== undefined) {
+                updates[`privacySettings.${key}`] = Boolean(req.body[key]);
+            }
+        }
+        if (Object.keys(updates).length === 0)
+            return res.status(400).json({ success: false, message: 'No valid settings provided' });
+
+        await User.findByIdAndUpdate(req.userId, { $set: updates }, { new: true });
+        const user = await User.findById(req.userId).select('privacySettings');
+        const ps = user.privacySettings || {};
+        res.json({ success: true, message: 'Privacy settings updated', settings: { ...PRIVACY_DEFAULTS, ...ps.toObject?.() || ps } });
+    } catch (err) {
+        console.error('updatePrivacySettings error:', err);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+// GET /api/users/:id/avg-response-time
+export const getAvgResponseTime = async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!id.match(/^[0-9a-fA-F]{24}$/))
+            return res.status(400).json({ success: false, message: 'Invalid user ID' });
+
+        if (!isOwnerRequest(req, id)) {
+            const settings = await getPrivacySettingsFor(id);
+            if (settings && settings.showAvgResponse === false)
+                return res.json({ success: true, isPrivate: true });
+        }
+
+        const result = await pool.query(
+            `SELECT
+                AVG(EXTRACT(EPOCH FROM (cm.replied_at - cm.created_at)) / 60) AS avg_minutes,
+                COUNT(*) AS response_count
+             FROM conversation_messages cm
+             JOIN conversations c ON c.id = cm.conversation_id
+             WHERE (c.participant_one = $1 OR c.participant_two = $1)
+               AND cm.sender_id != $1
+               AND cm.replied_at IS NOT NULL`,
+            [id]
+        );
+
+        const count      = parseInt(result.rows[0].response_count) || 0;
+        const avgMinutes = count > 0 ? parseFloat(result.rows[0].avg_minutes) : null;
+
+        res.json({
+            success: true,
+            hasEnoughData: count >= 1,
+            avgMinutes: isNaN(avgMinutes) ? null : avgMinutes,
+        });
+    } catch (err) {
+        console.error('getAvgResponseTime error:', err);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+// GET /api/users/:id/received-count  (profile-aware, privacy-checked version)
+export const getReceivedCountForUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!id.match(/^[0-9a-fA-F]{24}$/))
+            return res.status(400).json({ success: false, message: 'Invalid user ID' });
+
+        if (!isOwnerRequest(req, id)) {
+            const settings = await getPrivacySettingsFor(id);
+            if (settings && settings.showMessagesReceived === false)
+                return res.json({ success: true, isPrivate: true });
+        }
+
+        const result = await pool.query(
+            `SELECT COUNT(*) AS count FROM conversation_messages cm
+             JOIN conversations c ON c.id = cm.conversation_id
+             WHERE (c.participant_one = $1 OR c.participant_two = $1)
+               AND cm.sender_id != $1`,
+            [id]
+        );
+        res.json({ success: true, count: parseInt(result.rows[0].count) || 0 });
+    } catch (err) {
+        console.error('getReceivedCountForUser error:', err);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Profile page endpoints
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -314,7 +455,7 @@ export const getPublicUserProfile = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid user ID' });
         }
 
-        const user = await User.findById(id).select('name avatar bio city contactAvailability createdAt');
+        const user = await User.findById(id).select('name avatar bio city contactAvailability createdAt privacySettings');
         if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
         // Aggregate pet stats from PostgreSQL
@@ -333,6 +474,7 @@ export const getPublicUserProfile = async (req, res) => {
             ? Math.round((adoptedCount / uploadsCount) * 100)
             : 0;
 
+        const ps = user.privacySettings || {};
         res.status(200).json({
             success: true,
             profile: {
@@ -346,6 +488,16 @@ export const getPublicUserProfile = async (req, res) => {
                 uploads_count:       uploadsCount,
                 adopted_count:       adoptedCount,
                 success_rate:        successRate,
+                privacySettings: {
+                    showAvgResponse:      ps.showAvgResponse      ?? true,
+                    showFoundHomes:       ps.showFoundHomes       ?? true,
+                    showSuccessRate:      ps.showSuccessRate      ?? true,
+                    showMessagesReceived: ps.showMessagesReceived ?? true,
+                    showUploads:          ps.showUploads          ?? true,
+                    showFoundAHome:       ps.showFoundAHome       ?? true,
+                    showAdoptedByMe:      ps.showAdoptedByMe      ?? true,
+                    showSaved:            ps.showSaved            ?? true,
+                },
             },
         });
     } catch (error) {
@@ -391,19 +543,31 @@ export const getUserPets = async (req, res) => {
     try {
         const { id } = req.params;
 
+        let isFoundHomePrivate = false;
+
+        if (!isOwnerRequest(req, id)) {
+            const settings = await getPrivacySettingsFor(id);
+            if (settings) {
+                isFoundHomePrivate = settings.showFoundAHome === false;
+            }
+        }
+
+        // Uploads are always visible; only filter out adopted pets when Found a Home is private
+        const adoptionFilter = isFoundHomePrivate ? 'AND p.is_adopted = false' : '';
+
         const result = await pool.query(
             `SELECT p.id, p.name, p.type, p.breed, p.age_category,
                     p.adoption_status, p.is_adopted, p.adopted_at,
-                    p.location_city, p.created_at,
+                    p.location_city, p.created_at, p.status,
                     pp.id AS primary_photo_id
              FROM pets p
              LEFT JOIN pet_photos pp ON pp.pet_id = p.id AND pp.is_primary = true
-             WHERE p.uploader_id = $1
+             WHERE p.uploader_id = $1 ${adoptionFilter}
              ORDER BY p.created_at DESC`,
             [id]
         );
 
-        res.status(200).json({ success: true, pets: result.rows });
+        res.status(200).json({ success: true, pets: result.rows, isFoundHomePrivate });
     } catch (error) {
         console.error('Error in getUserPets:', error);
         res.status(500).json({ success: false, message: 'Server error' });
@@ -414,6 +578,12 @@ export const getUserPets = async (req, res) => {
 export const getUserAdoptedPets = async (req, res) => {
     try {
         const { id } = req.params;
+
+        if (!isOwnerRequest(req, id)) {
+            const settings = await getPrivacySettingsFor(id);
+            if (settings && settings.showAdoptedByMe === false)
+                return res.json({ success: true, isPrivate: true, pets: [] });
+        }
 
         const result = await pool.query(
             `SELECT p.id, p.name, p.type, p.breed,
@@ -438,6 +608,12 @@ export const getUserAdoptedPets = async (req, res) => {
 export const getUserSavedPets = async (req, res) => {
     try {
         const { id } = req.params;
+
+        if (!isOwnerRequest(req, id)) {
+            const settings = await getPrivacySettingsFor(id);
+            if (settings && settings.showSaved === false)
+                return res.json({ success: true, isPrivate: true, pets: [] });
+        }
 
         const result = await pool.query(
             `SELECT p.id, p.name, p.type, p.breed, p.age_category,

@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { PawPrint, ArrowLeft, Users, BarChart3, Settings, Heart, ShieldCheck } from 'lucide-react';
+import { PawPrint, Users, BarChart3, Settings, Heart, ShieldCheck } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
+import Navbar from '../components/Navbar';
 
-// Import admin panel components
 import PetsManagement from './Admin/PetsManagement';
 import UsersManagement from './Admin/UsersManagement';
 import DonationsStats from './Admin/DonationsStats';
@@ -13,31 +12,27 @@ import AdminSettings from './Admin/AdminSettings';
 import StatisticsManagement from './Admin/StatisticsManagement';
 import ModerationPanel from './Admin/ModerationPanel';
 
-const AdminDashboardPage = () => {
-    const navigate = useNavigate();
-    const { user, isLoading } = useAuthStore();
-    const [activePanel, setActivePanel] = useState('pets'); // Default panel
+const sans = "'DM Sans', sans-serif";
 
-    // Prevent zoom issues by adding a meta tag
+const AdminDashboardPage = () => {
+    const { user, isLoading } = useAuthStore();
+    const [activePanel, setActivePanel] = useState('pets');
+
     useEffect(() => {
-        // Create viewport meta tag to prevent scaling/zooming
         const metaTag = document.createElement('meta');
         metaTag.name = 'viewport';
         metaTag.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0';
         document.getElementsByTagName('head')[0].appendChild(metaTag);
 
-        // Prevent mobile browser double-tap zooming
         document.addEventListener('gesturestart', function(e) {
             e.preventDefault();
         });
 
-        // Cleanup function to remove event listeners when component unmounts
         return () => {
             document.removeEventListener('gesturestart', function(e) {
                 e.preventDefault();
             });
 
-            // Try to find and remove the meta tag
             const metaTags = document.getElementsByTagName('meta');
             for (let i = 0; i < metaTags.length; i++) {
                 if (metaTags[i].name === 'viewport' &&
@@ -53,90 +48,141 @@ const AdminDashboardPage = () => {
         return <LoadingSpinner />;
     }
 
-    // Navigation items
     const navItems = [
-        { id: 'pets', label: 'Pets', icon: <PawPrint className="h-5 w-5" /> },
-        { id: 'adoptions', label: 'Adoptions', icon: <Heart className="h-5 w-5" /> },
-        { id: 'users', label: 'Users', icon: <Users className="h-5 w-5" /> },
+        { id: 'pets',       label: 'Pets',       icon: <PawPrint   className="h-5 w-5" /> },
+        { id: 'adoptions',  label: 'Adoptions',  icon: <Heart      className="h-5 w-5" /> },
+        { id: 'users',      label: 'Users',      icon: <Users      className="h-5 w-5" /> },
         { id: 'moderation', label: 'Moderation', icon: <ShieldCheck className="h-5 w-5" /> },
-        { id: 'statistics', label: 'Statistics', icon: <BarChart3 className="h-5 w-5" /> },
-        { id: 'settings', label: 'Settings', icon: <Settings className="h-5 w-5" /> }
+        { id: 'statistics', label: 'Statistics', icon: <BarChart3  className="h-5 w-5" /> },
+        { id: 'settings',   label: 'Settings',   icon: <Settings  className="h-5 w-5" /> },
     ];
 
     return (
-        <div className="min-h-screen w-screen flex flex-col bg-gray-50">
-            {/* Header */}
-            <header className="bg-tealcustom text-white py-4 px-4 sm:px-6">
-                <div className="w-full flex justify-between items-center">
-                    <div className="flex items-center">
-                        <PawPrint className="h-6 w-6 mr-2" />
-                        <h1 className="text-xl font-bold">Paws Admin Dashboard</h1>
-                    </div>
-                    <button
-                        onClick={() => navigate('/')}
-                        className="flex items-center text-white hover:text-yellow-200"
-                        style={{ padding: '10px', touchAction: 'manipulation' }}
-                    >
-                        <ArrowLeft className="h-5 w-5 mr-1" />
-                        Back to Home
-                    </button>
-                </div>
-            </header>
+        <div className="min-h-screen w-screen flex flex-col" style={{ backgroundColor: '#FAF7F4' }}>
+            <Navbar />
 
-            {/* Main Content Area */}
+            {/* Main layout */}
             <div className="flex flex-grow overflow-hidden">
-                {/* Sidebar */}
-                <aside className="hidden md:flex flex-col w-64 bg-white border-r border-gray-200">
+
+                {/* Sidebar — desktop only */}
+                <aside
+                    className="hidden md:flex flex-col w-48"
+                    style={{
+                        backgroundColor: '#FAF7F4',
+                        borderRight: '1px solid rgba(45,31,20,0.1)',
+                        flexShrink: 0,
+                    }}
+                >
                     <nav className="flex-1 pt-5 pb-4 overflow-y-auto">
-                        <div className="px-2 space-y-1">
-                            {navItems.map((item) => (
-                                <button
-                                    key={item.id}
-                                    className={`flex items-center px-4 py-3 text-sm font-medium rounded-md w-full ${
-                                        activePanel === item.id
-                                            ? 'bg-teal-100 text-tealcustom'
-                                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                    }`}
-                                    onClick={() => setActivePanel(item.id)}
-                                >
-                                    <span className="mr-3">{item.icon}</span>
-                                    {item.label}
-                                </button>
-                            ))}
+                        <div style={{ padding: '0 8px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                            {navItems.map((item) => {
+                                const active = activePanel === item.id;
+                                return (
+                                    <button
+                                        key={item.id}
+                                        onClick={() => setActivePanel(item.id)}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '10px',
+                                            width: '100%',
+                                            padding: '10px 14px',
+                                            borderRadius: '6px',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            fontFamily: sans,
+                                            fontSize: '13px',
+                                            fontWeight: active ? 500 : 400,
+                                            backgroundColor: active ? 'rgba(192,122,74,0.1)' : 'transparent',
+                                            color: active ? '#C07A4A' : '#7A5C44',
+                                            textAlign: 'left',
+                                            transition: 'background-color 0.15s, color 0.15s',
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            if (!active) {
+                                                e.currentTarget.style.backgroundColor = 'rgba(45,31,20,0.04)';
+                                                e.currentTarget.style.color = '#2D1F14';
+                                            }
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            if (!active) {
+                                                e.currentTarget.style.backgroundColor = 'transparent';
+                                                e.currentTarget.style.color = '#7A5C44';
+                                            }
+                                        }}
+                                    >
+                                        <span style={{ color: active ? '#C07A4A' : '#B09880', display: 'flex' }}>
+                                            {item.icon}
+                                        </span>
+                                        {item.label}
+                                    </button>
+                                );
+                            })}
                         </div>
                     </nav>
                 </aside>
 
-                {/* Mobile Navigation */}
-                <div className="md:hidden bg-white border-b border-gray-200 p-2">
-                    <div className="flex justify-between overflow-x-auto px-2 py-1">
-                        {navItems.map((item) => (
-                            <button
-                                key={item.id}
-                                className={`flex flex-col items-center px-3 py-2 text-xs font-medium rounded-md ${
-                                    activePanel === item.id
-                                        ? 'bg-teal-100 text-tealcustom'
-                                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                }`}
-                                onClick={() => setActivePanel(item.id)}
-                            >
-                                {item.icon}
-                                <span className="mt-1">{item.label}</span>
-                            </button>
-                        ))}
+                {/* Mobile Navigation — top bar on small screens */}
+                <div
+                    className="md:hidden w-full"
+                    style={{
+                        position: 'absolute',
+                        top: '56px',
+                        left: 0,
+                        right: 0,
+                        backgroundColor: '#FAF7F4',
+                        borderBottom: '1px solid rgba(45,31,20,0.1)',
+                        padding: '6px 8px',
+                        zIndex: 10,
+                    }}
+                >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', overflowX: 'auto', padding: '2px 4px', gap: '2px' }}>
+                        {navItems.map((item) => {
+                            const active = activePanel === item.id;
+                            return (
+                                <button
+                                    key={item.id}
+                                    onClick={() => setActivePanel(item.id)}
+                                    style={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        gap: '3px',
+                                        padding: '7px 10px',
+                                        borderRadius: '6px',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        fontFamily: sans,
+                                        fontSize: '10px',
+                                        fontWeight: active ? 500 : 400,
+                                        backgroundColor: active ? 'rgba(192,122,74,0.1)' : 'transparent',
+                                        color: active ? '#C07A4A' : '#7A5C44',
+                                        whiteSpace: 'nowrap',
+                                        flexShrink: 0,
+                                    }}
+                                >
+                                    <span style={{ color: active ? '#C07A4A' : '#B09880', display: 'flex' }}>
+                                        {item.icon}
+                                    </span>
+                                    {item.label}
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
 
                 {/* Main Content */}
-                <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+                <main
+                    className="flex-1 overflow-y-auto p-4 sm:p-6"
+                    style={{ backgroundColor: '#FAF7F4' }}
+                >
                     <div className="max-w-full mx-auto">
-                        {/* Active Panel Content */}
-                        {activePanel === 'moderation' && <ModerationPanel />}
-                        {activePanel === 'statistics' && <StatisticsManagement />}
-                        {activePanel === 'pets' && <PetsManagement />}
-                        {activePanel === 'adoptions' && <AdoptionsManagement />}
-                        {activePanel === 'users' && <UsersManagement />}
-                        {activePanel === 'settings' && <AdminSettings />}
+                        {activePanel === 'moderation'  && <ModerationPanel />}
+                        {activePanel === 'statistics'  && <StatisticsManagement />}
+                        {activePanel === 'pets'        && <PetsManagement />}
+                        {activePanel === 'adoptions'   && <AdoptionsManagement />}
+                        {activePanel === 'users'       && <UsersManagement />}
+                        {activePanel === 'settings'    && <AdminSettings />}
                     </div>
                 </main>
             </div>

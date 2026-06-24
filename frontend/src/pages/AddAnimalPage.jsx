@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Navbar from '../components/Navbar';
 import LocationPicker from '../components/LocationPicker';
+import { cropToFocalPoint } from '../utils/imageCrop.js';
 
 const API   = 'http://localhost:5000/api';
 const serif = "'Cormorant Garamond', serif";
@@ -159,24 +160,6 @@ export default function AddAnimalPage() {
         dragStateRef.current = { startX: e.clientX, startY: e.clientY, startFocalX: leadFocalPoint.x, startFocalY: leadFocalPoint.y, w: rect.width, h: rect.height };
     };
 
-    // Crop lead photo to 4:3 at the chosen focal point before uploading
-    const cropToFocalPoint = (file, fx, fy) => new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-            const TW = 1200, TH = 900;
-            const ar = img.width / img.height, tar = TW / TH;
-            let sx, sy, sw, sh;
-            if (ar > tar) { sh = img.height; sw = sh * tar; sx = (img.width - sw) * (fx / 100); sy = 0; }
-            else          { sw = img.width;  sh = sw / tar; sx = 0; sy = (img.height - sh) * (fy / 100); }
-            const c = document.createElement('canvas');
-            c.width = TW; c.height = TH;
-            c.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, TW, TH);
-            c.toBlob(blob => resolve(new File([blob], file.name, { type: 'image/jpeg' })), 'image/jpeg', 0.92);
-            URL.revokeObjectURL(img.src);
-        };
-        img.src = URL.createObjectURL(file);
-    });
-
     // ── Step 1 state ──────────────────────────────────────────────────────────
     const [foundHow,        setFoundHow]        = useState('');
     const [foundHowOther,   setFoundHowOther]   = useState('');
@@ -194,6 +177,7 @@ export default function AddAnimalPage() {
     const [coatColorOther,  setCoatColorOther]  = useState('');
     const [coatType,        setCoatType]        = useState('');
     const [breed,           setBreed]           = useState('');
+    const [gender,          setGender]          = useState('');
 
     // ── Step 2 state ──────────────────────────────────────────────────────────
     const [headline,        setHeadline]        = useState('');
@@ -262,6 +246,7 @@ export default function AddAnimalPage() {
                 breed:      breed || '',
                 color:      effectiveColors.join(', ') || '',
                 coat:       coatType || '',
+                gender:     gender || '',
                 city:       locValue.city || locValue.county || '',
                 traits:     selectedTraits,
             }, { withCredentials: true });
@@ -379,7 +364,7 @@ export default function AddAnimalPage() {
                 type:                  actualType.toLowerCase(),
                 breed:                 breed || '',
                 age_category:          exactAge || approxAge || '',
-                gender:                '',
+                gender:                gender.toLowerCase() || '',
                 size:                  exactWeight ? `${approxSize ? `${approxSize} — ` : ''}${exactWeight}` : (approxSize || ''),
                 color:                 effectiveColors.join(', ') || '',
                 coat:                  coatType || '',
@@ -466,6 +451,17 @@ export default function AddAnimalPage() {
                 <StepIndicator step={1} />
 
                 <div style={{ maxWidth: '640px', margin: '0 auto', padding: '36px 48px 80px', width: '100%', boxSizing: 'border-box' }}>
+
+                    {/* Cancel */}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+                        <button type="button" onClick={() => navigate(-1)}
+                            style={{ fontFamily: sans, fontSize: '11px', color: '#9A7A60', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                            onMouseEnter={e => { e.currentTarget.style.color = '#C07A4A'; }}
+                            onMouseLeave={e => { e.currentTarget.style.color = '#9A7A60'; }}
+                        >
+                            ✕ Cancel
+                        </button>
+                    </div>
 
                     {/* Masthead */}
                     <div style={{ textAlign: 'center', marginBottom: '36px' }}>
@@ -559,6 +555,11 @@ export default function AddAnimalPage() {
                     {/* ── SECTION 3: Appearance ────────────────────────────── */}
                     <SectionLabel>Appearance</SectionLabel>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+                        <div>
+                            <FieldLabel>Gender</FieldLabel>
+                            <PillToggle large options={['Male', 'Female', 'Unknown']} value={gender} onChange={setGender} />
+                        </div>
 
                         <div>
                             <FieldLabel>Age</FieldLabel>
@@ -703,16 +704,27 @@ export default function AddAnimalPage() {
 
             <form onSubmit={handleSubmit} style={{ maxWidth: '720px', margin: '0 auto', padding: '40px 48px 80px', width: '100%', boxSizing: 'border-box' }}>
 
-                {/* Back link */}
-                <button
-                    type="button"
-                    onClick={() => setStep(1)}
-                    style={{ fontFamily: sans, fontSize: '11px', color: '#9A7A60', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: '24px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                    onMouseEnter={e => { e.currentTarget.style.color = '#C07A4A'; }}
-                    onMouseLeave={e => { e.currentTarget.style.color = '#9A7A60'; }}
-                >
-                    ← Back
-                </button>
+                {/* Back / Cancel */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                    <button
+                        type="button"
+                        onClick={() => setStep(1)}
+                        style={{ fontFamily: sans, fontSize: '11px', color: '#9A7A60', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                        onMouseEnter={e => { e.currentTarget.style.color = '#C07A4A'; }}
+                        onMouseLeave={e => { e.currentTarget.style.color = '#9A7A60'; }}
+                    >
+                        ← Back
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => navigate(-1)}
+                        style={{ fontFamily: sans, fontSize: '11px', color: '#9A7A60', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                        onMouseEnter={e => { e.currentTarget.style.color = '#C07A4A'; }}
+                        onMouseLeave={e => { e.currentTarget.style.color = '#9A7A60'; }}
+                    >
+                        ✕ Cancel
+                    </button>
+                </div>
 
                 {/* ── MASTHEAD ─────────────────────────────────────────── */}
                 <div style={{ textAlign: 'center', marginBottom: '0' }}>
@@ -1023,11 +1035,11 @@ export default function AddAnimalPage() {
                 {(() => {
                     const step1Summary = [
                         foundHow && foundHow !== 'Other' ? { label: 'Found', value: foundHow } : foundHowOther ? { label: 'Found', value: foundHowOther } : null,
-                        (exactAge || (approxAge && approxAge !== 'Unknown')) ? { label: 'Age', value: exactAge || approxAge } : null,
-                        (exactWeight || (approxSize && approxSize !== 'Unknown')) ? { label: 'Size', value: exactWeight ? `${exactWeight}${approxSize ? ` · ${approxSize}` : ''}` : approxSize } : null,
-                        isVaccinated && isVaccinated !== "Don't know" ? { label: 'Vaccinated', value: isVaccinated } : null,
-                        isNeutered && isNeutered !== "Don't know" ? { label: 'Neutered', value: isNeutered } : null,
-                        hasMicrochip && hasMicrochip !== "Don't know" ? { label: 'Microchip', value: hasMicrochip } : null,
+                        (exactAge || approxAge) ? { label: 'Age', value: exactAge || approxAge } : null,
+                        (exactWeight || approxSize) ? { label: 'Size', value: exactWeight ? `${exactWeight}${approxSize ? ` · ${approxSize}` : ''}` : approxSize } : null,
+                        isVaccinated ? { label: 'Vaccinated', value: isVaccinated } : null,
+                        isNeutered ? { label: 'Neutered', value: isNeutered } : null,
+                        hasMicrochip ? { label: 'Microchip', value: hasMicrochip } : null,
                         breed ? { label: 'Breed', value: breed } : null,
                         effectiveColors.length > 0 ? { label: 'Color', value: effectiveColors.join(', ') } : null,
                         coatType ? { label: 'Coat', value: coatType } : null,

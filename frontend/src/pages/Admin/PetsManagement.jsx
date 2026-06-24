@@ -1,5 +1,6 @@
 // components/Admin/PetsManagement.jsx
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { usePetStore } from '../../store/petStore';
 import { PawPrint, Plus, X, Edit, Trash2, Check, Camera, Star, Search, Filter, RefreshCw } from 'lucide-react';
 import axios from 'axios';
@@ -8,11 +9,11 @@ import AdminModal from './shared/AdminModal';
 import AdminSearchBar from './shared/AdminSearchBar';
 
 const PetsManagement = () => {
+    const navigate = useNavigate();
     const { pets, isLoading, error, getAllPets, createPet, updatePet, deletePet } = usePetStore();
 
     // UI state
     const [showAddModal, setShowAddModal] = useState(false);
-    const [showEditModal, setShowEditModal] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [filteredPets, setFilteredPets] = useState([]);
@@ -167,31 +168,9 @@ const PetsManagement = () => {
 
             setShowAddModal(false);
             resetForm();
-            getAllPets(); // Refresh the pet list
+            getAllPets({ isAdminRequest: true }); // Refresh the pet list
         } catch (error) {
             console.error('Error creating pet:', error);
-        }
-    };
-
-    // Handle form update
-    const handleUpdate = async (e) => {
-        e.preventDefault();
-        if (selectedPet) {
-            try {
-                await updatePet(selectedPet.id, formData);
-
-                // If a photo is selected, upload it
-                if (photoFile) {
-                    await uploadPhoto(selectedPet.id, photoFile);
-                }
-
-                setShowEditModal(false);
-                resetForm();
-                setSelectedPet(null);
-                getAllPets(); // Refresh the pet list
-            } catch (error) {
-                console.error('Error updating pet:', error);
-            }
         }
     };
 
@@ -202,60 +181,17 @@ const PetsManagement = () => {
                 await deletePet(selectedPet.id);
                 setShowDeleteConfirm(false);
                 setSelectedPet(null);
-                getAllPets(); // Refresh the pet list
+                getAllPets({ isAdminRequest: true }); // Refresh the pet list
             } catch (error) {
                 console.error('Error deleting pet:', error);
             }
         }
     };
 
-    // Open edit modal with pet data
-    const handleEditClick = async (pet, e) => {
-        // Stop event propagation to prevent table row click
-        if (e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-
-        setSelectedPet(pet);
-
-        // Set form data from pet
-        setFormData({
-            name: pet.name || '',
-            type: pet.type || 'dog',
-            breed: pet.breed || '',
-            age_category: pet.age_category || 'young',
-            gender: pet.gender || 'male',
-            size: pet.size || 'medium',
-            color: pet.color || '',
-            coat: pet.coat || '',
-            fee: pet.fee || '',
-            description: pet.description || '',
-            health_status: pet.health_status || 'healthy',
-            story: pet.story || '',
-            location_address: pet.location_address || '',
-            location_city: pet.location_city || '',
-            location_country: pet.location_country || '',
-            shelter_contact_email: pet.shelter_contact_email || '',
-            shelter_contact_phone: pet.shelter_contact_phone || '',
-            zip_code: pet.zip_code || '',
-            traits: pet.traits ? (Array.isArray(pet.traits) ? pet.traits : [pet.traits]) : [],
-            is_available: pet.is_available !== undefined ? pet.is_available : true,
-            adoption_status: pet.is_available !== undefined && !pet.is_available ? 'unavailable' : pet.adoption_status || 'available'
-        });
-
-        // Fetch photos for this pet
-        try {
-            const response = await axios.get(`http://localhost:5000/api/pets/${pet.id}/photos`);
-            if (response.data.success) {
-                setCurrentPetPhotos(response.data.photos || []);
-            }
-        } catch (error) {
-            console.error('Error fetching pet photos:', error);
-            setCurrentPetPhotos([]);
-        }
-
-        setShowEditModal(true);
+    // Navigate to the edit page for this pet
+    const handleEditClick = (pet, e) => {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        navigate(`/pet/${pet.id}/edit`, { state: { from: '/admin/pets' } });
     };
 
     // Handle delete button click
@@ -344,8 +280,8 @@ const PetsManagement = () => {
     };
 
     // Add Pet Form Content
-    const renderAddEditForm = (isEdit = false) => (
-        <form onSubmit={isEdit ? handleUpdate : handleSubmit} className="p-6">
+    const renderAddEditForm = () => (
+        <form onSubmit={handleSubmit} className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Basic Info */}
                 <div>
@@ -592,66 +528,9 @@ const PetsManagement = () => {
                         </div>
                     </div>
 
-                    {isEdit && (
-                        <div className="mb-4">
-                            <label className="block text-gray-700 text-sm font-bold mb-2">
-                                Current Photos
-                            </label>
-                            <div className="flex flex-wrap gap-2">
-                                {currentPetPhotos.length === 0 ? (
-                                    <p className="text-gray-500 italic">No photos provided</p>
-                                ) : (
-                                    currentPetPhotos.map((photo) => (
-                                        <div key={photo.id} className="relative group">
-                                            <img
-                                                src={getPhotoUrl(photo.id)}
-                                                alt={photo.photo_name || 'Pet photo'}
-                                                className={`h-20 w-20 object-cover rounded border-2 ${photo.is_primary ? 'border-yellow-400' : 'border-transparent'}`}
-                                                onError={(e) => e.target.src = '/api/placeholder/80/80'}
-                                            />
-                                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
-                                                {!photo.is_primary && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setPrimaryPhoto(selectedPet.id, photo.id);
-                                                        }}
-                                                        className="text-yellow-400 hover:text-yellow-300 mx-1 p-2"
-                                                        style={{ touchAction: 'manipulation' }}
-                                                        title="Set as primary photo"
-                                                    >
-                                                        <Star className="h-5 w-5" />
-                                                    </button>
-                                                )}
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        deletePhoto(selectedPet.id, photo.id);
-                                                    }}
-                                                    className="text-red-400 hover:text-red-300 mx-1 p-2"
-                                                    style={{ touchAction: 'manipulation' }}
-                                                    title="Delete photo"
-                                                >
-                                                    <Trash2 className="h-5 w-5" />
-                                                </button>
-                                            </div>
-                                            {photo.is_primary && (
-                                                <span className="absolute top-0 right-0 bg-yellow-400 text-white text-xs px-1 rounded-bl">
-                                                    Primary
-                                                </span>
-                                            )}
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-                    )}
-
                     <div className="mb-4">
                         <label className="block text-gray-700 text-sm font-bold mb-2">
-                            {isEdit ? 'Add New Photo' : 'Photo'}
+                            Photo
                         </label>
                         <div className="flex items-center">
                             <input
@@ -659,10 +538,10 @@ const PetsManagement = () => {
                                 accept="image/*"
                                 onChange={handlePhotoChange}
                                 className="hidden"
-                                id={isEdit ? "photo-upload-edit" : "photo-upload"}
+                                id="photo-upload"
                             />
                             <label
-                                htmlFor={isEdit ? "photo-upload-edit" : "photo-upload"}
+                                htmlFor="photo-upload"
                                 className="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded flex items-center"
                                 style={{ touchAction: 'manipulation' }}
                             >
@@ -770,7 +649,7 @@ const PetsManagement = () => {
             <div className="mt-6 flex justify-end">
                 <button
                     type="button"
-                    onClick={() => isEdit ? setShowEditModal(false) : setShowAddModal(false)}
+                    onClick={() => setShowAddModal(false)}
                     className="mr-4 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
                     style={{ touchAction: 'manipulation', minWidth: '100px' }}
                 >
@@ -782,7 +661,7 @@ const PetsManagement = () => {
                     style={{ touchAction: 'manipulation', minWidth: '120px' }}
                 >
                     <Check className="h-5 w-5 mr-2" />
-                    {isEdit ? 'Update Pet' : 'Save Pet'}
+                    Save Pet
                 </button>
             </div>
         </form>
@@ -792,24 +671,13 @@ const PetsManagement = () => {
         <div>
             {/* Title and Add Pet Button */}
             <div className="flex flex-wrap justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold mb-4 sm:mb-0">Manage Pets</h2>
+                <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '24px', fontWeight: 700, color: '#2D1F14', margin: 0 }}>Manage Pets</h2>
                 <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
                     <AdminSearchBar
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         placeholder="Search pets..."
                     />
-                    <button
-                        onClick={() => {
-                            resetForm();
-                            setShowAddModal(true);
-                        }}
-                        className="bg-tealcustom hover:bg-teal-700 text-white px-4 py-2 rounded-md flex items-center w-full sm:w-auto justify-center"
-                        style={{ padding: '10px', touchAction: 'manipulation', minWidth: '120px' }}
-                    >
-                        <Plus className="h-5 w-5 mr-1" />
-                        Add New Pet
-                    </button>
                 </div>
             </div>
 
@@ -821,111 +689,105 @@ const PetsManagement = () => {
             )}
 
             {/* Pets Table */}
-            <div className="bg-white shadow-md rounded-lg overflow-x-auto w-full">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+            <div style={{ backgroundColor: '#FFFAF7', border: '1px solid rgba(45,31,20,0.1)', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(45,31,20,0.06)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: "'DM Sans', sans-serif" }}>
+                    <thead style={{ backgroundColor: 'rgba(45,31,20,0.03)', borderBottom: '1px solid rgba(45,31,20,0.1)' }}>
                     <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pet</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Breed</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Age</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gender</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        <th style={{ padding: '8px 10px', fontSize: '10px', fontWeight: 600, color: '#B09880', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'left', whiteSpace: 'nowrap' }}>Pet</th>
+                        <th style={{ padding: '8px 10px', fontSize: '10px', fontWeight: 600, color: '#B09880', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'left', whiteSpace: 'nowrap' }}>Type</th>
+                        <th style={{ padding: '8px 10px', fontSize: '10px', fontWeight: 600, color: '#B09880', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'left', whiteSpace: 'nowrap' }}>Breed</th>
+                        <th style={{ padding: '8px 10px', fontSize: '10px', fontWeight: 600, color: '#B09880', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'left', whiteSpace: 'nowrap' }}>Age</th>
+                        <th style={{ padding: '8px 10px', fontSize: '10px', fontWeight: 600, color: '#B09880', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'left', whiteSpace: 'nowrap' }}>Gender</th>
+                        <th style={{ padding: '8px 10px', fontSize: '10px', fontWeight: 600, color: '#B09880', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'left', whiteSpace: 'nowrap' }}>Location</th>
+                        <th style={{ padding: '8px 10px', fontSize: '10px', fontWeight: 600, color: '#B09880', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'left', whiteSpace: 'nowrap' }}>Moderation</th>
+                        <th style={{ padding: '8px 10px', fontSize: '10px', fontWeight: 600, color: '#B09880', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'left', whiteSpace: 'nowrap' }}>Status</th>
+                        <th style={{ padding: '8px 10px', fontSize: '10px', fontWeight: 600, color: '#B09880', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'left', whiteSpace: 'nowrap' }}>Actions</th>
                     </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody>
                     {isLoading ? (
                         <tr>
-                            <td colSpan="8" className="px-6 py-4 text-center">Loading...</td>
+                            <td colSpan="9" style={{ padding: '32px', textAlign: 'center', fontSize: '13px', color: '#B09880', fontFamily: "'DM Sans', sans-serif" }}>Loading...</td>
                         </tr>
                     ) : filteredPets.length === 0 ? (
                         <tr>
-                            <td colSpan="8" className="px-6 py-4 text-center">No pets found</td>
+                            <td colSpan="9" style={{ padding: '32px', textAlign: 'center', fontSize: '13px', color: '#B09880', fontFamily: "'DM Sans', sans-serif" }}>No pets found</td>
                         </tr>
                     ) : (
                         // Use getCurrentPets() instead of filteredPets directly
                         getCurrentPets().map(pet => (
-                            <tr key={pet.id} className="hover:bg-gray-50">
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="flex items-center">
-                                        <div className="h-10 w-10 rounded-full overflow-hidden bg-gray-200 mr-3">
+                            <tr key={pet.id} style={{ borderTop: '1px solid rgba(45,31,20,0.06)' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(192,122,74,0.04)'} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                                <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <div style={{ width: '30px', height: '30px', borderRadius: '50%', overflow: 'hidden', backgroundColor: '#E8D4C8', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                             {pet.photos && pet.photos.length > 0 ? (
                                                 <img
                                                     src={getPhotoUrl(pet.photos.find(p => p.is_primary)?.id || pet.photos[0].id)}
                                                     alt={pet.name}
-                                                    className="h-full w-full object-cover"
-                                                    onError={(e) => e.target.src = '/api/placeholder/40/40'}
+                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                    onError={(e) => e.target.src = '/api/placeholder/30/30'}
                                                 />
                                             ) : (
-                                                <div className="h-full w-full flex items-center justify-center bg-gray-200 text-gray-500">
-                                                    <PawPrint className="h-6 w-6" />
-                                                    <span className="sr-only">No photo provided</span>
-                                                </div>
+                                                <PawPrint style={{ width: '14px', height: '14px', color: '#B09880' }} />
                                             )}
                                         </div>
-                                        <div className="font-medium text-gray-900">{pet.name}</div>
+                                        <span style={{ fontSize: '13px', fontWeight: 500, color: '#2D1F14' }}>{pet.name}</span>
                                     </div>
                                 </td>
-                                <td className="px-6 py-4">{pet.type}</td>
-                                <td className="px-6 py-4">{pet.breed}</td>
-                                <td className="px-6 py-4">{pet.age_category}</td>
-                                <td className="px-6 py-4">{pet.gender}</td>
-                                <td className="px-6 py-4">{pet.location_city}</td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                        pet.adoption_status === 'available' ? 'bg-green-100 text-green-800' :
-                                            pet.adoption_status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                                pet.adoption_status === 'adopted' ? 'bg-blue-100 text-blue-800' :
-                                                    pet.adoption_status === 'unavailable' ? 'bg-gray-100 text-gray-800' :
-                                                        'bg-gray-100 text-gray-800'
-                                    }`}>
-                                        {pet.adoption_status === 'available' ? 'Available' :
-                                            pet.adoption_status === 'pending' ? 'Pending' :
-                                                pet.adoption_status === 'adopted' ? 'Adopted' :
-                                                    pet.adoption_status === 'unavailable' ? 'Unavailable' :
-                                                        pet.adoption_status || 'Unknown'}
+                                <td style={{ padding: '8px 10px', fontSize: '12px', color: '#7A5C44' }}>{pet.type}</td>
+                                <td style={{ padding: '8px 10px', fontSize: '12px', color: '#7A5C44' }}>{pet.breed}</td>
+                                <td style={{ padding: '8px 10px', fontSize: '12px', color: '#7A5C44' }}>{pet.age_category}</td>
+                                <td style={{ padding: '8px 10px', fontSize: '12px', color: '#7A5C44' }}>{pet.gender}</td>
+                                <td style={{ padding: '8px 10px', fontSize: '12px', color: '#7A5C44' }}>{pet.location_city}</td>
+                                <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>
+                                    <span style={{
+                                        padding: '3px 8px', fontSize: '11px', fontWeight: 500, borderRadius: '100px',
+                                        ...(pet.status === 'approved'
+                                            ? { backgroundColor: 'rgba(34,197,94,0.1)', color: '#166534' }
+                                            : pet.status === 'rejected'
+                                            ? { backgroundColor: 'rgba(153,60,29,0.1)', color: '#993C1D' }
+                                            : { backgroundColor: '#FAF3E8', color: '#8B4E28' })
+                                    }}>
+                                        {pet.status === 'approved' ? 'Approved' : pet.status === 'rejected' ? 'Rejected' : 'Pending'}
                                     </span>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="flex space-x-2">
+                                <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>
+                                    <span style={{
+                                        padding: '3px 8px', fontSize: '11px', fontWeight: 500, borderRadius: '100px',
+                                        ...(pet.adoption_status === 'available'
+                                            ? { backgroundColor: 'rgba(34,197,94,0.1)', color: '#166534' }
+                                            : pet.adoption_status === 'pending'
+                                            ? { backgroundColor: '#FAF3E8', color: '#8B4E28' }
+                                            : pet.adoption_status === 'adopted'
+                                            ? { backgroundColor: 'rgba(45,31,20,0.08)', color: '#2D1F14' }
+                                            : { backgroundColor: 'rgba(45,31,20,0.05)', color: '#7A5C44' })
+                                    }}>
+                                        {pet.adoption_status === 'available' ? 'Available' :
+                                            pet.adoption_status === 'pending' ? 'Pending' :
+                                            pet.adoption_status === 'adopted' ? 'Adopted' :
+                                            pet.adoption_status === 'unavailable' ? 'Unavailable' :
+                                            pet.adoption_status || 'Unknown'}
+                                    </span>
+                                </td>
+                                <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>
+                                    <div style={{ display: 'flex', gap: '2px' }}>
                                         <button
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                handleEditClick(pet, e);
-                                            }}
-                                            className="text-indigo-600 hover:text-indigo-900"
-                                            style={{
-                                                touchAction: 'manipulation !important',
-                                                minHeight: '44px',
-                                                minWidth: '44px',
-                                                position: 'relative',
-                                                zIndex: 10,
-                                                padding: '10px'
-                                            }}
+                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEditClick(pet, e); }}
+                                            style={{ color: '#C07A4A', background: 'none', border: 'none', cursor: 'pointer', padding: '6px', borderRadius: '4px', display: 'flex', alignItems: 'center' }}
+                                            onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(192,122,74,0.1)'}
+                                            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                                             aria-label={`Edit ${pet.name}`}
                                         >
-                                            <Edit className="h-5 w-5" />
+                                            <Edit style={{ width: '15px', height: '15px' }} />
                                         </button>
                                         <button
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                handleDeleteClick(pet, e);
-                                            }}
-                                            className="text-red-600 hover:text-red-900"
-                                            style={{
-                                                touchAction: 'manipulation !important',
-                                                minHeight: '44px',
-                                                minWidth: '44px',
-                                                position: 'relative',
-                                                zIndex: 10
-                                            }}
+                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteClick(pet, e); }}
+                                            style={{ color: '#993C1D', background: 'none', border: 'none', cursor: 'pointer', padding: '6px', borderRadius: '4px', display: 'flex', alignItems: 'center' }}
+                                            onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(153,60,29,0.08)'}
+                                            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                                             aria-label={`Delete ${pet.name}`}
                                         >
-                                            <Trash2 className="h-5 w-5" />
+                                            <Trash2 style={{ width: '15px', height: '15px' }} />
                                         </button>
                                     </div>
                                 </td>
@@ -950,16 +812,7 @@ const PetsManagement = () => {
                 onClose={() => setShowAddModal(false)}
                 title="Add New Pet"
             >
-                {renderAddEditForm(false)}
-            </AdminModal>
-
-            {/* Edit Pet Modal */}
-            <AdminModal
-                isOpen={showEditModal}
-                onClose={() => setShowEditModal(false)}
-                title={`Edit Pet: ${selectedPet?.name}`}
-            >
-                {renderAddEditForm(true)}
+                {renderAddEditForm()}
             </AdminModal>
 
             {/* Delete Confirmation Modal */}
@@ -969,24 +822,37 @@ const PetsManagement = () => {
                 title="Delete Pet"
                 size="sm"
             >
-                <div className="p-6">
-                    <p className="mb-6">
-                        Are you sure you want to delete {selectedPet?.name}? This action cannot be undone.
+                <div style={{ padding: '24px 20px' }}>
+                    <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', color: '#7A5C44', marginBottom: '24px', lineHeight: 1.6 }}>
+                        Are you sure you want to delete <strong style={{ color: '#2D1F14' }}>{selectedPet?.name}</strong>? This action cannot be undone.
                     </p>
-                    <div className="flex justify-end">
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                         <button
                             onClick={() => setShowDeleteConfirm(false)}
-                            className="mr-4 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
-                            style={{ touchAction: 'manipulation', minWidth: '100px' }}
+                            style={{
+                                fontFamily: "'DM Sans', sans-serif", fontSize: '13px',
+                                padding: '8px 18px', borderRadius: '6px', cursor: 'pointer',
+                                border: '1px solid rgba(45,31,20,0.2)', background: 'transparent',
+                                color: '#7A5C44', minWidth: '90px',
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(45,31,20,0.04)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                         >
                             Cancel
                         </button>
                         <button
                             onClick={handleDelete}
-                            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded flex items-center justify-center"
-                            style={{ touchAction: 'manipulation', minWidth: '120px' }}
+                            style={{
+                                fontFamily: "'DM Sans', sans-serif", fontSize: '13px', fontWeight: 500,
+                                padding: '8px 18px', borderRadius: '6px', cursor: 'pointer',
+                                border: '1px solid #993C1D', backgroundColor: '#993C1D',
+                                color: '#FAF7F4', minWidth: '100px',
+                                display: 'flex', alignItems: 'center', gap: '6px',
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#7A2E14'; e.currentTarget.style.borderColor = '#7A2E14'; }}
+                            onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#993C1D'; e.currentTarget.style.borderColor = '#993C1D'; }}
                         >
-                            <Trash2 className="h-5 w-5 mr-2" />
+                            <Trash2 style={{ width: '14px', height: '14px' }} />
                             Delete
                         </button>
                     </div>

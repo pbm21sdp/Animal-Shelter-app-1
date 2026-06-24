@@ -42,6 +42,14 @@ function fmtMemberFor(d) {
     return m > 0 ? `${y}y ${m}m` : `${y}y`;
 }
 
+function fmtAvgResponse(avgMinutes) {
+    if (avgMinutes === null || avgMinutes === undefined) return '—';
+    if (avgMinutes < 60) return '< 1h';
+    const h = Math.ceil(avgMinutes / 60);
+    if (h < 24) return `< ${h}h`;
+    return `${Math.round(avgMinutes / (24 * 60))} days`;
+}
+
 function getInitial(name) {
     return name?.trim().charAt(0).toUpperCase() || '?';
 }
@@ -102,6 +110,30 @@ function EmptyState({ text, note }) {
 // ── Status badge for upload cards ─────────────────────────────────────────────
 
 function StatusBadge({ pet }) {
+    if (pet.status === 'rejected') {
+        return (
+            <span style={{
+                fontFamily: sans, fontSize: 8, textTransform: 'uppercase',
+                letterSpacing: '0.08em', padding: '2px 6px', borderRadius: 2,
+                fontWeight: 600, background: 'rgba(153,60,29,0.1)', color: '#993C1D',
+                border: '1px solid rgba(153,60,29,0.25)',
+            }}>
+                Rejected
+            </span>
+        );
+    }
+    if (pet.status === 'pending') {
+        return (
+            <span style={{
+                fontFamily: sans, fontSize: 8, textTransform: 'uppercase',
+                letterSpacing: '0.08em', padding: '2px 6px', borderRadius: 2,
+                fontWeight: 600, background: '#FAF3E8', color: '#8B4E28',
+                border: '1px solid rgba(192,122,74,0.25)',
+            }}>
+                Pending review
+            </span>
+        );
+    }
     if (pet.is_adopted) {
         return (
             <span style={{
@@ -316,7 +348,7 @@ function AdoptedCard({ pet }) {
 
 // ── Activity stat cell ─────────────────────────────────────────────────────────
 
-function StatCell({ value, label, trend }) {
+function StatCell({ value, label, trend, isPrivate }) {
     return (
         <div style={{
             padding: '18px 16px',
@@ -324,17 +356,68 @@ function StatCell({ value, label, trend }) {
             borderRight: '1px solid rgba(45,31,20,0.08)',
             background: '#FAF7F4',
         }}>
-            <div style={{ fontFamily: serif, fontSize: 30, fontWeight: 700, color: '#2D1F14', lineHeight: 1.1 }}>
-                {value ?? '—'}
+            <div style={{ fontFamily: serif, fontSize: 30, fontWeight: 700, color: isPrivate ? 'rgba(45,31,20,0.18)' : '#2D1F14', lineHeight: 1.1 }}>
+                {isPrivate ? '—' : (value ?? '—')}
             </div>
-            <div style={{ fontFamily: sans, fontSize: 10, color: '#7A5C44', marginTop: 3 }}>
+            <div style={{ fontFamily: sans, fontSize: 10, color: '#7A5C44', marginTop: 3, display: 'flex', alignItems: 'center', gap: 4 }}>
                 {label}
+                {isPrivate && <span title="Private" style={{ fontSize: 9, opacity: 0.5 }}>🔒︎</span>}
             </div>
-            {trend && (
+            {!isPrivate && trend && (
                 <div style={{ fontFamily: sans, fontSize: 9, color: '#1A7A5E', marginTop: 4 }}>
                     {trend}
                 </div>
             )}
+        </div>
+    );
+}
+
+// ── Private section placeholder ───────────────────────────────────────────────
+
+function PrivateSection() {
+    return (
+        <div style={{ padding: '56px 0', textAlign: 'center' }}>
+            <div style={{ fontSize: 28, marginBottom: 10, opacity: 0.35 }}>🔒︎</div>
+            <div style={{ fontFamily: serif, fontSize: 16, fontStyle: 'italic', color: '#B09880' }}>
+                This user's activity is hidden.
+            </div>
+        </div>
+    );
+}
+
+// ── Privacy toggle switch ──────────────────────────────────────────────────────
+
+function PrivacyToggle({ label, description, checked, onChange }) {
+    return (
+        <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '14px 0', borderBottom: '1px solid rgba(45,31,20,0.08)',
+        }}>
+            <div>
+                <div style={{ fontFamily: sans, fontSize: 13, color: '#2D1F14' }}>{label}</div>
+                {description && (
+                    <div style={{ fontFamily: sans, fontSize: 11, color: '#9A7A60', marginTop: 2 }}>
+                        {description}
+                    </div>
+                )}
+            </div>
+            <button
+                onClick={() => onChange(!checked)}
+                style={{
+                    width: 40, height: 22, borderRadius: 11, padding: 2,
+                    background: checked ? '#C07A4A' : 'rgba(45,31,20,0.15)',
+                    border: 'none', cursor: 'pointer', position: 'relative',
+                    transition: 'background 0.2s', flexShrink: 0, marginLeft: 16,
+                }}
+            >
+                <div style={{
+                    width: 18, height: 18, borderRadius: '50%', background: '#fff',
+                    position: 'absolute', top: 2,
+                    left: checked ? 20 : 2,
+                    transition: 'left 0.2s',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                }} />
+            </button>
         </div>
     );
 }
@@ -356,6 +439,24 @@ export default function ProfilePage() {
     const [savedPets,        setSavedPets]        = useState([]);
     const [receivedMsgCount, setReceivedMsgCount] = useState(null);
     const [activeTab,     setActiveTab]     = useState('uploads');
+
+    // avg response time
+    const [avgResponse, setAvgResponse] = useState(null);
+
+    // privacy: editable settings (own profile) + visitor-facing settings
+    const DEFAULT_PRIVACY = { showAvgResponse: true, showFoundHomes: true, showSuccessRate: true, showMessagesReceived: true, showUploads: true, showFoundAHome: true, showAdoptedByMe: true, showSaved: true };
+    const [privacySettings, setPrivacySettings] = useState(DEFAULT_PRIVACY);
+    const [privacyLoaded,   setPrivacyLoaded]   = useState(false);
+    const [visitorPrivacy,  setVisitorPrivacy]  = useState(DEFAULT_PRIVACY);
+
+    // fetch-once guards
+    const [adoptedFetched, setAdoptedFetched] = useState(false);
+    const [savedFetched,   setSavedFetched]   = useState(false);
+
+    // isPrivate flags for activity stats and tab content
+    const [adoptedIsPrivate,     setAdoptedIsPrivate]     = useState(false);
+    const [savedIsPrivate,       setSavedIsPrivate]       = useState(false);
+const [petsFoundHomePrivate, setPetsFoundHomePrivate] = useState(false);
     const [isEditingBio,  setIsEditingBio]  = useState(false);
     const [bioValue,      setBioValue]      = useState('');
     const [isEditingInfo, setIsEditingInfo] = useState(false);
@@ -388,6 +489,19 @@ export default function ProfilePage() {
             const res = await axios.get(`${API}/users/${profileId}/profile`, { withCredentials: true });
             setProfileData(res.data.profile);
             setBioValue(res.data.profile?.bio || '');
+            if (!isOwnProfile && res.data.profile?.privacySettings) {
+                const ps = res.data.profile.privacySettings;
+                setVisitorPrivacy({
+                    showAvgResponse:      ps.showAvgResponse      ?? true,
+                    showFoundHomes:       ps.showFoundHomes       ?? true,
+                    showSuccessRate:      ps.showSuccessRate      ?? true,
+                    showMessagesReceived: ps.showMessagesReceived ?? true,
+                    showUploads:          ps.showUploads          ?? true,
+                    showFoundAHome:       ps.showFoundAHome       ?? true,
+                    showAdoptedByMe:      ps.showAdoptedByMe      ?? true,
+                    showSaved:            ps.showSaved            ?? true,
+                });
+            }
         } catch (err) {
             // fallback to currentUser for own profile
             if (isOwnProfile && currentUser) {
@@ -401,6 +515,7 @@ export default function ProfilePage() {
         if (!profileId) return;
         try {
             const res = await axios.get(`${API}/users/${profileId}/pets`, { withCredentials: true });
+            setPetsFoundHomePrivate(res.data.isFoundHomePrivate || false);
             setPets(res.data.pets || []);
         } catch (err) {
             setPets([]);
@@ -408,24 +523,38 @@ export default function ProfilePage() {
     }, [profileId]);
 
     const fetchAdopted = useCallback(async () => {
-        if (!profileId || adoptedPets.length > 0) return;
+        if (!profileId || adoptedFetched) return;
+        setAdoptedFetched(true);
         try {
             const res = await axios.get(`${API}/users/${profileId}/adoptions`, { withCredentials: true });
-            setAdoptedPets(res.data.pets || []);
+            if (res.data.isPrivate) {
+                setAdoptedIsPrivate(true);
+                setAdoptedPets([]);
+            } else {
+                setAdoptedIsPrivate(false);
+                setAdoptedPets(res.data.pets || []);
+            }
         } catch (err) {
             setAdoptedPets([]);
         }
-    }, [profileId, adoptedPets.length]);
+    }, [profileId, adoptedFetched]);
 
     const fetchSaved = useCallback(async () => {
-        if (!profileId) return;
+        if (!profileId || savedFetched) return;
+        setSavedFetched(true);
         try {
             const res = await axios.get(`${API}/users/${profileId}/saved`, { withCredentials: true });
-            setSavedPets(res.data.pets || []);
+            if (res.data.isPrivate) {
+                setSavedIsPrivate(true);
+                setSavedPets([]);
+            } else {
+                setSavedIsPrivate(false);
+                setSavedPets(res.data.pets || []);
+            }
         } catch {
             setSavedPets([]);
         }
-    }, [profileId]);
+    }, [profileId, savedFetched]);
 
     // ── Effects ──────────────────────────────────────────────────────────────
 
@@ -443,11 +572,35 @@ export default function ProfilePage() {
     }, [activeTab, fetchSaved]);
 
     useEffect(() => {
-        if (activeTab !== 'activity' || receivedMsgCount !== null) return;
-        axios.get('http://localhost:5000/api/conversations/received-count', { withCredentials: true })
-            .then(res => setReceivedMsgCount(res.data.count ?? 0))
+        if (activeTab !== 'activity' || receivedMsgCount !== null || !profileId) return;
+        axios.get(`${API}/users/${profileId}/received-count`, { withCredentials: true })
+            .then(res => {
+                if (res.data.isPrivate) setReceivedMsgCount('private');
+                else setReceivedMsgCount(res.data.count ?? 0);
+            })
             .catch(() => setReceivedMsgCount(0));
-    }, [activeTab, receivedMsgCount]);
+    }, [activeTab, receivedMsgCount, profileId]);
+
+    // Fetch avg response time
+    useEffect(() => {
+        if (!profileId) return;
+        axios.get(`${API}/users/${profileId}/avg-response-time`, { withCredentials: true })
+            .then(res => {
+                if (res.data.isPrivate || !res.data.hasEnoughData) setAvgResponse(null);
+                else setAvgResponse(res.data.avgMinutes ?? null);
+            })
+            .catch(() => setAvgResponse(null));
+    }, [profileId]);
+
+    // Fetch own privacy settings for editing
+    useEffect(() => {
+        if (!isOwnProfile || privacyLoaded) return;
+        axios.get(`${API}/users/me/privacy-settings`, { withCredentials: true })
+            .then(res => { if (res.data.settings) setPrivacySettings(res.data.settings); })
+            .catch(() => {})
+            .finally(() => setPrivacyLoaded(true));
+    }, [isOwnProfile, privacyLoaded]);
+
 
     // ── Bio save ─────────────────────────────────────────────────────────────
 
@@ -607,6 +760,19 @@ export default function ProfilePage() {
         }
     };
 
+    // ── Privacy settings change ───────────────────────────────────────────────
+
+    const handlePrivacyChange = async (key, value) => {
+        setPrivacySettings(prev => ({ ...prev, [key]: value }));
+        try {
+            await axios.put(`${API}/users/me/privacy-settings`, { [key]: value }, { withCredentials: true });
+            toast.success('Privacy settings updated.');
+        } catch {
+            setPrivacySettings(prev => ({ ...prev, [key]: !value }));
+            toast.error('Failed to save setting.');
+        }
+    };
+
     // ── Derived display values ────────────────────────────────────────────────
 
     // For own profile: prefer live currentUser for avatar/name (stays in sync with uploads)
@@ -617,11 +783,15 @@ export default function ProfilePage() {
     const displayAvail  = profileData?.contactAvailability ?? (isOwnProfile ? currentUser?.contactAvailability : null);
     const createdAt     = isOwnProfile ? (currentUser?.createdAt || profileData?.createdAt) : profileData?.createdAt;
 
-    const uploadsCount    = pets.length;
+    // For own profile use live pets array; for visitors use profileData (always public, no privacy filter)
+    const uploadsCount  = isOwnProfile ? pets.length : (profileData?.uploads_count ?? pets.length);
+    const foundCount    = isOwnProfile ? pets.filter(p => p.is_adopted).length : (profileData?.adopted_count ?? pets.filter(p => p.is_adopted).length);
+    const successRate   = isOwnProfile
+        ? (pets.length > 0 ? Math.round((pets.filter(p => p.is_adopted).length / pets.length) * 100) : 0)
+        : (profileData?.success_rate ?? 0);
+
     const activeUploads   = pets.filter(p => !p.is_adopted);
     const foundHomePets   = pets.filter(p => p.is_adopted);
-    const foundCount      = foundHomePets.length;
-    const successRate     = uploadsCount > 0 ? Math.round((foundCount / uploadsCount) * 100) : 0;
 
     // Activity feed — generated client-side from pets
     const activityEvents = [
@@ -630,13 +800,13 @@ export default function ProfilePage() {
                .map(p => ({ date: p.adopted_at, text: '', name: p.name, suffix: ' marked as adopted' })),
     ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 8);
 
-    // Tab config
     const tabs = [
-        { key: 'uploads',    label: 'My uploads',    count: activeUploads.length },
-        { key: 'found_home', label: 'Found a home',  count: foundCount },
-        { key: 'activity',   label: 'Activity',      count: 0 },
-        { key: 'adopted',    label: 'Adopted by me', count: adoptedPets.length },
-        { key: 'saved',      label: 'Saved',          count: savedPets.length },
+        { key: 'uploads',    label: 'My uploads',    count: activeUploads.length, privacyKey: null },
+        { key: 'found_home', label: 'Found a home',  count: petsFoundHomePrivate ? 0 : foundHomePets.length,  privacyKey: 'showFoundAHome' },
+        { key: 'activity',   label: 'Activity',      count: 0,                                                privacyKey: null },
+        { key: 'adopted',    label: 'Adopted by me', count: adoptedIsPrivate     ? 0 : adoptedPets.length,   privacyKey: 'showAdoptedByMe' },
+        { key: 'saved',      label: 'Saved',          count: savedIsPrivate      ? 0 : savedPets.length,     privacyKey: 'showSaved' },
+        ...(isOwnProfile ? [{ key: 'settings', label: 'Settings', count: 0, privacyKey: null }] : []),
     ];
 
     if (!currentUser) return null;
@@ -984,35 +1154,36 @@ export default function ProfilePage() {
                     </div>
 
                     {/* Bottom: Horizontal trust bar */}
-                    <div style={{
-                        background: '#2D1F14', borderRadius: 4,
-                        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
-                    }}>
-                        {[
-                            { label: 'Uploads',      value: uploadsCount,        color: '#FAF7F4' },
-                            { label: 'Found homes',  value: foundCount,          color: '#5DCAA5' },
-                            { label: 'Success rate', value: `${successRate}%`,   color: '#5DCAA5' },
-                            { label: 'Avg response', value: '< 2h',              color: '#FAF7F4' },
-                        ].map(({ label, value, color }, i, arr) => (
-                            <div key={label} style={{
-                                padding: '14px 20px',
-                                borderRight: i < arr.length - 1 ? '1px solid rgba(250,247,244,0.08)' : 'none',
-                            }}>
-                                <div style={{
-                                    fontFamily: serif, fontSize: 22, fontWeight: 700,
-                                    color, lineHeight: 1.1, marginBottom: 3,
-                                }}>
-                                    {value}
-                                </div>
-                                <div style={{
-                                    fontFamily: sans, fontSize: 9, textTransform: 'uppercase',
-                                    letterSpacing: '0.1em', color: 'rgba(250,247,244,0.5)',
-                                }}>
-                                    {label}
-                                </div>
+                    {(() => {
+                        const visitorHidesFoundHomes  = !isOwnProfile && visitorPrivacy.showFoundHomes  === false;
+                        const visitorHidesSuccessRate = !isOwnProfile && visitorPrivacy.showSuccessRate === false;
+                        const visitorHidesAvgResponse = !isOwnProfile && visitorPrivacy.showAvgResponse === false;
+                        const trustStats = [
+                            { label: 'Uploads',      value: uploadsCount, color: '#FAF7F4', privacyKey: null },
+                            { label: 'Found homes',  value: visitorHidesFoundHomes  ? null : foundCount, color: '#5DCAA5', privacyKey: 'showFoundHomes' },
+                            { label: 'Success rate', value: visitorHidesSuccessRate ? null : `${successRate}%`, color: '#5DCAA5', privacyKey: 'showSuccessRate' },
+                            { label: 'Avg response', value: visitorHidesAvgResponse ? null : fmtAvgResponse(avgResponse), color: '#FAF7F4', privacyKey: 'showAvgResponse' },
+                        ];
+                        return (
+                            <div style={{ background: '#2D1F14', borderRadius: 4, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)' }}>
+                                {trustStats.map(({ label, value, color, privacyKey }, i, arr) => {
+                                    const ownerHidden = isOwnProfile && privacyKey && privacySettings[privacyKey] === false;
+                                    const isHidden    = value === null;
+                                    return (
+                                        <div key={label} style={{ padding: '14px 20px', borderRight: i < arr.length - 1 ? '1px solid rgba(250,247,244,0.08)' : 'none' }}>
+                                            <div style={{ fontFamily: serif, fontSize: 22, fontWeight: 700, color: isHidden ? 'rgba(250,247,244,0.25)' : color, lineHeight: 1.1, marginBottom: 3 }}>
+                                                {isHidden ? '—' : value}
+                                            </div>
+                                            <div style={{ fontFamily: sans, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(250,247,244,0.5)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                {label}
+                                                {ownerHidden && <span title="Hidden from visitors" style={{ fontSize: 8, opacity: 0.55 }}>🔒︎︎</span>}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
-                        ))}
-                    </div>
+                        );
+                    })()}
                 </div>
 
                 {/* ── TABS ─────────────────────────────────────────────────── */}
@@ -1020,8 +1191,12 @@ export default function ProfilePage() {
                     display: 'flex', borderBottom: '1px solid rgba(45,31,20,0.12)',
                     marginBottom: 28,
                 }}>
-                    {tabs.map(({ key, label, count }) => {
+                    {tabs.map(({ key, label, count, privacyKey }) => {
                         const active = activeTab === key;
+                        const isPrivateTab = privacyKey && (isOwnProfile
+                            ? privacySettings[privacyKey] === false
+                            : visitorPrivacy[privacyKey] === false
+                        );
                         return (
                             <button
                                 key={key}
@@ -1033,12 +1208,17 @@ export default function ProfilePage() {
                                     color: active ? '#2D1F14' : '#7A5C44',
                                     fontWeight: active ? 500 : 400,
                                     cursor: 'pointer', marginBottom: -1,
-                                    display: 'flex', alignItems: 'center',
+                                    display: 'flex', alignItems: 'center', gap: 4,
                                     transition: 'color 0.15s',
                                 }}
                             >
                                 {label}
-                                {count > 0 && <TabBadge n={count} />}
+                                {isPrivateTab && (
+                                    <span title={isOwnProfile ? 'Hidden from visitors' : 'Private'} style={{ fontSize: 10, opacity: isOwnProfile ? 0.45 : 0.6, lineHeight: 1 }}>
+                                        🔒︎︎
+                                    </span>
+                                )}
+                                {count > 0 && !isPrivateTab && <TabBadge n={count} />}
                             </button>
                         );
                     })}
@@ -1075,7 +1255,7 @@ export default function ProfilePage() {
                 {activeTab === 'found_home' && (
                     <div>
                         <SectionLabel>Animals that found a home</SectionLabel>
-                        {foundHomePets.length === 0 ? (
+                        {petsFoundHomePrivate ? <PrivateSection /> : foundHomePets.length === 0 ? (
                             <EmptyState text="No animals marked as adopted yet." />
                         ) : (
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
@@ -1104,11 +1284,11 @@ export default function ProfilePage() {
                             borderRight: 'none', borderBottom: 'none',
                             marginBottom: 28,
                         }}>
-                            <StatCell value={uploadsCount}            label="Animals uploaded" />
-                            <StatCell value={foundCount}              label="Found a home"       trend={foundCount > 0 ? `↑ ${foundCount} total` : null} />
-                            <StatCell value={receivedMsgCount ?? '—'} label="Messages received" />
-                            <StatCell value={adoptedPets.length} label="Adopted personally" />
-                            <StatCell value={savedPets.length}   label="Saved for later" />
+                            <StatCell value={uploadsCount}       label="Animals uploaded" />
+                            <StatCell value={foundCount}         label="Found a home"       trend={foundCount > 0 ? `↑ ${foundCount} total` : null} isPrivate={!isOwnProfile && visitorPrivacy.showFoundAHome === false} />
+                            <StatCell value={receivedMsgCount ?? 0} label="Messages received" isPrivate={!isOwnProfile && visitorPrivacy.showMessagesReceived === false} />
+                            <StatCell value={adoptedPets.length} label="Adopted personally" isPrivate={!isOwnProfile && adoptedIsPrivate} />
+                            <StatCell value={savedPets.length}   label="Saved for later"    isPrivate={!isOwnProfile && savedIsPrivate} />
                             <StatCell value={fmtMemberFor(createdAt)} label="Member for" />
                         </div>
 
@@ -1150,7 +1330,7 @@ export default function ProfilePage() {
                 {activeTab === 'adopted' && (
                     <div>
                         <SectionLabel>Animals I adopted through Paws</SectionLabel>
-                        {adoptedPets.length === 0 ? (
+                        {!isOwnProfile && adoptedIsPrivate ? <PrivateSection /> : adoptedPets.length === 0 ? (
                             <EmptyState text="No adoptions yet." />
                         ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -1164,7 +1344,7 @@ export default function ProfilePage() {
                 {activeTab === 'saved' && (
                     <div>
                         <SectionLabel>Saved for later</SectionLabel>
-                        {savedPets.length === 0 ? (
+                        {!isOwnProfile && savedIsPrivate ? <PrivateSection /> : savedPets.length === 0 ? (
                             <EmptyState text="No saved animals yet." note="Tap the bookmark on any animal listing to save it." />
                         ) : (
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
@@ -1227,6 +1407,78 @@ export default function ProfilePage() {
                                 })}
                             </div>
                         )}
+                    </div>
+                )}
+
+                {/* ── TAB 6: SETTINGS (own profile only) ────────────────────── */}
+                {activeTab === 'settings' && isOwnProfile && (
+                    <div>
+                        <SectionLabel>Privacy settings</SectionLabel>
+                        <div style={{ fontFamily: sans, fontSize: 11, color: '#7A5C44', marginBottom: 28, maxWidth: 520 }}>
+                            Control what visitors see when they browse your profile. These settings never affect your own view.
+                        </div>
+
+                        {/* ── Trust Bar ── */}
+                        <div style={{ maxWidth: 520, marginBottom: 28 }}>
+                            <div style={{ fontFamily: sans, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#C07A4A', fontWeight: 600, marginBottom: 4 }}>
+                                Trust Bar stats
+                            </div>
+                            <div style={{ fontFamily: sans, fontSize: 11, color: '#9A7A60', marginBottom: 12 }}>
+                                Numbers shown in your profile header.
+                            </div>
+                            <PrivacyToggle
+                                label="Found homes"
+                                description="How many animals you've helped find a home"
+                                checked={privacySettings.showFoundHomes}
+                                onChange={(val) => handlePrivacyChange('showFoundHomes', val)}
+                            />
+                            <PrivacyToggle
+                                label="Success rate"
+                                description="Percentage of your listings that found a home"
+                                checked={privacySettings.showSuccessRate}
+                                onChange={(val) => handlePrivacyChange('showSuccessRate', val)}
+                            />
+                            <PrivacyToggle
+                                label="Avg response time"
+                                description="How quickly you reply to messages"
+                                checked={privacySettings.showAvgResponse}
+                                onChange={(val) => handlePrivacyChange('showAvgResponse', val)}
+                            />
+                        </div>
+
+                        {/* ── Tabs & Activity stats ── */}
+                        <div style={{ maxWidth: 520 }}>
+                            <div style={{ fontFamily: sans, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#C07A4A', fontWeight: 600, marginBottom: 4 }}>
+                                Tabs &amp; activity stats
+                            </div>
+                            <div style={{ fontFamily: sans, fontSize: 11, color: '#9A7A60', marginBottom: 12 }}>
+                                Controls both the tab content and the corresponding stat in the Activity tab.
+                            </div>
+                            <PrivacyToggle
+                                label="Found a home"
+                                description="Animals you've uploaded that found their owner"
+                                checked={privacySettings.showFoundAHome}
+                                onChange={(val) => handlePrivacyChange('showFoundAHome', val)}
+                            />
+                            <PrivacyToggle
+                                label="Messages received"
+                                description="Total messages sent to you by other users"
+                                checked={privacySettings.showMessagesReceived}
+                                onChange={(val) => handlePrivacyChange('showMessagesReceived', val)}
+                            />
+                            <PrivacyToggle
+                                label="Adopted by me"
+                                description="Animals you've adopted through Paws"
+                                checked={privacySettings.showAdoptedByMe}
+                                onChange={(val) => handlePrivacyChange('showAdoptedByMe', val)}
+                            />
+                            <PrivacyToggle
+                                label="Saved animals"
+                                description="Your bookmarked animal listings"
+                                checked={privacySettings.showSaved}
+                                onChange={(val) => handlePrivacyChange('showSaved', val)}
+                            />
+                        </div>
                     </div>
                 )}
 

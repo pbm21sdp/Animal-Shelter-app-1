@@ -94,10 +94,10 @@ const StatisticsManagement = () => {
 
     // Fetch data on mount
     useEffect(() => {
-        getAllAdoptions({ status: 'all' });
-        getAllDonations(donationFilters); // This will re-run when donationFilters changes
+        getAllAdoptions();
+        getAllDonations(donationFilters);
         fetchUsers();
-    }, [getAllAdoptions, getAllDonations, donationFilters]); // donationFilters in dependency array
+    }, [getAllAdoptions, getAllDonations, donationFilters]);
 
     useEffect(() => {
         if (users.length) {
@@ -246,28 +246,30 @@ const StatisticsManagement = () => {
     // Calculate adoption statistics
     const adoptionStats = useMemo(() => {
         if (!adoptions || adoptions.length === 0) {
-            return {
-                total: 0,
-                pending: 0,
-                approved: 0,
-                rejected: 0,
-                approvalRate: 0
-            };
+            return { total: 0, avgDays: null, topCity: null, thisMonth: 0 };
         }
 
         const total = adoptions.length;
-        const pending = adoptions.filter(a => a.status === 'pending').length;
-        const approved = adoptions.filter(a => a.status === 'approved').length;
-        const rejected = adoptions.filter(a => a.status === 'rejected').length;
-        const processed = approved + rejected;
 
-        return {
-            total,
-            pending,
-            approved,
-            rejected,
-            approvalRate: processed > 0 ? Math.round((approved / processed) * 100) : 0
-        };
+        const withDays = adoptions.filter(a => a.daysToAdoption != null);
+        const avgDays = withDays.length > 0
+            ? Math.round(withDays.reduce((s, a) => s + a.daysToAdoption, 0) / withDays.length)
+            : null;
+
+        const cityCount = {};
+        for (const a of adoptions) {
+            if (a.city) cityCount[a.city] = (cityCount[a.city] || 0) + 1;
+        }
+        const topCity = Object.entries(cityCount).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+
+        const now = new Date();
+        const thisMonth = adoptions.filter(a => {
+            if (!a.adoptedAt) return false;
+            const d = new Date(a.adoptedAt);
+            return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        }).length;
+
+        return { total, avgDays, topCity, thisMonth };
     }, [adoptions]);
 
     // Generate predictions
@@ -360,19 +362,29 @@ const StatisticsManagement = () => {
     // Prepare pet type distribution data
     const petTypeDistribution = useMemo(() => {
         if (!adoptions || adoptions.length === 0) return [];
-
         const distribution = adoptions.reduce((acc, adoption) => {
-            if (adoption.status === 'approved') {
-                const type = adoption.petType || 'unknown';
-                acc[type] = (acc[type] || 0) + 1;
-            }
+            const type = adoption.petType || 'unknown';
+            acc[type] = (acc[type] || 0) + 1;
             return acc;
         }, {});
-
         return Object.entries(distribution).map(([name, value]) => ({
             name: name.charAt(0).toUpperCase() + name.slice(1),
             value
         }));
+    }, [adoptions]);
+
+    // City distribution
+    const cityDistribution = useMemo(() => {
+        if (!adoptions || adoptions.length === 0) return [];
+        const m = {};
+        for (const a of adoptions) {
+            if (!a.city) continue;
+            m[a.city] = (m[a.city] || 0) + 1;
+        }
+        return Object.entries(m)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 8)
+            .map(([name, value]) => ({ name, value }));
     }, [adoptions]);
 
     const COLORS = ['#14b8a6', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
@@ -415,7 +427,7 @@ const StatisticsManagement = () => {
                 <div className="flex items-center gap-4">
                     <button
                         onClick={() => {
-                            getAllAdoptions({ status: 'all' });
+                            getAllAdoptions();
                             getAllDonations(donationFilters);
                         }}
                         className="bg-tealcustom hover:bg-teal-700 text-white px-4 py-2 rounded-md flex items-center"
@@ -444,14 +456,14 @@ const StatisticsManagement = () => {
 
             {/* Overview Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                {/* Total Adoptions */}
+                {/* Animals found a home */}
                 <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-teal-500">
                     <div className="flex justify-between items-start">
                         <div>
-                            <p className="text-gray-500 text-sm font-medium mb-1">Total Adoptions</p>
+                            <p className="text-gray-500 text-sm font-medium mb-1">Animals Found a Home</p>
                             <p className="text-3xl font-bold text-gray-900">{adoptionStats.total}</p>
                             <p className="text-sm text-gray-500 mt-1">
-                                {adoptionStats.approved} approved
+                                {adoptionStats.thisMonth > 0 ? `${adoptionStats.thisMonth} this month` : 'all time'}
                             </p>
                         </div>
                         <div className="bg-teal-100 p-3 rounded-full">
@@ -460,15 +472,15 @@ const StatisticsManagement = () => {
                     </div>
                 </div>
 
-                {/* Approval Rate */}
+                {/* Avg days to adoption */}
                 <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-500">
                     <div className="flex justify-between items-start">
                         <div>
-                            <p className="text-gray-500 text-sm font-medium mb-1">Approval Rate</p>
-                            <p className="text-3xl font-bold text-gray-900">{adoptionStats.approvalRate}%</p>
-                            <p className="text-sm text-gray-500 mt-1">
-                                of processed applications
+                            <p className="text-gray-500 text-sm font-medium mb-1">Avg. Time to Adoption</p>
+                            <p className="text-3xl font-bold text-gray-900">
+                                {adoptionStats.avgDays != null ? adoptionStats.avgDays : '—'}
                             </p>
+                            <p className="text-sm text-gray-500 mt-1">days from post to adopted</p>
                         </div>
                         <div className="bg-green-100 p-3 rounded-full">
                             <TrendingUp className="h-6 w-6 text-green-600" />
@@ -492,15 +504,15 @@ const StatisticsManagement = () => {
                     </div>
                 </div>
 
-                {/* Pending Applications */}
+                {/* Top city */}
                 <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-yellow-500">
                     <div className="flex justify-between items-start">
                         <div>
-                            <p className="text-gray-500 text-sm font-medium mb-1">Pending Applications</p>
-                            <p className="text-3xl font-bold text-gray-900">{adoptionStats.pending}</p>
-                            <p className="text-sm text-gray-500 mt-1">
-                                awaiting review
+                            <p className="text-gray-500 text-sm font-medium mb-1">Top City</p>
+                            <p className="text-3xl font-bold text-gray-900" style={{ fontSize: adoptionStats.topCity && adoptionStats.topCity.length > 10 ? '20px' : undefined }}>
+                                {adoptionStats.topCity || '—'}
                             </p>
+                            <p className="text-sm text-gray-500 mt-1">most adoptions</p>
                         </div>
                         <div className="bg-yellow-100 p-3 rounded-full">
                             <Calendar className="h-6 w-6 text-yellow-600" />
@@ -718,70 +730,81 @@ const StatisticsManagement = () => {
             </div>
 
 
-            {/* Pet Type Distribution */}
-            {petTypeDistribution.length > 0 && (
+            {/* Adoptions breakdown — pet type + city */}
+            {(petTypeDistribution.length > 0 || cityDistribution.length > 0) && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                        <h3 className="text-xl font-semibold mb-4 flex items-center">
-                            <PawPrint className="h-5 w-5 mr-2 text-tealcustom" />
-                            Adoption Distribution by Pet Type
-                        </h3>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <PieChart>
-                                <Pie
-                                    data={petTypeDistribution}
-                                    cx="50%"
-                                    cy="50%"
-                                    labelLine={true}
-                                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                                    outerRadius={100}
-                                    fill="#8884d8"
-                                    dataKey="value"
-                                >
-                                    {petTypeDistribution.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                    ))}
-                                </Pie>
-                                <Tooltip />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </div>
-
-                    {/* Donations Chart */}
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                        <h3 className="text-xl font-semibold mb-4 flex items-center">
-                            <Banknote className="h-5 w-5 mr-2 text-tealcustom" />
-                            Donation Statistics
-                        </h3>
-                        <div className="space-y-4">
-                            <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                                <span className="text-gray-600">Total Donations</span>
-                                <span className="font-bold text-xl">€{donationStats.total.toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                                <span className="text-gray-600">Number of Donations</span>
-                                <span className="font-bold text-xl">{donationStats.count}</span>
-                            </div>
-                            <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                                <span className="text-gray-600">Average Donation</span>
-                                <span className="font-bold text-xl">€{donationStats.averageAmount.toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                                <span className="text-gray-600">Completed</span>
-                                <span className="font-bold text-xl text-green-600">{donationStats.completed}</span>
-                            </div>
-                            <div className="flex justify-between items-center p-3 bg-yellow-50 rounded-lg">
-                                <span className="text-gray-600">Pending</span>
-                                <span className="font-bold text-xl text-yellow-600">{donationStats.pending}</span>
-                            </div>
-                            <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
-                                <span className="text-gray-600">Last 7 Days</span>
-                                <span className="font-bold text-xl text-blue-600">{donationStats.recent}</span>
-                            </div>
+                    {/* Pet type pie */}
+                    {petTypeDistribution.length > 0 && (
+                        <div className="bg-white rounded-lg shadow-md p-6">
+                            <h3 className="text-xl font-semibold mb-4 flex items-center">
+                                <PawPrint className="h-5 w-5 mr-2 text-tealcustom" />
+                                Adoptions by Pet Type
+                            </h3>
+                            <ResponsiveContainer width="100%" height={280}>
+                                <PieChart>
+                                    <Pie
+                                        data={petTypeDistribution}
+                                        cx="50%"
+                                        cy="50%"
+                                        labelLine={true}
+                                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                                        outerRadius={90}
+                                        fill="#8884d8"
+                                        dataKey="value"
+                                    >
+                                        {petTypeDistribution.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip />
+                                </PieChart>
+                            </ResponsiveContainer>
                         </div>
-                    </div>
+                    )}
+
+                    {/* City distribution bar */}
+                    {cityDistribution.length > 0 && (
+                        <div className="bg-white rounded-lg shadow-md p-6">
+                            <h3 className="text-xl font-semibold mb-4 flex items-center">
+                                <Users className="h-5 w-5 mr-2 text-tealcustom" />
+                                Adoptions by City
+                            </h3>
+                            <ResponsiveContainer width="100%" height={280}>
+                                <BarChart data={cityDistribution} layout="vertical" margin={{ left: 16, right: 16 }}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
+                                    <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={80} />
+                                    <Tooltip />
+                                    <Bar dataKey="value" name="Adoptions" fill="#14b8a6" radius={[0, 3, 3, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    )}
                 </div>
             )}
+
+            {/* Donation Statistics */}
+            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h3 className="text-xl font-semibold mb-4 flex items-center">
+                    <Banknote className="h-5 w-5 mr-2 text-tealcustom" />
+                    Donation Statistics
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                    {[
+                        { label: 'Total',       value: `€${donationStats.total.toFixed(2)}`,          bg: 'bg-gray-50' },
+                        { label: 'Count',        value: donationStats.count,                            bg: 'bg-gray-50' },
+                        { label: 'Average',      value: `€${donationStats.averageAmount.toFixed(2)}`,  bg: 'bg-gray-50' },
+                        { label: 'Completed',    value: donationStats.completed,                        bg: 'bg-green-50', color: 'text-green-600' },
+                        { label: 'Pending',      value: donationStats.pending,                          bg: 'bg-yellow-50', color: 'text-yellow-600' },
+                        { label: 'Last 7 days',  value: donationStats.recent,                           bg: 'bg-blue-50', color: 'text-blue-600' },
+                    ].map(({ label, value, bg, color }) => (
+                        <div key={label} className={`flex flex-col items-center p-4 ${bg} rounded-lg`}>
+                            <span className="text-gray-500 text-xs mb-1">{label}</span>
+                            <span className={`font-bold text-xl ${color || 'text-gray-900'}`}>{value}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
 
             {/* Donations Management Section - 2 Column Layout */}
             <div className="bg-white rounded-lg shadow-md p-6">

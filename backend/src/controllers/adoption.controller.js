@@ -2,6 +2,7 @@ import { Adoption } from '../models/adoption.model.js';
 import { User } from '../models/user.model.js';
 import { PetModel } from '../models/pet.model.js';
 import mongoose from 'mongoose';
+import { pool } from '../config/database/connectPostgresDB.js';
 
 // Submit adoption application
 export const submitAdoptionApplication = async (req, res) => {
@@ -240,52 +241,81 @@ export const getAdoptionDetails = async (req, res) => {
 
 
 
-// Admin: Get all adoption applications
+// Admin: Get all completed adoptions — reads from PostgreSQL (is_adopted = true)
 export const getAllAdoptions = async (req, res) => {
     try {
-        // Get query parameters for filtering
-        const { status, petType, sort = 'newest' } = req.query;
+        const { petType, sort = 'newest' } = req.query;
 
-        // Build filter object
-        const filters = {};
-
-        // Only add filters if they have valid values (not 'all')
-        if (status && status !== 'all') {
-            filters.status = status;
-        }
+        const conditions = ['p.is_adopted = TRUE', 'p.adopted_at IS NOT NULL'];
+        const values = [];
+        let n = 1;
 
         if (petType && petType !== 'all') {
-            filters.petType = petType;
+            conditions.push(`LOWER(p.type) = $${n++}`);
+            values.push(petType.toLowerCase());
         }
 
-        // Determine sort order
-        let sortOptions = {};
-        if (sort === 'oldest') {
-            sortOptions = { createdAt: 1 };
-        } else if (sort === 'status') {
-            sortOptions = { status: 1, createdAt: -1 };
-        } else {
-            // Default sort by newest
-            sortOptions = { createdAt: -1 };
+        const orderBy = sort === 'oldest' ? 'p.adopted_at ASC' : 'p.adopted_at DESC';
+
+        const pgResult = await pool.query(`
+            SELECT
+                p.id,
+                p.name                                                                  AS "petName",
+                p.type                                                                  AS "petType",
+                p.breed                                                                 AS "petBreed",
+                p.location_city                                                         AS city,
+                p.adopted_at                                                            AS "adoptedAt",
+                p.created_at                                                            AS "postedAt",
+                GREATEST(
+                    ROUND(EXTRACT(EPOCH FROM (p.adopted_at - p.created_at)) / 86400)::int,
+                    0
+                )                                                                       AS "daysToAdoption",
+                p.uploader_id                                                           AS "uploaderId",
+                p.adopted_by                                                            AS "adoptedById"
+            FROM pets p
+            WHERE ${conditions.join(' AND ')}
+            ORDER BY ${orderBy}
+        `, values);
+
+        const pets = pgResult.rows;
+
+        if (pets.length === 0) {
+            return res.status(200).json({ success: true, adoptions: [] });
         }
 
-        // Fetch adoptions with populated user data
-        const adoptions = await Adoption.find(filters)
-            .populate('user', 'name email')
-            .sort(sortOptions);
+        // Enrich with MongoDB user names for uploader and adopted_by
+        const mongoIds = [...new Set([
+            ...pets.map(p => p.uploaderId).filter(Boolean),
+            ...pets.map(p => p.adoptedById).filter(Boolean),
+        ])];
 
-        // Return the adoptions
-        res.status(200).json({
-            success: true,
-            adoptions
-        });
+        let userMap = {};
+        if (mongoIds.length > 0) {
+            try {
+                const users = await User.find({ _id: { $in: mongoIds } }, { name: 1, email: 1 }).lean();
+                userMap = Object.fromEntries(users.map(u => [u._id.toString(), u]));
+            } catch (mongoErr) {
+                console.warn('[adoptions] MongoDB user lookup failed:', mongoErr.message);
+            }
+        }
+
+        const enriched = pets.map(p => ({
+            _id:             p.id,
+            petName:         p.petName,
+            petType:         p.petType,
+            petBreed:        p.petBreed,
+            city:            p.city,
+            adoptedAt:       p.adoptedAt,
+            postedAt:        p.postedAt,
+            daysToAdoption:  p.daysToAdoption,
+            uploaderName:    userMap[p.uploaderId]?.name  || null,
+            uploaderEmail:   userMap[p.uploaderId]?.email || null,
+        }));
+
+        res.status(200).json({ success: true, adoptions: enriched });
     } catch (error) {
-        console.error('Error fetching all adoptions:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to fetch adoptions',
-            error: error.message
-        });
+        console.error('Error fetching adoptions:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch adoptions', error: error.message });
     }
 };
 

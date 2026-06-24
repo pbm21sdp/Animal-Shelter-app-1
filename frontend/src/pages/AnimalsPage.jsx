@@ -232,7 +232,7 @@ export default function AnimalsPage() {
 
     const areaPills = [
         { label: 'Near me',       value: 'near'       },
-        { label: 'All Timișoara', value: 'timisoara'  },
+        { label: 'Wider vicinity', value: 'timisoara'  },
         { label: 'Everywhere',    value: 'everywhere' },
     ];
 
@@ -248,7 +248,7 @@ export default function AnimalsPage() {
                 <div style={{ fontFamily: serif, fontSize: '13px', fontStyle: 'italic', color: '#7A5C44' }}>
                     {isLoading
                         ? 'Loading…'
-                        : `${filtered.length} animal${filtered.length !== 1 ? 's' : ''} found in Timișoara and surrounding areas`
+                        : `${filtered.length} animal${filtered.length !== 1 ? 's' : ''} found all over the country`
                     }
                 </div>
             </div>
