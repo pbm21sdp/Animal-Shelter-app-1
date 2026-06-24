@@ -45,6 +45,13 @@ const userSchema = new mongoose.Schema({
         from: { type: String, default: '' },
         to:   { type: String, default: '' },
     },
+    privacySettings: {
+        showAvgResponse:      { type: Boolean, default: true },
+        showMessagesReceived: { type: Boolean, default: true },
+        showUploads:          { type: Boolean, default: true },
+        showAdoptedByMe:      { type: Boolean, default: true },
+        showSaved:            { type: Boolean, default: true },
+    },
     resetPasswordToken: String,
     resetPasswordExpiresAt: Date,
     verificationToken: String,
