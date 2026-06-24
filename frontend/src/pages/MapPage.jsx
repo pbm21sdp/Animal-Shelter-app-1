@@ -14,7 +14,7 @@ const API   = 'http://localhost:5000/api';
 const sans  = "'DM Sans', sans-serif";
 const serif = "'Cormorant Garamond', serif";
 
-const TYPES = ['All', 'Dog', 'Cat', 'Bird', 'Rabbit', 'Other'];
+const TYPES = ['All', 'Dog', 'Cat', 'Rabbit', 'Bird', 'Fish', 'Hamster', 'Guinea pig', 'Reptile'];
 
 const CITY_COORDS = {
     'timișoara':   [45.7489, 21.2087],
@@ -104,7 +104,8 @@ export default function MapPage() {
         if (pets.length === 0) return;
         // Use stored lat/lng for exact pins; fall back to city-based approx for the rest
         setPetsWithCoords(pets.map(pet => {
-            const hasExact = pet.latitude != null && pet.longitude != null;
+            const hasExact = pet.latitude != null && pet.longitude != null
+            && pet.location_address && pet.location_address.trim() !== '';
             return {
                 ...pet,
                 coords:  hasExact
@@ -129,9 +130,10 @@ export default function MapPage() {
                 {/* Filter bar */}
                 <div style={{
                     position: 'absolute', top: '14px', left: '50%', transform: 'translateX(-50%)',
-                    zIndex: 1000, display: 'flex', gap: '6px',
-                    background: '#fff', borderRadius: '100px', padding: '6px 10px',
+                    zIndex: 1000, display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'center',
+                    background: '#fff', borderRadius: '16px', padding: '6px 10px',
                     boxShadow: '0 2px 12px rgba(0,0,0,0.12)', border: '1px solid rgba(45,31,20,0.08)',
+                    maxWidth: 'calc(100vw - 28px)',
                 }}>
                     {TYPES.map(type => (
                         <button
