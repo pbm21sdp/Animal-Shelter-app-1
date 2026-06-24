@@ -78,21 +78,20 @@ function buildPetTags(pet) {
     if (pet.situation) {
         tags.push({ label: SITUATION_LABELS[pet.situation] || 'Other', urgent: false });
     }
-    if (pet.microchip_status) {
-        const labels = { yes: 'Microchipped', no: 'No chip', unknown: 'Chip?' };
-        tags.push({ label: labels[pet.microchip_status] || 'Chip?', urgent: false });
+    if (pet.microchip_status && pet.microchip_status !== 'unknown') {
+        const labels = { yes: 'Microchipped', no: 'No chip' };
+        tags.push({ label: labels[pet.microchip_status], urgent: false });
     }
-    if (pet.neutered_spayed_status) {
+    if (pet.neutered_spayed_status && pet.neutered_spayed_status !== 'unknown') {
         const g = (pet.gender || '').toLowerCase();
         const labels = {
-            yes:     g === 'male' ? 'Neutered'     : g === 'female' ? 'Spayed'     : 'Fixed',
-            no:      g === 'male' ? 'Not neutered' : g === 'female' ? 'Not spayed' : 'Not fixed',
-            unknown: g === 'male' ? 'Neuter?'      : g === 'female' ? 'Spay?'      : 'Fix?',
+            yes: g === 'male' ? 'Neutered'     : g === 'female' ? 'Spayed'     : 'Fixed',
+            no:  g === 'male' ? 'Not neutered' : g === 'female' ? 'Not spayed' : 'Not fixed',
         };
-        tags.push({ label: labels[pet.neutered_spayed_status] || 'Fix?', urgent: false });
+        tags.push({ label: labels[pet.neutered_spayed_status], urgent: false });
     }
-    if (pet.vaccination_status) {
-        tags.push({ label: VACCINATION_LABELS[pet.vaccination_status] || 'Vax?', urgent: false });
+    if (pet.vaccination_status && pet.vaccination_status !== 'unknown') {
+        tags.push({ label: VACCINATION_LABELS[pet.vaccination_status], urgent: false });
     }
     return tags;
 }
