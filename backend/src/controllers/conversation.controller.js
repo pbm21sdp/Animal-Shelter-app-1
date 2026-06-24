@@ -198,6 +198,16 @@ export const sendMessage = async (req, res) => {
         );
         await pool.query(`UPDATE conversations SET updated_at=NOW() WHERE id=$1`, [id]);
 
+        // Mark all unreplied messages from the other participant as replied (for avg response time)
+        const conv = convCheck.rows[0];
+        const otherUserId = conv.participant_one === userId ? conv.participant_two : conv.participant_one;
+        await pool.query(
+            `UPDATE conversation_messages
+             SET replied_at = NOW()
+             WHERE conversation_id = $1 AND sender_id = $2 AND replied_at IS NULL`,
+            [id, otherUserId]
+        );
+
         res.status(201).json({ success: true });
     } catch (err) {
         console.error('sendMessage error:', err);
