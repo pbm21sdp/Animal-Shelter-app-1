@@ -248,6 +248,7 @@ export default function AboutPage() {
     const [organizations, setOrgs]          = useState([]);
     const [orgsLoading, setOrgsLoading]     = useState(false);
     const [fallbackCity, setFallbackCity]   = useState(null);
+    const [orgsNoData, setOrgsNoData]       = useState(false);
 
     const [selectedAmount, setSelectedAmount]   = useState(25);
     const [customAmount, setCustomAmount]       = useState('');
@@ -295,12 +296,14 @@ export default function AboutPage() {
     const fetchOrgs = (cityName, lat, lng) => {
         setOrgsLoading(true);
         setFallbackCity(null);
+        setOrgsNoData(false);
         axios.post(`${API}/ai/organizations`, { city: cityName, lat, lng }, { withCredentials: true })
             .then(r => {
                 setOrgs(r.data.organizations || []);
                 setFallbackCity(r.data.fallbackCity || null);
+                setOrgsNoData(r.data.noData || false);
             })
-            .catch(() => { setOrgs([]); setFallbackCity(null); })
+            .catch(() => { setOrgs([]); setFallbackCity(null); setOrgsNoData(false); })
             .finally(() => { setOrgsLoading(false); setGeoState('results'); });
     };
 
@@ -692,9 +695,12 @@ export default function AboutPage() {
 
                     {/* ── SECTION 4: LOCATION-AWARE ORGS ──────────────────────── */}
                     <section style={{ marginBottom: '40px' }}>
-                        <h2 style={{ fontFamily: serif, fontSize: '26px', fontWeight: 700, color: '#2D1F14', margin: '0 0 24px' }}>
+                        <h2 style={{ fontFamily: serif, fontSize: '26px', fontWeight: 700, color: '#2D1F14', margin: '0 0 6px' }}>
                             Rescue organizations near you
                         </h2>
+                        <p style={{ fontFamily: sans, fontSize: '11px', fontStyle: 'italic', color: '#7A5C44', margin: '0 0 20px' }}>
+                            If there aren't enough organizations in your city, we'll also show the nearest ones from surrounding areas.
+                        </p>
 
                         {geoState === 'requesting' && (
                             <div style={{ textAlign: 'center', padding: '40px 24px', border: '1px solid rgba(45,31,20,0.10)', borderRadius: '4px' }}>
@@ -808,14 +814,14 @@ export default function AboutPage() {
                                                 />
                                             ))}
                                         </div>
-                                        {fallbackCity && fallbackCity !== 'general' && (
+                                        {orgsNoData && (
                                             <p style={{ fontFamily: sans, fontSize: '11px', fontStyle: 'italic', color: '#7A5C44', textAlign: 'center', marginTop: '14px', marginBottom: 0 }}>
-                                                Showing organizations from the nearest area to {city}. More cities coming soon.
+                                                We don't have rescue organizations data for your area yet — here are some from across Romania.
                                             </p>
                                         )}
-                                        {fallbackCity === 'general' && (
+                                        {!orgsNoData && fallbackCity && (
                                             <p style={{ fontFamily: sans, fontSize: '11px', fontStyle: 'italic', color: '#7A5C44', textAlign: 'center', marginTop: '14px', marginBottom: 0 }}>
-                                                Showing featured Romanian rescue organizations. More cities coming soon.
+                                                Showing the nearest rescue organizations to {city}.
                                             </p>
                                         )}
                                     </>
