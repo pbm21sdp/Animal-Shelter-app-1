@@ -6,6 +6,7 @@ import Navbar from '../components/Navbar';
 import LocationPicker from '../components/LocationPicker';
 import { usePetStore } from '../store/petStore';
 import { useAuthStore } from '../store/authStore';
+import { cropToFocalPoint } from '../utils/imageCrop.js';
 
 const API   = 'http://localhost:5000/api';
 const serif = "'Cormorant Garamond', serif";
@@ -74,13 +75,19 @@ export default function EditAnimalPage() {
     const { user }     = useAuthStore();
     const { getPetById, clearSelectedPet } = usePetStore();
 
-    const fileInputRef    = useRef(null);
-    const descTextareaRef = useRef(null);
+    const fileInputRef          = useRef(null);
+    const descTextareaRef       = useRef(null);
+    const leadPhotoContainerRef = useRef(null);
+    const dragStateRef          = useRef(null);
 
     // Loading / saving
     const [isLoading,  setIsLoading]  = useState(true);
     const [saving,     setSaving]     = useState(false);
     const [saveError,  setSaveError]  = useState('');
+
+    // Lead photo focal point
+    const [leadFocalPoint,    setLeadFocalPoint]    = useState({ x: 50, y: 50 });
+    const [focalPointChanged, setFocalPointChanged] = useState(false);
 
     // Step-1 fields
     const [foundHow,         setFoundHow]         = useState('');
@@ -135,6 +142,30 @@ export default function EditAnimalPage() {
         ...(coatColors.includes('Other') && coatColorOther ? [coatColorOther] : []),
     ];
     const totalPhotos = existingPhotos.length + newPreviews.length;
+
+    // ── Drag-to-reposition for lead photo ─────────────────────────────────────
+    useEffect(() => {
+        const onMove = (e) => {
+            if (!dragStateRef.current) return;
+            const { startX, startY, startFocalX, startFocalY, w, h } = dragStateRef.current;
+            setLeadFocalPoint({
+                x: Math.max(0, Math.min(100, startFocalX - ((e.clientX - startX) / w) * 100)),
+                y: Math.max(0, Math.min(100, startFocalY - ((e.clientY - startY) / h) * 100)),
+            });
+            setFocalPointChanged(true);
+        };
+        const onUp = () => { dragStateRef.current = null; };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+        return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    }, []);
+
+    const handlePhotoMouseDown = (e) => {
+        e.preventDefault();
+        const rect = leadPhotoContainerRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        dragStateRef.current = { startX: e.clientX, startY: e.clientY, startFocalX: leadFocalPoint.x, startFocalY: leadFocalPoint.y, w: rect.width, h: rect.height };
+    };
 
     // ── Load on mount ──────────────────────────────────────────────────────────
     useEffect(() => {
@@ -376,6 +407,23 @@ export default function EditAnimalPage() {
 
             if (user?.isAdmin) payload.status = moderationStatus;
 
+            // Re-crop lead photo if focal point was moved
+            const leadExistingPhoto = existingPhotos.find(p => p.is_primary);
+            if (focalPointChanged && leadExistingPhoto) {
+                const resp = await fetch(`${API}/pets/photos/${leadExistingPhoto.id}`, { credentials: 'include' });
+                const blob = await resp.blob();
+                const file = new File([blob], `lead-${leadExistingPhoto.id}.jpg`, { type: 'image/jpeg' });
+                const cropped = await cropToFocalPoint(file, leadFocalPoint.x, leadFocalPoint.y);
+                const cropForm = new FormData();
+                cropForm.append('photo', cropped);
+                // Upload first — so primary flag auto-transfers on delete (ORDER BY created_at DESC)
+                await axios.post(`${API}/pets/${id}/photos`, cropForm, {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                    withCredentials: true,
+                });
+                await axios.delete(`${API}/pets/${id}/photos/${leadExistingPhoto.id}`, { withCredentials: true });
+            }
+
             await axios.patch(`${API}/pets/${id}`, payload, { withCredentials: true });
 
             for (const preview of newPreviews) {
@@ -591,36 +639,64 @@ export default function EditAnimalPage() {
                         <SectionLabel>Photos</SectionLabel>
 
                         {/* Existing photos */}
-                        {existingPhotos.length > 0 && (
-                            <div style={{ marginBottom: '12px' }}>
-                                <div style={{ fontFamily: sans, fontSize: '10px', color: '#B09880', marginBottom: '8px' }}>Current photos</div>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                                    {existingPhotos.map((photo) => (
-                                        <div key={photo.id} style={{ position: 'relative', flexShrink: 0 }}>
-                                            <img
-                                                src={`${API}/pets/photos/${photo.id}`}
-                                                alt=""
-                                                style={{
-                                                    width: photo.is_primary ? '120px' : '80px',
-                                                    height: photo.is_primary ? '90px' : '80px',
-                                                    objectFit: 'cover', borderRadius: '3px',
-                                                    border: photo.is_primary ? '2px solid #C07A4A' : '1px solid rgba(45,31,20,0.1)',
-                                                    display: 'block',
-                                                }}
-                                                onError={e => { e.target.style.display = 'none'; }}
-                                            />
-                                            {photo.is_primary && (
-                                                <div style={{ position: 'absolute', bottom: '4px', left: '4px', fontFamily: sans, fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#FAF7F4', background: '#C07A4A', padding: '2px 5px', borderRadius: '2px' }}>Lead</div>
-                                            )}
-                                            <button type="button" onClick={() => handleDeleteExistingPhoto(photo.id)}
-                                                style={{ position: 'absolute', top: '-6px', right: '-6px', width: '18px', height: '18px', borderRadius: '50%', background: '#2D1F14', color: '#FAF7F4', border: 'none', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
-                                                ×
-                                            </button>
+                        {existingPhotos.length > 0 && (() => {
+                            const lead       = existingPhotos.find(p => p.is_primary);
+                            const secondary  = existingPhotos.filter(p => !p.is_primary);
+                            return (
+                                <div style={{ marginBottom: '12px' }}>
+                                    <div style={{ fontFamily: sans, fontSize: '10px', color: '#B09880', marginBottom: '8px' }}>Current photos</div>
+
+                                    {/* Lead photo — drag-to-reposition widget */}
+                                    {lead && (
+                                        <div style={{ marginBottom: secondary.length > 0 ? '10px' : 0 }}>
+                                            <div
+                                                ref={leadPhotoContainerRef}
+                                                style={{ position: 'relative', borderRadius: '2px', overflow: 'hidden', cursor: 'grab', userSelect: 'none' }}
+                                                onMouseDown={handlePhotoMouseDown}
+                                            >
+                                                <img
+                                                    src={`${API}/pets/photos/${lead.id}`}
+                                                    alt="Lead"
+                                                    draggable={false}
+                                                    style={{ width: '100%', height: '240px', objectFit: 'cover', objectPosition: `${leadFocalPoint.x}% ${leadFocalPoint.y}%`, borderRadius: '2px', display: 'block', pointerEvents: 'none', border: '2px solid #C07A4A' }}
+                                                    onError={e => { e.target.style.display = 'none'; }}
+                                                />
+                                                <div style={{ position: 'absolute', bottom: '8px', left: '50%', transform: 'translateX(-50%)', fontFamily: sans, fontSize: '10px', color: 'rgba(250,247,244,0.85)', background: 'rgba(45,31,20,0.45)', padding: '3px 10px', borderRadius: '100px', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
+                                                    Drag to reposition
+                                                </div>
+                                                <div style={{ position: 'absolute', top: '8px', left: '8px', fontFamily: sans, fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#FAF7F4', background: '#C07A4A', padding: '2px 5px', borderRadius: '2px', pointerEvents: 'none' }}>
+                                                    Lead
+                                                </div>
+                                                <button type="button" onClick={() => handleDeleteExistingPhoto(lead.id)}
+                                                    style={{ position: 'absolute', top: '8px', right: '8px', width: '20px', height: '20px', borderRadius: '50%', backgroundColor: 'rgba(45,31,20,0.7)', color: '#FAF7F4', border: 'none', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    ×
+                                                </button>
+                                            </div>
                                         </div>
-                                    ))}
+                                    )}
+
+                                    {/* Secondary photos — thumbnails */}
+                                    {secondary.length > 0 && (
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                                            {secondary.map((photo) => (
+                                                <div key={photo.id} style={{ position: 'relative', flexShrink: 0 }}>
+                                                    <img
+                                                        src={`${API}/pets/photos/${photo.id}`}
+                                                        alt=""
+                                                        style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '3px', border: '1px solid rgba(45,31,20,0.1)', display: 'block' }}
+                                                        onError={e => { e.target.style.display = 'none'; }}
+                                                    />
+                                                    <button type="button" onClick={() => handleDeleteExistingPhoto(photo.id)}
+                                                        style={{ position: 'absolute', top: '-6px', right: '-6px', width: '18px', height: '18px', borderRadius: '50%', background: '#2D1F14', color: '#FAF7F4', border: 'none', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
+                                                        ×
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
-                            </div>
-                        )}
+                            );
+                        })()}
 
                         {/* New previews */}
                         {newPreviews.length > 0 && (

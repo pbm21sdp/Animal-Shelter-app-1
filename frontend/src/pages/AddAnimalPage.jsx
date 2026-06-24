@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Navbar from '../components/Navbar';
 import LocationPicker from '../components/LocationPicker';
+import { cropToFocalPoint } from '../utils/imageCrop.js';
 
 const API   = 'http://localhost:5000/api';
 const serif = "'Cormorant Garamond', serif";
@@ -158,24 +159,6 @@ export default function AddAnimalPage() {
         if (!rect) return;
         dragStateRef.current = { startX: e.clientX, startY: e.clientY, startFocalX: leadFocalPoint.x, startFocalY: leadFocalPoint.y, w: rect.width, h: rect.height };
     };
-
-    // Crop lead photo to 4:3 at the chosen focal point before uploading
-    const cropToFocalPoint = (file, fx, fy) => new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-            const TW = 1200, TH = 900;
-            const ar = img.width / img.height, tar = TW / TH;
-            let sx, sy, sw, sh;
-            if (ar > tar) { sh = img.height; sw = sh * tar; sx = (img.width - sw) * (fx / 100); sy = 0; }
-            else          { sw = img.width;  sh = sw / tar; sx = 0; sy = (img.height - sh) * (fy / 100); }
-            const c = document.createElement('canvas');
-            c.width = TW; c.height = TH;
-            c.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, TW, TH);
-            c.toBlob(blob => resolve(new File([blob], file.name, { type: 'image/jpeg' })), 'image/jpeg', 0.92);
-            URL.revokeObjectURL(img.src);
-        };
-        img.src = URL.createObjectURL(file);
-    });
 
     // ── Step 1 state ──────────────────────────────────────────────────────────
     const [foundHow,        setFoundHow]        = useState('');
