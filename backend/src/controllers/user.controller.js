@@ -543,23 +543,17 @@ export const getUserPets = async (req, res) => {
     try {
         const { id } = req.params;
 
-        let isUploadsPrivate   = false;
         let isFoundHomePrivate = false;
 
         if (!isOwnerRequest(req, id)) {
             const settings = await getPrivacySettingsFor(id);
             if (settings) {
-                isUploadsPrivate   = settings.showUploads   === false;
                 isFoundHomePrivate = settings.showFoundAHome === false;
-                if (isUploadsPrivate && isFoundHomePrivate)
-                    return res.json({ success: true, isPrivate: true, pets: [] });
             }
         }
 
-        // Filter pets based on which sections are private
-        let adoptionFilter = '';
-        if (isUploadsPrivate)   adoptionFilter = 'AND p.is_adopted = true';
-        if (isFoundHomePrivate) adoptionFilter = 'AND p.is_adopted = false';
+        // Uploads are always visible; only filter out adopted pets when Found a Home is private
+        const adoptionFilter = isFoundHomePrivate ? 'AND p.is_adopted = false' : '';
 
         const result = await pool.query(
             `SELECT p.id, p.name, p.type, p.breed, p.age_category,
@@ -573,7 +567,7 @@ export const getUserPets = async (req, res) => {
             [id]
         );
 
-        res.status(200).json({ success: true, pets: result.rows, isUploadsPrivate, isFoundHomePrivate });
+        res.status(200).json({ success: true, pets: result.rows, isFoundHomePrivate });
     } catch (error) {
         console.error('Error in getUserPets:', error);
         res.status(500).json({ success: false, message: 'Server error' });
