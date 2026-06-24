@@ -189,8 +189,20 @@ export const getSimilarPets = async (req, res) => {
     }
 };
 
+const REQUIRED_PET_FIELDS = ['name', 'type', 'description', 'gender', 'situation', 'current_status', 'microchip_status', 'neutered_spayed_status', 'vaccination_status'];
+
 export const createPet = async (req, res) => {
     try {
+        const missing = REQUIRED_PET_FIELDS.filter(f => !req.body[f]);
+        const hasLocation = req.body.location_city || req.body.location_address;
+        if (!hasLocation) missing.push('location_city');
+        if (missing.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: `Missing required fields: ${missing.join(', ')}`,
+            });
+        }
+
         const petData = { ...req.body, uploader_id: req.userId };
         const newPet = await PetModel.create(petData);
 
@@ -212,6 +224,18 @@ export const createPet = async (req, res) => {
 export const updatePet = async (req, res) => {
     try {
         const {id} = req.params;
+
+        const missing = REQUIRED_PET_FIELDS.filter(f => req.body[f] !== undefined && !req.body[f]);
+        const bodyHasLocation = 'location_city' in req.body || 'location_address' in req.body;
+        if (bodyHasLocation && !req.body.location_city && !req.body.location_address) {
+            missing.push('location_city');
+        }
+        if (missing.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: `Missing required fields: ${missing.join(', ')}`,
+            });
+        }
 
         // Ownership check — uploader or admin
         const existing = await PetModel.findById(id);
