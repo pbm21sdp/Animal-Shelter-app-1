@@ -6,6 +6,7 @@ import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import Navbar from '../components/Navbar';
 import axios from 'axios';
+import { LOCALITIES_BY_COUNTY } from '../data/romaniaLocalities';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({ iconUrl: markerIcon, iconRetinaUrl: markerIcon2x, shadowUrl: markerShadow });
@@ -38,6 +39,63 @@ const CITY_COORDS = {
     'arad':        [46.1866, 21.3123],
 };
 
+const COUNTY_COORDS = {
+    'Alba':                  [46.0700, 23.5800],
+    'Arad':                  [46.1866, 21.3123],
+    'Argeș':                 [44.8500, 24.8700],
+    'Bacău':                 [46.5670, 26.9140],
+    'Bihor':                 [47.0722, 21.9213],
+    'Bistrița-Năsăud':       [47.1300, 24.4900],
+    'Botoșani':              [47.7500, 26.6700],
+    'Brăila':                [45.2700, 27.9600],
+    'Brașov':                [45.6427, 25.5887],
+    'Buzău':                 [45.1500, 26.8200],
+    'Caraș-Severin':         [45.3000, 21.8833],
+    'Călărași':              [44.2000, 27.3300],
+    'Cluj':                  [46.7712, 23.6236],
+    'Constanța':             [44.1598, 28.6348],
+    'Covasna':               [45.8500, 26.1800],
+    'Dâmbovița':             [44.9300, 25.4600],
+    'Dolj':                  [44.3302, 23.7949],
+    'Galați':                [45.4353, 28.0082],
+    'Giurgiu':               [43.9000, 25.9700],
+    'Gorj':                  [44.9000, 23.3500],
+    'Harghita':              [46.3500, 25.7900],
+    'Hunedoara':             [45.7500, 22.9000],
+    'Ialomița':              [44.5600, 27.3700],
+    'Iași':                  [47.1585, 27.6014],
+    'Ilfov':                 [44.5000, 26.1500],
+    'Maramureș':             [47.6500, 23.5800],
+    'Mehedinți':             [44.6300, 22.6600],
+    'Mureș':                 [46.5400, 24.5500],
+    'Neamț':                 [46.9800, 26.3800],
+    'Olt':                   [44.3600, 24.4200],
+    'Prahova':               [45.0600, 25.8300],
+    'Sălaj':                 [47.2000, 23.0600],
+    'Satu Mare':             [47.7900, 22.8800],
+    'Sibiu':                 [45.7983, 24.1256],
+    'Suceava':               [47.6300, 26.2500],
+    'Teleorman':             [44.0300, 25.3400],
+    'Timiș':                 [45.7489, 21.2087],
+    'Tulcea':                [45.1800, 29.0800],
+    'Vâlcea':                [45.1000, 24.3700],
+    'Vaslui':                [46.6400, 27.7300],
+    'Vrancea':               [45.7000, 27.1800],
+    'Municipiul București':  [44.4268, 26.1025],
+};
+
+// Reverse map: lowercase city name → county (built once at module load)
+const CITY_TO_COUNTY = (() => {
+    const map = {};
+    for (const [county, cities] of Object.entries(LOCALITIES_BY_COUNTY)) {
+        for (const city of cities) {
+            const key = city.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+            if (!map[key]) map[key] = county;
+        }
+    }
+    return map;
+})();
+
 // Deterministic pseudo-random from integer seed — stable across re-renders
 function seededRandom(seed) {
     const x = Math.sin(seed) * 10000;
@@ -45,11 +103,19 @@ function seededRandom(seed) {
 }
 
 function cityToApproxCoords(city, petId) {
-    const key  = (city || '').toLowerCase().trim();
-    const base = CITY_COORDS[key] || [45.7489, 21.2087];
-    const r1   = seededRandom(petId * 7.3 + 1);
-    const r2   = seededRandom(petId * 13.7 + 2);
-    // ±0.03 degrees ≈ ±3 km spread across the city
+    const raw = (city || '').trim();
+    const key = raw.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+    let base = CITY_COORDS[key] || CITY_COORDS[raw.toLowerCase()];
+    if (!base) {
+        const county = CITY_TO_COUNTY[key];
+        if (county) base = COUNTY_COORDS[county];
+    }
+    if (!base) base = [45.9432, 24.9668]; // Romania geographic center
+
+    const r1 = seededRandom(petId * 7.3 + 1);
+    const r2 = seededRandom(petId * 13.7 + 2);
+    // ±0.03 degrees ≈ ±3 km spread
     return [base[0] + (r1 - 0.5) * 0.06, base[1] + (r2 - 0.5) * 0.06];
 }
 
@@ -102,17 +168,27 @@ export default function MapPage() {
 
     useEffect(() => {
         if (pets.length === 0) return;
-        // Use stored lat/lng for exact pins; fall back to city-based approx for the rest
         setPetsWithCoords(pets.map(pet => {
             const hasExact = pet.latitude != null && pet.longitude != null
-            && pet.location_address && pet.location_address.trim() !== '';
-            return {
-                ...pet,
-                coords:  hasExact
-                    ? [parseFloat(pet.latitude), parseFloat(pet.longitude)]
-                    : cityToApproxCoords(pet.location_city, pet.id),
-                isExact: hasExact,
-            };
+                && pet.location_address && pet.location_address.trim() !== '';
+
+            let coords;
+            if (hasExact) {
+                coords = [parseFloat(pet.latitude), parseFloat(pet.longitude)];
+            } else if (pet.latitude != null && pet.longitude != null) {
+                // LocationPicker geocoded the city center — spread around actual locality
+                const r1 = seededRandom(pet.id * 7.3 + 1);
+                const r2 = seededRandom(pet.id * 13.7 + 2);
+                coords = [
+                    parseFloat(pet.latitude)  + (r1 - 0.5) * 0.06,
+                    parseFloat(pet.longitude) + (r2 - 0.5) * 0.06,
+                ];
+            } else {
+                // Legacy data with no stored coordinates — text-based fallback
+                coords = cityToApproxCoords(pet.location_city, pet.id);
+            }
+
+            return { ...pet, coords, isExact: hasExact };
         }));
     }, [pets]);
 
