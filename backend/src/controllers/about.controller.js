@@ -20,9 +20,15 @@ function linReg(values) {
 
 function forecastSteps(values, steps) {
     if (values.length === 0) return Array(steps).fill(0);
-    if (values.length < 2) return Array(steps).fill(Math.max(0, Math.round(values[0])));
+    const lastVal = Math.max(0, Math.round(values[values.length - 1]));
+    if (values.length < 2) return Array(steps).fill(lastVal);
     const { slope, intercept } = linReg(values);
     const n = values.length;
+    // If the very next predicted value is already ≤ 0 (steep decline), fall back to
+    // the last known value rather than showing a misleading flat-zero forecast line.
+    if (Math.round(intercept + slope * n) <= 0) {
+        return Array(steps).fill(lastVal);
+    }
     return Array.from({ length: steps }, (_, i) =>
         Math.max(0, Math.round(intercept + slope * (n + i)))
     );
@@ -560,33 +566,45 @@ export const getPlatformAnalytics = async (req, res) => {
         let forecastLabels = [], forecastUploads = [], forecastAdoptions = [];
         let next30 = null, next90 = null;
 
-        // Scale the current (partial) month's counts to a projected full-month
-        // value so the regression isn't pulled downward by an incomplete month.
         const now = new Date();
         const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
         const daysInMonth  = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
         const scaleFactor  = daysInMonth / now.getDate();
 
-        const regressionUploads   = allMonths.map(m => {
-            const v = uploadsMap[m] || 0;
-            return m === currentMonthStr ? Math.round(v * scaleFactor) : v;
-        });
-        const regressionAdoptions = allMonths.map(m => {
-            const v = adoptionsMap[m] || 0;
-            return m === currentMonthStr ? Math.round(v * scaleFactor) : v;
-        });
+        // Build per-metric regression arrays from their own rows only.
+        // Using allMonths (the union) would zero-pad months where one metric has
+        // no data, distorting the slope and producing false 0 forecasts.
+        const regressionUploads   = uploadsRows.map(r =>
+            r.month === currentMonthStr ? Math.round(r.count * scaleFactor) : r.count
+        );
+        const regressionAdoptions = adoptionRows.map(r =>
+            r.month === currentMonthStr ? Math.round(r.count * scaleFactor) : r.count
+        );
 
         if (allMonths.length >= MIN_MONTHS) {
-            forecastUploads   = forecastSteps(regressionUploads,   FORECAST_MONTHS);
-            forecastAdoptions = forecastSteps(regressionAdoptions, FORECAST_MONTHS);
-
             let d = new Date(allMonths[allMonths.length - 1] + '-01');
             for (let i = 0; i < FORECAST_MONTHS; i++) {
                 d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
                 forecastLabels.push(d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }));
             }
-            next30 = forecastAdoptions[0];
-            next90 = forecastAdoptions.slice(0, 3).reduce((a, b) => a + b, 0);
+
+            // Uploads — require ≥2 months so the regression has a real slope.
+            // Show even if the trend is declining to 0 (honest information).
+            if (regressionUploads.length >= 2) {
+                forecastUploads = forecastSteps(regressionUploads, FORECAST_MONTHS);
+            }
+
+            // Adoptions — require ≥2 months for a chart line; with only 1 month
+            // forecastSteps returns a flat constant which is visually misleading.
+            if (regressionAdoptions.length >= 2) {
+                forecastAdoptions = forecastSteps(regressionAdoptions, FORECAST_MONTHS);
+                next30 = forecastAdoptions[0] ?? null;
+                next90 = forecastAdoptions.slice(0, 3).reduce((a, b) => a + b, 0);
+            } else if (regressionAdoptions.length === 1) {
+                // Single data point: show estimated values in cards but no flat line on chart.
+                next30 = regressionAdoptions[0];
+                next90 = regressionAdoptions[0] * 3;
+            }
         }
 
         const insufficientForecast = allMonths.length < MIN_MONTHS;
