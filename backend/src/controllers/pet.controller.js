@@ -15,9 +15,9 @@ export const getAllPets = async (req, res) => {
         if (zipCode) filters.zipCode = zipCode;
         if (uploader_id) filters.uploader_id = uploader_id;
 
-        // Only apply the availability filter for non-admin requests
-        // This allows admins to see all pets regardless of adoption status
-        if (showAll !== 'true') {
+        // Skip availability filter when explicitly fetching adopted pets
+        // (adopted pets have is_available = false by definition)
+        if (showAll !== 'true' && adopted !== 'true') {
             filters.is_available = true;
         }
 
