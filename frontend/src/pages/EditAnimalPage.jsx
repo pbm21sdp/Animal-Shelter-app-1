@@ -928,16 +928,6 @@ export default function EditAnimalPage() {
                         <div style={{ height: '1px', backgroundColor: 'rgba(45,31,20,0.1)' }} />
                     </div>
 
-                    {/* ── TYPE ─────────────────────────────────────────────── */}
-                    <div style={{ marginTop: '20px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                        <span style={{ fontFamily: sans, fontSize: '9px', color: '#B09880', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Type:</span>
-                        <PillToggle options={ANIMAL_TYPE_OPTIONS} value={animalType} onChange={setAnimalType} />
-                    </div>
-                    {animalType === 'Other' && (
-                        <input type="text" placeholder="Specify animal type…" value={animalTypeOther} onChange={e => setAnimalTypeOther(e.target.value)}
-                            style={{ width: '100%', marginBottom: '12px', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }} />
-                    )}
-
                     <SectionDivider />
 
                     {/* ── MODERATION STATUS (admin only) ───────────────────── */}

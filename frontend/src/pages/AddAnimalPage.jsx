@@ -1103,18 +1103,6 @@ export default function AddAnimalPage() {
                     {errors.description && <div style={{ fontFamily: sans, fontSize: '11px', color: '#C07A4A', marginTop: '4px', textAlign: 'center' }}>{errors.description}</div>}
                 </div>
 
-                {/* ── DETAILS ROW ─────────────────────────────────────── */}
-                <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                    <span style={{ fontFamily: sans, fontSize: '9px', color: '#B09880', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Type:</span>
-                    <PillToggle options={['Dog', 'Cat', 'Rabbit', 'Bird', 'Fish', 'Hamster', 'Guinea pig', 'Reptile', 'Other']} value={animalType} onChange={setAnimalType} />
-                    {errors.animalType && <span style={{ fontFamily: sans, fontSize: '11px', color: '#C07A4A' }}>{errors.animalType}</span>}
-
-                    <span style={{ color: '#D4C4B8', fontSize: '14px' }}>·</span>
-
-                    <span style={{ fontFamily: sans, fontSize: '9px', color: '#B09880', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Status:</span>
-                    <PillToggle options={['Found', 'Urgent', 'Vaccinated']} value={status} onChange={setStatus} />
-                </div>
-
                 {/* ── STEP 1 SUMMARY BADGES ───────────────────────────── */}
                 {(() => {
                     const step1Summary = [
