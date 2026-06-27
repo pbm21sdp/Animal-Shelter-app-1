@@ -573,9 +573,20 @@ class AnimalDescriptionGenerator:
         current_status_val = (data.get('currentStatus') or data.get('current_status') or '').lower()
         situation_val = (data.get('situation') or '').lower()
         city = data.get('city') or ''
+        address = (data.get('address') or '').strip()
         breed = data.get('breed') or ''
         breed_unsure = bool(data.get('breedUnsure') or data.get('breed_unsure'))
-        color = data.get('color') or ''
+        # Normalize colors: split by comma, lowercase, join with natural connectors
+        raw_color = data.get('color') or ''
+        color_parts = [c.strip().lower() for c in raw_color.split(',') if c.strip()]
+        if len(color_parts) == 0:
+            color_str = ''
+        elif len(color_parts) == 1:
+            color_str = color_parts[0]
+        elif len(color_parts) == 2:
+            color_str = f'{color_parts[0]} and {color_parts[1]}'
+        else:
+            color_str = ', '.join(color_parts[:-1]) + f', and {color_parts[-1]}'
         coat = data.get('coat') or ''
         traits = [t for t in (data.get('traits') or []) if t]
 
@@ -599,6 +610,11 @@ class AnimalDescriptionGenerator:
         elif 'rescue' in found_how.lower():
             found_key = 'rescued'
 
+        # Situations where we genuinely know the animal → assertive language
+        # Unknown situations (stray, found, lost) → speculative language
+        known_animal = found_key in ('owner_missing', 'owner_surrender') or \
+                       current_status_val in ('foster', 'ready_for_adoption', 'in_recovery', 'special_needs')
+
         size_map = {
             'very small (under 5kg)': 'very small', 'small (5-10kg)': 'small',
             'medium (10-25kg)': 'medium-sized', 'large (over 25kg)': 'large', 'unknown': ''
@@ -612,35 +628,77 @@ class AnimalDescriptionGenerator:
 
         parts = [opening]
 
-        # Appearance sentence (breed / color / coat)
-        # For situation='other' with custom text, surface it after the opening
+        # Exact address — add after opening when available (not for owner_missing where address is irrelevant)
+        if address and found_key not in ('owner_missing',):
+            if found_key == 'lost':
+                addr_phrases = [
+                    f'They were found specifically at {address}.',
+                    f'Exact location: {address}.',
+                    f'Found precisely at {address}.',
+                ]
+            elif found_key == 'found_street':
+                addr_phrases = [
+                    f'Specifically picked up at {address}.',
+                    f'They were found at {address}.',
+                    f'Exact location where they were found: {address}.',
+                ]
+            else:
+                addr_phrases = [
+                    f'Their location: {address}.',
+                    f'Currently at {address}.',
+                ]
+            parts.append(random.choice(addr_phrases))
+
+        # Situation 'other' with custom text
         if situation_val == 'other' and found_how and found_how.lower() not in (
             'found on the street', 'appears to be lost', 'went missing',
             'owner surrendered it', 'rescued from danger', 'other', 'default',
         ):
             parts.append(f'Background: {found_how}.')
 
-        if breed and (color or coat):
-            coat_str = f'with a {color} coat' if color else f'with {coat} fur'
+        # Appearance: breed / color / coat
+        # For unknown animals, use speculative language on color/coat (breed has its own unsure flag)
+        def coat_clause():
+            if color_str and coat:
+                return f'with a {color_str} {coat} coat'
+            elif color_str:
+                return f'with a {color_str} coat'
+            elif coat:
+                return f'with {coat} fur'
+            return ''
+
+        clause = coat_clause()
+        if breed and clause:
             if breed_unsure:
-                parts.append(f'This {animal_type} appears to be a {breed} mix, {coat_str}.')
+                parts.append(f'This {animal_type} appears to be a {breed} mix, {clause}.')
             else:
-                parts.append(f'This {animal_type} is a {breed}, {coat_str}.')
+                parts.append(f'This {animal_type} is a {breed}, {clause}.')
         elif breed:
             if breed_unsure:
                 parts.append(random.choice([
-                    f'Their breed is uncertain, but this {animal_type} has many traits of a {breed}.',
-                    f'This {animal_type} appears to be a {breed} — though we cannot say for certain.',
-                    f'They seem to have a lot of {breed} in them, though the exact mix is unknown.',
+                    f'Their breed is uncertain, but this {animal_type} appears to have many traits of a {breed}.',
+                    f'This {animal_type} seems to be a {breed} — though we cannot say for certain.',
+                    f'They appear to have a lot of {breed} in them, though the exact mix is unknown.',
                 ]))
             else:
                 parts.append(f'This {animal_type} is a {breed}.')
-        elif color:
-            parts.append(f'This {animal_type} has a {color} coat.')
+        elif color_str and coat:
+            if known_animal:
+                parts.append(f'This {animal_type} has a {color_str} {coat} coat.')
+            else:
+                parts.append(f'This {animal_type} appears to have a {color_str} {coat} coat.')
+        elif color_str:
+            if known_animal:
+                parts.append(f'This {animal_type} has a {color_str} coat.')
+            else:
+                parts.append(f'This {animal_type} appears to have a {color_str} coat.')
         elif coat:
-            parts.append(f'This {animal_type} has {coat} fur.')
+            if known_animal:
+                parts.append(f'This {animal_type} has {coat} fur.')
+            else:
+                parts.append(f'This {animal_type} appears to have {coat} fur.')
 
-        # Personality traits — positive traits get warm framing; honest/challenging traits get transparent framing
+        # Personality traits
         if traits:
             positive_traits = [t for t in traits if t.lower() not in honest_traits_set]
             honest_traits   = [t for t in traits if t.lower() in honest_traits_set]
@@ -654,21 +712,30 @@ class AnimalDescriptionGenerator:
                 else:
                     trait_str = ', '.join(pt_lower[:-1]) + f', and {pt_lower[-1]}'
 
-                trait_templates = [
-                    f'Known to be {trait_str}, they would make a wonderful companion for the right family.',
-                    f'Their personality shines through — {trait_str} describes them perfectly.',
-                    f'Those who know them best describe this {animal_type} as {trait_str}.',
-                    f'A truly {trait_str} soul, this {animal_type} is looking for someone to share their days with.',
-                    f'What makes them special? They are {trait_str} — and they wear it every single day.',
-                    f'{trait_str} — that\'s this {animal_type} in a few words.',
-                    f'This {animal_type} is {trait_str}, and it shows in everything they do.',
-                    f'If you had to describe them in one breath, it would be: {trait_str}.',
-                    f'Spend five minutes with this {animal_type} and you\'ll see it — {trait_str}, through and through.',
-                    f'{trait_str}. That\'s not just a description, that\'s a promise of what you\'ll get.',
-                    f'This {animal_type} wears their personality on their sleeve: {trait_str}.',
-                    f'Ask anyone who\'s met them — {trait_str} is the first thing they\'ll say.',
-                    f'Beneath the surface, this {animal_type} is simply {trait_str}.',
-                ]
+                if known_animal:
+                    trait_templates = [
+                        f'Known to be {trait_str}, they would make a wonderful companion for the right family.',
+                        f'Those who know them best describe this {animal_type} as {trait_str}.',
+                        f'This {animal_type} is {trait_str} — and it shows in everything they do.',
+                        f'If you had to describe them in one breath, it would be: {trait_str}.',
+                        f'{trait_str} — that\'s this {animal_type} in a few words.',
+                        f'Ask anyone who\'s met them — {trait_str} is the first thing they\'ll say.',
+                        f'Beneath the surface, this {animal_type} is simply {trait_str}.',
+                        f'Their personality speaks for itself: {trait_str}.',
+                        f'Spend five minutes with this {animal_type} and you\'ll see it — {trait_str}, through and through.',
+                    ]
+                else:
+                    trait_templates = [
+                        f'From what we\'ve observed, this {animal_type} seems to be {trait_str}.',
+                        f'In the short time we\'ve known them, they appear to be {trait_str}.',
+                        f'They seem {trait_str} — or at least, that\'s the impression they\'ve made so far.',
+                        f'This {animal_type} comes across as {trait_str} in every interaction we\'ve had.',
+                        f'Based on how they\'ve been around people, they appear to be {trait_str}.',
+                        f'From our observations: {trait_str} — though their full personality will unfold in a proper home.',
+                        f'They seem to be {trait_str}, based on everything we\'ve been able to observe.',
+                        f'Early signs suggest this {animal_type} is {trait_str} — we can\'t be certain yet, but it\'s a promising start.',
+                        f'This {animal_type} comes across as {trait_str} from what we\'ve seen of them.',
+                    ]
                 parts.append(random.choice(trait_templates))
 
             if honest_traits:
@@ -679,12 +746,20 @@ class AnimalDescriptionGenerator:
                     honest_str = f'{ht_lower[0]} and {ht_lower[1]}'
                 else:
                     honest_str = ', '.join(ht_lower[:-1]) + f', and {ht_lower[-1]}'
-                honest_templates = [
-                    f'In the spirit of full honesty: they can be {honest_str}. The right owner will understand, and they will reward that patience.',
-                    f'A transparent note: this {animal_type} can be {honest_str}. They need someone who gets it, and they will be devoted to that person.',
-                    f'They come with a few quirks worth knowing — {honest_str}. The right home will find these manageable, and even endearing.',
-                    f'We believe in honest profiles: {honest_str}. That\'s not a dealbreaker — it\'s just the full picture.',
-                ]
+                if known_animal:
+                    honest_templates = [
+                        f'In the spirit of full honesty: they can be {honest_str}. The right owner will understand, and they will reward that patience.',
+                        f'A transparent note: this {animal_type} can be {honest_str}. They need someone who gets it, and they will be devoted to that person.',
+                        f'They come with a few quirks worth knowing — {honest_str}. The right home will find these manageable, and even endearing.',
+                        f'We believe in honest profiles: {honest_str}. That\'s not a dealbreaker — it\'s just the full picture.',
+                    ]
+                else:
+                    honest_templates = [
+                        f'Worth mentioning: they sometimes seem {honest_str}. This may settle once they\'re in a stable home.',
+                        f'We\'ve noticed they can appear {honest_str} at times — understandable given what they\'ve been through.',
+                        f'They occasionally come across as {honest_str}, which isn\'t surprising for an animal in an unfamiliar situation.',
+                        f'A honest observation: they sometimes seem {honest_str}. The right patient home could make all the difference.',
+                    ]
                 parts.append(random.choice(honest_templates))
 
         # Age sentence — multiple options per bracket
