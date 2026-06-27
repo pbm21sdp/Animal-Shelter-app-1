@@ -271,7 +271,9 @@ export const getAllAdoptions = async (req, res) => {
                     0
                 )                                                                       AS "daysToAdoption",
                 p.uploader_id                                                           AS "uploaderId",
-                p.adopted_by                                                            AS "adoptedById"
+                p.adopted_by                                                            AS "adoptedById",
+                p.adopter_external_name                                                 AS "adopterExternalName",
+                COALESCE(p.adoption_status_label, 'adopted')                           AS "adoptionStatusLabel"
             FROM pets p
             WHERE ${conditions.join(' AND ')}
             ORDER BY ${orderBy}
@@ -300,16 +302,19 @@ export const getAllAdoptions = async (req, res) => {
         }
 
         const enriched = pets.map(p => ({
-            _id:             p.id,
-            petName:         p.petName,
-            petType:         p.petType,
-            petBreed:        p.petBreed,
-            city:            p.city,
-            adoptedAt:       p.adoptedAt,
-            postedAt:        p.postedAt,
-            daysToAdoption:  p.daysToAdoption,
-            uploaderName:    userMap[p.uploaderId]?.name  || null,
-            uploaderEmail:   userMap[p.uploaderId]?.email || null,
+            _id:                  p.id,
+            petName:              p.petName,
+            petType:              p.petType,
+            petBreed:             p.petBreed,
+            city:                 p.city,
+            adoptedAt:            p.adoptedAt,
+            postedAt:             p.postedAt,
+            daysToAdoption:       p.daysToAdoption,
+            adopterName:          userMap[p.adoptedById]?.name  || null,
+            adopterExternalName:  p.adopterExternalName         || null,
+            adoptionStatusLabel:  p.adoptionStatusLabel,
+            uploaderName:         userMap[p.uploaderId]?.name   || null,
+            uploaderEmail:        userMap[p.uploaderId]?.email  || null,
         }));
 
         res.status(200).json({ success: true, adoptions: enriched });
