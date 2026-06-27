@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import Navbar from '../components/Navbar';
 import { ArrowLeft } from 'lucide-react';
+import { formatDate } from '../utils/date';
 
 const API = 'http://localhost:5000/api';
 
@@ -80,7 +81,7 @@ export default function ForumPostDetailPage() {
                                 {meta.label}
                             </span>
                             <span style={{ fontFamily: sans, fontSize: '11px', color: C.lightMuted }}>
-                                {new Date(post.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                {formatDate(post.created_at, 'short')}
                                 {post.updated_at !== post.created_at && ' · edited'}
                             </span>
                         </div>

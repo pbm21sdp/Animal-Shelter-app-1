@@ -40,6 +40,17 @@ export function formatPostedOn(dateStr) {
     return `Posted on ${datePart} at ${timePart}`;
 }
 
+// "11:23" — time only, in Bucharest timezone
+export function formatTime(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(ensureUtc(dateStr));
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString('en-GB', {
+        hour: '2-digit', minute: '2-digit',
+        timeZone: 'Europe/Bucharest',
+    });
+}
+
 // "just now", "5m ago", "3h ago", "2d ago"
 export function formatTimeAgo(dateStr) {
     if (!dateStr) return '';

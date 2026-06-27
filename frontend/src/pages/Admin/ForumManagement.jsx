@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { Plus, Edit, Trash2, X, RefreshCw, ChevronUp } from 'lucide-react';
 import AdminModal from './shared/AdminModal';
+import { formatDate } from '../../utils/date';
 
 const API = 'http://localhost:5000/api';
 
@@ -269,7 +270,7 @@ export default function ForumManagement() {
                                         </span>
                                     </td>
                                     <td style={{ padding: '11px 14px', fontSize: '12px', color: C.lightMuted, whiteSpace: 'nowrap' }}>
-                                        {new Date(post.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                        {formatDate(post.created_at, 'short')}
                                     </td>
                                     <td style={{ padding: '11px 14px' }}>
                                         <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>

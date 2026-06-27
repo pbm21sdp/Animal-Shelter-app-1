@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import Navbar from '../components/Navbar';
 import { useAuthStore } from '../store/authStore';
-import { formatTimeAgo } from '../utils/date';
+import { formatTimeAgo, formatTime } from '../utils/date';
 
 const API  = 'http://localhost:5000/api';
 const BASE = 'http://localhost:5000';
@@ -21,8 +21,7 @@ const C = {
 
 
 function fmtTime(dateStr) {
-    if (!dateStr) return '';
-    return new Date(dateStr).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    return formatTime(dateStr);
 }
 
 function Avatar({ name, avatar, size = 36 }) {
