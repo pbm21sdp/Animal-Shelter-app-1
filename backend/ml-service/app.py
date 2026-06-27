@@ -515,20 +515,17 @@ class AnimalDescriptionGenerator:
             'closing_lost': [
                 "Do you recognise this animal? If you are their owner or know who they belong to, please get in touch through Paws as soon as possible.",
                 "If this is your pet or you have any information about their owner, please contact us through Paws right away — every lead helps.",
-                "This animal is safe and being looked after. If you recognise them, reach out through Paws immediately so we can reunite them with their family.",
                 "Recognise this face? Please reach out through Paws — the sooner we can find their owner, the better.",
                 "Know this animal? Please reach out through Paws right away.",
-                "They're safe for now, but their family is likely worried. Reach out through Paws if you recognise them.",
                 "Could this be someone you know's pet? Contact us through Paws.",
                 "Help us reunite them with their family. Reach out through Paws if anything looks familiar.",
                 "If you've seen this animal before, please don't wait — contact us through Paws.",
                 "Every minute matters for a lost pet. Reach out through Paws if you recognise them.",
-                "We're holding onto them safely while we search. If you know them, please reach out through Paws.",
                 "Their family could be looking right now. Reach out through Paws if you recognise this animal.",
             ],
             'closing_owner_missing': [
                 "If you have spotted our pet or have any information about their whereabouts, please contact us through Paws immediately — we are waiting anxiously.",
-                "Have you seen this animal near {city}? Please don't hesitate to reach out through Paws — any sighting, however small, could bring them home.",
+                "Have you seen this animal around {city}? Please don't hesitate to reach out through Paws — any sighting, however small, could bring them home.",
                 "Every tip counts. If you've spotted this {type} or know where they might be, please contact the owner through Paws as soon as possible.",
                 "Time is of the essence. If you have seen this animal, please reach out through Paws right away — their family is waiting.",
                 "Please, if you've seen them, contact us through Paws — we just want them home.",
@@ -587,7 +584,7 @@ class AnimalDescriptionGenerator:
             color_str = f'{color_parts[0]} and {color_parts[1]}'
         else:
             color_str = ', '.join(color_parts[:-1]) + f', and {color_parts[-1]}'
-        coat = data.get('coat') or ''
+        coat = (data.get('coat') or '').lower()
         traits = [t for t in (data.get('traits') or []) if t]
 
         honest_traits_set = {
@@ -683,20 +680,11 @@ class AnimalDescriptionGenerator:
             else:
                 parts.append(f'This {animal_type} is a {breed}.')
         elif color_str and coat:
-            if known_animal:
-                parts.append(f'This {animal_type} has a {color_str} {coat} coat.')
-            else:
-                parts.append(f'This {animal_type} appears to have a {color_str} {coat} coat.')
+            parts.append(f'This {animal_type} has a {color_str} {coat} coat.')
         elif color_str:
-            if known_animal:
-                parts.append(f'This {animal_type} has a {color_str} coat.')
-            else:
-                parts.append(f'This {animal_type} appears to have a {color_str} coat.')
+            parts.append(f'This {animal_type} has a {color_str} coat.')
         elif coat:
-            if known_animal:
-                parts.append(f'This {animal_type} has {coat} fur.')
-            else:
-                parts.append(f'This {animal_type} appears to have {coat} fur.')
+            parts.append(f'This {animal_type} has {coat} fur.')
 
         # Personality traits
         if traits:
