@@ -537,6 +537,25 @@ export const PetModel = {
         }
     },
 
+    // Mark a missing pet as returned to its owner (does NOT set is_adopted = true).
+    markAsFound: async (id) => {
+        try {
+            const query = `
+                UPDATE pets
+                SET is_available = FALSE,
+                    adoption_status = 'unavailable',
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = $1
+                RETURNING *
+            `;
+            const result = await pool.query(query, [id]);
+            return result.rows[0];
+        } catch (error) {
+            console.error('Error in PetModel.markAsFound:', error);
+            throw error;
+        }
+    },
+
     // Reverse a community-adopted mark (uploader correction)
     unadoptPet: async (id) => {
         try {
