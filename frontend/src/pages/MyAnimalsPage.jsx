@@ -86,6 +86,14 @@ export default function MyAnimalsPage() {
     const [foundDialog, setFoundDialog]     = useState(null);
     const [foundConfirming, setFoundConfirming] = useState(false);
 
+    // Undo-adoption confirm dialog: { id, name }
+    const [undoDialog,   setUndoDialog]   = useState(null);
+    const [undoingDialog, setUndoingDialog] = useState(false);
+
+    // Delete listing confirm dialog: { id, name }
+    const [deleteDialog,   setDeleteDialog]   = useState(null);
+    const [deletingDialog, setDeletingDialog] = useState(false);
+
     // Undo adoption
     const [undoingId, setUndoingId] = useState(null);
 
@@ -179,30 +187,41 @@ export default function MyAnimalsPage() {
         }
     };
 
-    const handleUnadopt = async (petId) => {
-        if (!window.confirm('Remove the adopted mark? The listing will become active again.')) return;
-        setUndoingId(petId);
+    const handleUnadopt = (pet) => setUndoDialog({ id: pet.id || pet, name: pet.name || '' });
+
+    const confirmUnadopt = async () => {
+        if (!undoDialog) return;
+        setUndoingDialog(true);
+        setUndoingId(undoDialog.id);
         try {
-            await axios.patch(`${API}/pets/${petId}/unadopt`, {}, { withCredentials: true });
+            await axios.patch(`${API}/pets/${undoDialog.id}/unadopt`, {}, { withCredentials: true });
             toast.success('Adoption mark removed.');
             setMyPets(prev => prev.map(p =>
-                p.id === petId ? { ...p, is_adopted: false, adoption_status: 'available' } : p
+                p.id === undoDialog.id ? { ...p, is_adopted: false, adoption_status: 'available' } : p
             ));
+            setUndoDialog(null);
         } catch {
             toast.error('Failed to undo adoption.');
         } finally {
+            setUndoingDialog(false);
             setUndoingId(null);
         }
     };
 
-    const handleDelete = async (petId) => {
-        if (!window.confirm('Delete this listing permanently? This cannot be undone.')) return;
+    const handleDelete = (pet) => setDeleteDialog({ id: pet.id || pet, name: pet.name || '' });
+
+    const confirmDelete = async () => {
+        if (!deleteDialog) return;
+        setDeletingDialog(true);
         try {
-            await axios.delete(`${API}/pets/${petId}`, { withCredentials: true });
+            await axios.delete(`${API}/pets/${deleteDialog.id}`, { withCredentials: true });
             toast.success('Listing deleted.');
-            setMyPets(prev => prev.filter(p => p.id !== petId));
+            setMyPets(prev => prev.filter(p => p.id !== deleteDialog.id));
+            setDeleteDialog(null);
         } catch {
             toast.error('Failed to delete.');
+        } finally {
+            setDeletingDialog(false);
         }
     };
 
@@ -336,6 +355,74 @@ export default function MyAnimalsPage() {
                 </div>
             )}
 
+            {/* ── Undo adoption confirm dialog ── */}
+            {undoDialog && (
+                <div
+                    style={{ position: 'fixed', inset: 0, background: 'rgba(45,31,20,0.6)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
+                    onClick={() => { if (!undoingDialog) setUndoDialog(null); }}
+                >
+                    <div
+                        style={{ background: C.cream, borderRadius: '6px', padding: '32px', maxWidth: '420px', width: '100%' }}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div style={{ fontFamily: serif, fontSize: '22px', fontWeight: 700, color: C.espresso, marginBottom: '8px' }}>
+                            Undo adoption for {undoDialog.name}?
+                        </div>
+                        <div style={{ fontFamily: sans, fontSize: '13px', color: C.muted, marginBottom: '24px', lineHeight: 1.6 }}>
+                            This will remove the adopted mark and make the listing active again on the platform.
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                                onClick={() => setUndoDialog(null)} disabled={undoingDialog}
+                                style={{ flex: 1, fontFamily: sans, fontSize: '12px', padding: '10px', border: '1px solid rgba(45,31,20,0.2)', borderRadius: '3px', background: 'transparent', color: C.muted, cursor: undoingDialog ? 'default' : 'pointer' }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmUnadopt} disabled={undoingDialog}
+                                style={{ flex: 2, fontFamily: sans, fontSize: '12px', padding: '10px', border: 'none', borderRadius: '3px', background: C.brown, color: '#fff', cursor: undoingDialog ? 'default' : 'pointer', opacity: undoingDialog ? 0.6 : 1 }}
+                            >
+                                {undoingDialog ? 'Removing…' : 'Yes, undo adoption'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Delete listing confirm dialog ── */}
+            {deleteDialog && (
+                <div
+                    style={{ position: 'fixed', inset: 0, background: 'rgba(45,31,20,0.6)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
+                    onClick={() => { if (!deletingDialog) setDeleteDialog(null); }}
+                >
+                    <div
+                        style={{ background: C.cream, borderRadius: '6px', padding: '32px', maxWidth: '420px', width: '100%' }}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div style={{ fontFamily: serif, fontSize: '22px', fontWeight: 700, color: C.espresso, marginBottom: '8px' }}>
+                            Delete {deleteDialog.name}?
+                        </div>
+                        <div style={{ fontFamily: sans, fontSize: '13px', color: C.muted, marginBottom: '24px', lineHeight: 1.6 }}>
+                            This will permanently remove the listing and all its photos. This action cannot be undone.
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                                onClick={() => setDeleteDialog(null)} disabled={deletingDialog}
+                                style={{ flex: 1, fontFamily: sans, fontSize: '12px', padding: '10px', border: '1px solid rgba(45,31,20,0.2)', borderRadius: '3px', background: 'transparent', color: C.muted, cursor: deletingDialog ? 'default' : 'pointer' }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmDelete} disabled={deletingDialog}
+                                style={{ flex: 2, fontFamily: sans, fontSize: '12px', padding: '10px', border: 'none', borderRadius: '3px', background: '#993C1D', color: '#fff', cursor: deletingDialog ? 'default' : 'pointer', opacity: deletingDialog ? 0.6 : 1 }}
+                            >
+                                {deletingDialog ? 'Deleting…' : 'Yes, delete listing'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* ── Mark as Found dialog ── */}
             {foundDialog && (
                 <div
@@ -439,7 +526,7 @@ function PetCard({ pet, onMarkAdopted, onMarkFound, onUnadopt, undoingId, onDele
             <div style={{ padding: '0 12px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {isAdopted && (
                     <button
-                        onClick={() => onUnadopt(pet.id)}
+                        onClick={() => onUnadopt(pet)}
                         disabled={undoingId === pet.id}
                         style={{ width: '100%', fontFamily: sans, fontSize: '11px', fontWeight: 500, padding: '7px 0', borderRadius: '2px', cursor: undoingId === pet.id ? 'default' : 'pointer', border: '1px solid rgba(45,31,20,0.2)', background: 'transparent', color: C.muted, opacity: undoingId === pet.id ? 0.5 : 1 }}
                     >
@@ -469,7 +556,7 @@ function PetCard({ pet, onMarkAdopted, onMarkFound, onUnadopt, undoingId, onDele
                     Edit listing →
                 </button>
                 <button
-                    onClick={() => onDelete(pet.id)}
+                    onClick={() => onDelete(pet)}
                     style={{ width: '100%', fontFamily: sans, fontSize: '10px', fontWeight: 500, padding: '6px 0', borderRadius: '2px', cursor: 'pointer', border: '1px solid rgba(153,60,29,0.3)', background: 'transparent', color: '#993C1D' }}
                 >
                     Delete listing

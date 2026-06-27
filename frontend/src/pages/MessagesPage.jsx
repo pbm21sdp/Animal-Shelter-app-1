@@ -80,6 +80,10 @@ export default function MessagesPage() {
     const [adopterLoading, setAdopterLoading]   = useState(false);
     const [adoptConfirming, setAdoptConfirming] = useState(false);
 
+    // Delete conversation confirm dialog
+    const [deleteConvTarget,   setDeleteConvTarget]   = useState(null);
+    const [deletingConv, setDeletingConv] = useState(false);
+
     const activeConv = conversations.find(c => c.id === activeConvId) || null;
 
     useEffect(() => {
@@ -297,13 +301,7 @@ export default function MessagesPage() {
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                if (!window.confirm('Delete this conversation? It will only be removed for you.')) return;
-                                                axios.delete(`${API}/conversations/${conv.id}`, { withCredentials: true })
-                                                    .then(() => {
-                                                        setConversations(prev => prev.filter(c => c.id !== conv.id));
-                                                        if (activeConvId === conv.id) setActiveConvId(null);
-                                                    })
-                                                    .catch(() => {});
+                                                setDeleteConvTarget(conv);
                                             }}
                                             style={{
                                                 position: 'absolute', bottom: '8px', right: '10px',
@@ -518,6 +516,57 @@ export default function MessagesPage() {
                     )}
                 </div>
             </div>
+
+        {/* ── Delete conversation confirm dialog ── */}
+        {deleteConvTarget && (
+            <div
+                style={{ position: 'fixed', inset: 0, background: 'rgba(45,31,20,0.6)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
+                onClick={() => { if (!deletingConv) setDeleteConvTarget(null); }}
+            >
+                <div
+                    style={{ background: C.cream, borderRadius: '6px', padding: '32px', maxWidth: '420px', width: '100%' }}
+                    onClick={e => e.stopPropagation()}
+                >
+                    <div style={{ fontFamily: serif, fontSize: '22px', fontWeight: 700, color: C.espresso, marginBottom: '8px' }}>
+                        Delete conversation?
+                    </div>
+                    <div style={{ fontFamily: sans, fontSize: '13px', color: C.muted, marginBottom: '6px', lineHeight: 1.6 }}>
+                        Your conversation with <strong style={{ color: C.espresso }}>{deleteConvTarget.other_user?.name || 'this user'}</strong>
+                        {deleteConvTarget.pet_name ? <> about <em>{deleteConvTarget.pet_name}</em></> : ''} will be removed.
+                    </div>
+                    <div style={{ fontFamily: sans, fontSize: '12px', color: '#B09880', marginBottom: '24px' }}>
+                        This only removes it for you — the other person's copy stays intact.
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                            onClick={() => setDeleteConvTarget(null)} disabled={deletingConv}
+                            style={{ flex: 1, fontFamily: sans, fontSize: '12px', padding: '10px', border: '1px solid rgba(45,31,20,0.2)', borderRadius: '3px', background: 'transparent', color: C.muted, cursor: deletingConv ? 'default' : 'pointer' }}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            disabled={deletingConv}
+                            onClick={async () => {
+                                setDeletingConv(true);
+                                try {
+                                    await axios.delete(`${API}/conversations/${deleteConvTarget.id}`, { withCredentials: true });
+                                    setConversations(prev => prev.filter(c => c.id !== deleteConvTarget.id));
+                                    if (activeConvId === deleteConvTarget.id) setActiveConvId(null);
+                                    setDeleteConvTarget(null);
+                                } catch {
+                                    /* ignore */
+                                } finally {
+                                    setDeletingConv(false);
+                                }
+                            }}
+                            style={{ flex: 2, fontFamily: sans, fontSize: '12px', padding: '10px', border: 'none', borderRadius: '3px', background: '#993C1D', color: '#fff', cursor: deletingConv ? 'default' : 'pointer', opacity: deletingConv ? 0.6 : 1 }}
+                        >
+                            {deletingConv ? 'Deleting…' : 'Yes, delete for me'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
 
         {/* ── Adopter selection dialog ──────────────────────────────────────── */}
         {adoptDialog && (
