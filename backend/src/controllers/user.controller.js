@@ -301,6 +301,39 @@ export const updateUserAdminStatus = async (req, res) => {
     }
 };
 
+// Delete a user account (admin only)
+// Strategy: hard-delete the MongoDB user document; PostgreSQL pets are preserved
+// (uploader_id becomes a dangling reference — no FK constraint, data is safe).
+// MongoDB adoptions/messages retain their user reference for historical records.
+export const deleteUser = async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
+            return res.status(400).json({ success: false, message: 'Invalid user ID format' });
+        }
+
+        if (userId === req.userId) {
+            return res.status(400).json({ success: false, message: 'You cannot delete your own account' });
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        await User.findByIdAndDelete(userId);
+
+        res.status(200).json({
+            success: true,
+            message: 'User account deleted. Associated pet listings are preserved.',
+        });
+    } catch (error) {
+        console.error('Error in deleteUser:', error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Privacy helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -557,7 +590,8 @@ export const getUserPets = async (req, res) => {
 
         const result = await pool.query(
             `SELECT p.id, p.name, p.type, p.breed, p.age_category,
-                    p.adoption_status, p.is_adopted, p.adopted_at,
+                    p.adoption_status, p.adoption_status_label, p.is_adopted, p.adopted_at,
+                    p.adopter_external_name,
                     p.location_city, p.created_at, p.status,
                     p.situation, p.health_status,
                     pp.id AS primary_photo_id

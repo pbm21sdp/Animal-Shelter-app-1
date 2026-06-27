@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAdoptionStore } from '../store/adoptionStore';
 import { Clock, PawPrint, CheckCircle, XCircle, AlertTriangle, ChevronRight, Search } from 'lucide-react';
+import { formatDate } from '../utils/date';
 import { useNavigate } from 'react-router-dom';
 
 const UserAdoptionHistoryPanel = () => {
@@ -12,15 +13,6 @@ const UserAdoptionHistoryPanel = () => {
         getUserAdoptions();
     }, [getUserAdoptions]);
 
-    // Format date
-    const formatDate = (dateString) => {
-        const date = new Date(dateString);
-        return date.toLocaleDateString(undefined, {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        });
-    };
 
     // Status badge styling
     const getStatusBadge = (status) => {

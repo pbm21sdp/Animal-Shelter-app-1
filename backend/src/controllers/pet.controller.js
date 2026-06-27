@@ -312,8 +312,8 @@ export const adoptPet = async (req, res) => {
             return res.status(403).json({ success: false, message: 'Forbidden — only the uploader or an admin can mark this animal as adopted' });
         }
 
-        const { adoptedById } = req.body;
-        const updated = await PetModel.adoptPet(id, adoptedById || null);
+        const { adoptedById, adopterExternalName } = req.body;
+        const updated = await PetModel.adoptPet(id, adoptedById || null, adopterExternalName || null);
         res.status(200).json({ success: true, message: 'Pet marked as adopted', pet: updated });
     } catch (error) {
         console.error('Error in adoptPet:', error);
@@ -339,6 +339,30 @@ export const markPetAsFound = async (req, res) => {
     } catch (error) {
         console.error('Error in markPetAsFound:', error);
         res.status(500).json({ success: false, message: 'Failed to mark pet as found', error: error.message });
+    }
+};
+
+// PATCH /api/pets/:id/return
+// Marks an adopted pet as returned — preserves adoption history, re-lists the animal.
+export const returnPet = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const pet = await PetModel.findById(id);
+        if (!pet) return res.status(404).json({ success: false, message: 'Pet not found' });
+
+        const isOwner = pet.uploader_id && pet.uploader_id === req.userId;
+        if (!isOwner && !req.isAdmin) {
+            return res.status(403).json({ success: false, message: 'Forbidden — only the uploader or an admin can update this animal' });
+        }
+        if (!pet.is_adopted) {
+            return res.status(400).json({ success: false, message: 'Pet is not marked as adopted' });
+        }
+
+        const updated = await PetModel.returnPet(id);
+        res.status(200).json({ success: true, message: 'Pet marked as returned', pet: updated });
+    } catch (error) {
+        console.error('Error in returnPet:', error);
+        res.status(500).json({ success: false, message: 'Failed to mark pet as returned', error: error.message });
     }
 };
 
@@ -468,6 +492,136 @@ export const rejectPet = async (req, res) => {
     } catch (error) {
         console.error('Error rejecting pet:', error);
         res.status(500).json({ success: false, message: 'Failed to reject pet', error: error.message });
+    }
+};
+
+// GET /api/pets/admin/moderation-stats — admin only
+export const getModerationStats = async (req, res) => {
+    try {
+        const [rateRes, reasonsRes, avgRes, queueRes, incompleteRes, activityRes, topUploadersRes, activeUsersRes, overviewRes] = await Promise.all([
+            // 1. Approval/rejection rate
+            pool.query(`
+                SELECT
+                    COUNT(*) FILTER (WHERE status = 'approved') AS approved,
+                    COUNT(*) FILTER (WHERE status = 'rejected') AS rejected
+                FROM pets WHERE status IN ('approved', 'rejected')
+            `),
+            // 2. Common rejection reasons
+            pool.query(`
+                SELECT rejection_reason, COUNT(*)::int AS count
+                FROM pets
+                WHERE status = 'rejected' AND rejection_reason IS NOT NULL AND rejection_reason != ''
+                GROUP BY rejection_reason ORDER BY count DESC LIMIT 10
+            `),
+            // 3. Avg review time in hours
+            pool.query(`
+                SELECT AVG(EXTRACT(EPOCH FROM (reviewed_at - created_at)) / 3600) AS avg_hours
+                FROM pets
+                WHERE status IN ('approved', 'rejected') AND reviewed_at IS NOT NULL AND created_at IS NOT NULL
+            `),
+            // 4. Queue: pending count + oldest pending
+            pool.query(`
+                SELECT COUNT(*)::int AS pending_count, MIN(created_at) AS oldest_pending
+                FROM pets WHERE status = 'pending'
+            `),
+            // 5. Incomplete approved animals (no photos or empty description)
+            pool.query(`
+                SELECT p.id, p.name, p.type, p.created_at,
+                       (SELECT COUNT(*)::int FROM pet_photos pp WHERE pp.pet_id = p.id) AS photo_count
+                FROM pets p
+                WHERE p.status = 'approved'
+                  AND (
+                      (SELECT COUNT(*) FROM pet_photos pp WHERE pp.pet_id = p.id) = 0
+                      OR p.description IS NULL OR TRIM(p.description) = ''
+                  )
+                ORDER BY p.created_at DESC LIMIT 20
+            `),
+            // 6. Recent posting activity
+            pool.query(`
+                SELECT
+                    COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE)::int                      AS today,
+                    COUNT(*) FILTER (WHERE created_at >= date_trunc('week', NOW()))::int          AS this_week,
+                    COUNT(*) FILTER (WHERE created_at >= date_trunc('month', NOW()))::int         AS this_month
+                FROM pets
+            `),
+            // 7+8. Top uploaders by number of pets
+            pool.query(`
+                SELECT uploader_id, COUNT(*)::int AS pet_count
+                FROM pets WHERE uploader_id IS NOT NULL
+                GROUP BY uploader_id ORDER BY pet_count DESC LIMIT 10
+            `),
+            // Active uploaders count
+            pool.query(`
+                SELECT COUNT(DISTINCT uploader_id)::int AS active_uploaders
+                FROM pets WHERE uploader_id IS NOT NULL
+            `),
+            // 9. Overview totals
+            pool.query(`
+                SELECT
+                    COUNT(*)::int                                              AS total,
+                    COUNT(*) FILTER (WHERE status = 'pending')::int           AS pending,
+                    COUNT(*) FILTER (WHERE status = 'approved')::int          AS approved,
+                    COUNT(*) FILTER (WHERE status = 'rejected')::int          AS rejected
+                FROM pets
+            `),
+        ]);
+
+        // Enrich top uploaders with MongoDB names
+        const uploaderIds = topUploadersRes.rows.map(r => r.uploader_id).filter(Boolean);
+        let userMap = {};
+        let totalUsersCount = 0;
+        try {
+            const [users, count] = await Promise.all([
+                User.find({ _id: { $in: uploaderIds } }, { name: 1, email: 1 }).lean(),
+                User.countDocuments(),
+            ]);
+            userMap = Object.fromEntries(users.map(u => [u._id.toString(), u]));
+            totalUsersCount = count;
+        } catch (mongoErr) {
+            console.warn('[getModerationStats] MongoDB lookup failed:', mongoErr.message);
+        }
+
+        const activeUploaders = activeUsersRes.rows[0].active_uploaders || 0;
+        const avgHours = parseFloat(avgRes.rows[0].avg_hours);
+        const rate = rateRes.rows[0];
+        const approved = parseInt(rate.approved) || 0;
+        const rejected = parseInt(rate.rejected) || 0;
+
+        res.json({
+            success: true,
+            stats: {
+                approvalRate: {
+                    approved,
+                    rejected,
+                    total: approved + rejected,
+                    approvalPercent: approved + rejected > 0 ? Math.round((approved / (approved + rejected)) * 100) : 0,
+                },
+                rejectionReasons: reasonsRes.rows,
+                avgReviewHours: isNaN(avgHours) ? null : Math.round(avgHours * 10) / 10,
+                queue: {
+                    pendingCount: queueRes.rows[0].pending_count || 0,
+                    oldestPending: queueRes.rows[0].oldest_pending || null,
+                },
+                incompleteAnimals: incompleteRes.rows,
+                recentActivity: activityRes.rows[0],
+                userActivity: {
+                    activeUploaders,
+                    totalUsers: totalUsersCount,
+                    inactiveCount: Math.max(0, totalUsersCount - activeUploaders),
+                    activePercent: totalUsersCount > 0 ? Math.round((activeUploaders / totalUsersCount) * 100) : 0,
+                },
+                topUploaders: topUploadersRes.rows.map(r => ({
+                    userId: r.uploader_id,
+                    name:   userMap[r.uploader_id]?.name  || 'Unknown user',
+                    email:  userMap[r.uploader_id]?.email || null,
+                    petCount: r.pet_count,
+                })),
+                overview: overviewRes.rows[0],
+            },
+        });
+    } catch (error) {
+        console.error('Error in getModerationStats:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch moderation stats', error: error.message });
     }
 };
 

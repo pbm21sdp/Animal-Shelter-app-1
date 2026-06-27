@@ -1,5 +1,10 @@
 import pg from 'pg';
-const { Pool } = pg;
+const { Pool, types } = pg;
+
+// pg reads TIMESTAMP WITHOUT TIME ZONE as a local-time string (e.g. "2026-06-27 14:51:00").
+// On Windows (UTC+3) this shifts dates 3 hours back when serialized.
+// Treat stored values as UTC so they arrive correctly in the frontend.
+types.setTypeParser(1114, (str) => str ? new Date(str.replace(' ', 'T') + 'Z') : null);
 
 let pool;
 

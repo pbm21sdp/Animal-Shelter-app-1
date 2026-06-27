@@ -4,6 +4,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import Navbar from '../components/Navbar';
 import { useAuthStore } from '../store/authStore';
+import { formatPostedOn } from '../utils/date';
 
 const API   = 'http://localhost:5000/api';
 const serif = "'Cormorant Garamond', serif";
@@ -19,7 +20,7 @@ const C = {
 };
 
 const TYPE_OPTIONS   = ['All', 'Dog', 'Cat', 'Bird', 'Rabbit', 'Other'];
-const STATUS_OPTIONS = ['All', 'Listed', 'Missing', 'Pending review', 'Rejected', 'Adopted'];
+const STATUS_OPTIONS = ['All', 'Listed', 'Missing', 'Pending review', 'Rejected', 'Adopted', 'Returned'];
 
 function getPrimaryPhotoUrl(pet) {
     if (pet.primary_photo_id) return `${API}/pets/photos/${pet.primary_photo_id}`;
@@ -30,17 +31,6 @@ function getPrimaryPhotoUrl(pet) {
     return null;
 }
 
-function timeAgo(dateStr) {
-    if (!dateStr) return '';
-    const parsed = dateStr.endsWith('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z';
-    const diff = Date.now() - new Date(parsed).getTime();
-    if (diff < 60000) return 'just now';
-    const mins = Math.floor(diff / 60000);
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    return `${Math.floor(hrs / 24)}d ago`;
-}
 
 function getBadge(pet) {
     const hs = (pet.health_status || '').toLowerCase();
@@ -48,6 +38,7 @@ function getBadge(pet) {
     const sit = (pet.situation || '').toLowerCase();
     if (pet.status === 'rejected') return { label: 'Rejected', bg: 'rgba(153,60,29,0.1)', color: '#993C1D', border: '1px solid rgba(153,60,29,0.25)' };
     if (pet.status === 'pending') return { label: 'Pending review', bg: '#FAF3E8', color: '#8B4E28', border: '1px solid rgba(192,122,74,0.25)' };
+    if (pet.adoption_status_label === 'returned') return { label: 'Returned to us', bg: 'rgba(90,60,200,0.1)', color: '#5A3CC8', border: '1px solid rgba(90,60,200,0.2)' };
     if (pet.is_adopted || as === 'adopted') return { label: 'Adopted', bg: 'rgba(15,110,86,0.12)', color: '#0F6E56', border: '1px solid rgba(15,110,86,0.2)' };
     if (sit === 'went_missing') return { label: 'Missing', bg: 'rgba(90,60,200,0.1)', color: '#5A3CC8', border: '1px solid rgba(90,60,200,0.25)' };
     if (hs.includes('urgent')) return { label: 'Urgent', bg: '#993C1D', color: '#FAF7F4', border: 'none' };
@@ -60,8 +51,8 @@ function getStatusKey(pet) {
     const sit = (pet.situation || '').toLowerCase();
     if (pet.status === 'rejected') return 'Rejected';
     if (pet.status === 'pending')  return 'Pending review';
+    if (pet.adoption_status_label === 'returned') return 'Returned';
     if (pet.is_adopted || as === 'adopted') return 'Adopted';
-    // Missing: still active (not yet returned) OR returned to owner
     if (sit === 'went_missing') return 'Missing';
     return 'Listed';
 }
@@ -76,6 +67,8 @@ export default function MyAnimalsPage() {
 
     // Adopt dialog state
     const [adoptDialog, setAdoptDialog]         = useState(null);
+    const [adoptMode,   setAdoptMode]           = useState('paws'); // 'paws' | 'external' | 'rather_not'
+    const [externalName, setExternalName]       = useState('');
     const [adopterSearch, setAdopterSearch]     = useState('');
     const [adopterResults, setAdopterResults]   = useState([]);
     const [selectedAdopter, setSelectedAdopter] = useState(null);
@@ -83,10 +76,21 @@ export default function MyAnimalsPage() {
     const [adoptConfirming, setAdoptConfirming] = useState(false);
 
     // Found dialog state
-    const [foundDialog, setFoundDialog]     = useState(null);
+    const [foundDialog, setFoundDialog]         = useState(null);
     const [foundConfirming, setFoundConfirming] = useState(false);
 
-    // Undo adoption
+    // Return confirm dialog: { id, name }
+    const [returnDialog,   setReturnDialog]   = useState(null);
+    const [returningDialog, setReturningDialog] = useState(false);
+
+    // Undo-adoption confirm dialog: { id, name }
+    const [undoDialog,   setUndoDialog]   = useState(null);
+    const [undoingDialog, setUndoingDialog] = useState(false);
+
+    // Delete listing confirm dialog: { id, name }
+    const [deleteDialog,   setDeleteDialog]   = useState(null);
+    const [deletingDialog, setDeletingDialog] = useState(false);
+
     const [undoingId, setUndoingId] = useState(null);
 
     useEffect(() => {
@@ -97,8 +101,9 @@ export default function MyAnimalsPage() {
             .finally(() => setIsLoading(false));
     }, [currentUser?._id]);
 
-    // Debounced search for adopter
+    // Debounced search for adopter (Paws user mode only)
     useEffect(() => {
+        if (adoptMode !== 'paws') { setAdopterResults([]); return; }
         if (!adopterSearch.trim() || adopterSearch.length < 2) {
             setAdopterResults([]);
             return;
@@ -111,7 +116,7 @@ export default function MyAnimalsPage() {
                 .finally(() => setAdopterLoading(false));
         }, 300);
         return () => clearTimeout(t);
-    }, [adopterSearch]);
+    }, [adopterSearch, adoptMode]);
 
     const filteredPets = useMemo(() => {
         return myPets.filter(pet => {
@@ -128,6 +133,8 @@ export default function MyAnimalsPage() {
 
     const openAdoptDialog = (pet) => {
         setAdoptDialog(pet);
+        setAdoptMode('paws');
+        setExternalName('');
         setAdopterSearch('');
         setAdopterResults([]);
         setSelectedAdopter(null);
@@ -136,23 +143,31 @@ export default function MyAnimalsPage() {
     const closeAdoptDialog = () => {
         if (adoptConfirming) return;
         setAdoptDialog(null);
+        setAdoptMode('paws');
+        setExternalName('');
         setAdopterSearch('');
         setAdopterResults([]);
         setSelectedAdopter(null);
     };
 
-    const confirmMarkAdopted = async (adoptedById) => {
+    const confirmMarkAdopted = async () => {
         if (!adoptDialog) return;
         setAdoptConfirming(true);
         try {
+            const body = {};
+            if (adoptMode === 'paws')     body.adoptedById = selectedAdopter?._id || null;
+            if (adoptMode === 'external') body.adopterExternalName = externalName.trim() || null;
+
             await axios.patch(
                 `${API}/pets/${adoptDialog.id}/adopt`,
-                { adoptedById: adoptedById || null },
+                body,
                 { withCredentials: true }
             );
             toast.success('Marked as adopted!');
             setMyPets(prev => prev.map(p =>
-                p.id === adoptDialog.id ? { ...p, is_adopted: true, adoption_status: 'adopted' } : p
+                p.id === adoptDialog.id
+                    ? { ...p, is_adopted: true, adoption_status: 'adopted', adoption_status_label: 'adopted' }
+                    : p
             ));
             closeAdoptDialog();
         } catch {
@@ -179,30 +194,62 @@ export default function MyAnimalsPage() {
         }
     };
 
-    const handleUnadopt = async (petId) => {
-        if (!window.confirm('Remove the adopted mark? The listing will become active again.')) return;
-        setUndoingId(petId);
+    const confirmReturn = async () => {
+        if (!returnDialog) return;
+        setReturningDialog(true);
         try {
-            await axios.patch(`${API}/pets/${petId}/unadopt`, {}, { withCredentials: true });
+            await axios.patch(`${API}/pets/${returnDialog.id}/return`, {}, { withCredentials: true });
+            toast.success('Marked as returned. Animal is listed again.');
+            setMyPets(prev => prev.map(p =>
+                p.id === returnDialog.id
+                    ? { ...p, adoption_status_label: 'returned', adoption_status: 'available', is_available: true }
+                    : p
+            ));
+            setReturnDialog(null);
+        } catch {
+            toast.error('Failed to update.');
+        } finally {
+            setReturningDialog(false);
+        }
+    };
+
+    const handleUnadopt = (pet) => setUndoDialog({ id: pet.id || pet, name: pet.name || '' });
+
+    const confirmUnadopt = async () => {
+        if (!undoDialog) return;
+        setUndoingDialog(true);
+        setUndoingId(undoDialog.id);
+        try {
+            await axios.patch(`${API}/pets/${undoDialog.id}/unadopt`, {}, { withCredentials: true });
             toast.success('Adoption mark removed.');
             setMyPets(prev => prev.map(p =>
-                p.id === petId ? { ...p, is_adopted: false, adoption_status: 'available' } : p
+                p.id === undoDialog.id
+                    ? { ...p, is_adopted: false, adoption_status: 'available', adoption_status_label: null }
+                    : p
             ));
+            setUndoDialog(null);
         } catch {
             toast.error('Failed to undo adoption.');
         } finally {
+            setUndoingDialog(false);
             setUndoingId(null);
         }
     };
 
-    const handleDelete = async (petId) => {
-        if (!window.confirm('Delete this listing permanently? This cannot be undone.')) return;
+    const handleDelete = (pet) => setDeleteDialog({ id: pet.id || pet, name: pet.name || '' });
+
+    const confirmDelete = async () => {
+        if (!deleteDialog) return;
+        setDeletingDialog(true);
         try {
-            await axios.delete(`${API}/pets/${petId}`, { withCredentials: true });
+            await axios.delete(`${API}/pets/${deleteDialog.id}`, { withCredentials: true });
             toast.success('Listing deleted.');
-            setMyPets(prev => prev.filter(p => p.id !== petId));
+            setMyPets(prev => prev.filter(p => p.id !== deleteDialog.id));
+            setDeleteDialog(null);
         } catch {
             toast.error('Failed to delete.');
+        } finally {
+            setDeletingDialog(false);
         }
     };
 
@@ -249,6 +296,7 @@ export default function MyAnimalsPage() {
                             pet={pet}
                             onMarkAdopted={openAdoptDialog}
                             onMarkFound={setFoundDialog}
+                            onMarkReturned={pet => setReturnDialog({ id: pet.id, name: pet.name || '' })}
                             onUnadopt={handleUnadopt}
                             undoingId={undoingId}
                             onDelete={handleDelete}
@@ -259,7 +307,7 @@ export default function MyAnimalsPage() {
                 )}
             </div>
 
-            {/* ── Adopter selection dialog ── */}
+            {/* ── Adopt dialog — 3-option ── */}
             {adoptDialog && (
                 <div
                     style={{ position: 'fixed', inset: 0, background: 'rgba(45,31,20,0.6)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
@@ -273,63 +321,224 @@ export default function MyAnimalsPage() {
                             Who adopted {adoptDialog.name}?
                         </div>
                         <div style={{ fontFamily: sans, fontSize: '13px', color: C.muted, marginBottom: '20px', lineHeight: 1.5 }}>
-                            Search for the person who adopted this animal on Paws, or skip if they're not on the platform.
+                            Choose how you'd like to record the adopter.
                         </div>
 
-                        <input
-                            type="text"
-                            placeholder="Search by name or email…"
-                            value={adopterSearch}
-                            autoFocus
-                            onChange={e => { setAdopterSearch(e.target.value); setSelectedAdopter(null); }}
-                            style={{ width: '100%', boxSizing: 'border-box', fontFamily: sans, fontSize: '13px', padding: '10px 12px', border: '1px solid rgba(45,31,20,0.2)', borderRadius: '3px', outline: 'none', background: '#fff', color: C.espresso }}
-                        />
+                        {/* ── Radio options ── */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+                            {[
+                                { value: 'paws',       label: 'Paws user',              desc: 'Search for someone registered on this platform' },
+                                { value: 'external',   label: 'Someone outside Paws',   desc: 'Enter their name manually' },
+                                { value: 'rather_not', label: 'Rather not say',          desc: 'Mark as adopted without recording a name' },
+                            ].map(opt => (
+                                <label
+                                    key={opt.value}
+                                    onClick={() => {
+                                        setAdoptMode(opt.value);
+                                        setAdopterSearch('');
+                                        setAdopterResults([]);
+                                        setSelectedAdopter(null);
+                                        setExternalName('');
+                                    }}
+                                    style={{
+                                        display: 'flex', alignItems: 'flex-start', gap: '10px',
+                                        padding: '12px 14px', borderRadius: '4px', cursor: 'pointer',
+                                        border: adoptMode === opt.value
+                                            ? '1px solid rgba(45,31,20,0.4)'
+                                            : '1px solid rgba(45,31,20,0.12)',
+                                        background: adoptMode === opt.value ? 'rgba(45,31,20,0.04)' : 'transparent',
+                                        transition: 'all 0.12s',
+                                    }}
+                                >
+                                    <div style={{
+                                        width: '16px', height: '16px', borderRadius: '50%', flexShrink: 0, marginTop: '2px',
+                                        border: adoptMode === opt.value ? `5px solid ${C.espresso}` : `2px solid ${C.light}`,
+                                        background: '#fff', transition: 'border 0.12s',
+                                    }} />
+                                    <div>
+                                        <div style={{ fontFamily: sans, fontSize: '13px', fontWeight: 600, color: C.espresso }}>{opt.label}</div>
+                                        <div style={{ fontFamily: sans, fontSize: '11px', color: C.light, marginTop: '2px' }}>{opt.desc}</div>
+                                    </div>
+                                </label>
+                            ))}
+                        </div>
 
-                        {adopterLoading && (
-                            <div style={{ fontFamily: sans, fontSize: '12px', color: C.light, padding: '8px 0' }}>Searching…</div>
-                        )}
-
-                        {adopterResults.length > 0 && !selectedAdopter && (
-                            <div style={{ marginTop: '6px', border: '1px solid rgba(45,31,20,0.15)', borderRadius: '3px', overflow: 'hidden' }}>
-                                {adopterResults.map(u => (
-                                    <button
-                                        key={u._id}
-                                        onClick={() => { setSelectedAdopter(u); setAdopterSearch(u.name); setAdopterResults([]); }}
-                                        style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 12px', background: '#fff', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.08)', cursor: 'pointer', textAlign: 'left' }}
-                                        onMouseEnter={e => { e.currentTarget.style.background = '#F5EFE8'; }}
-                                        onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
-                                    >
-                                        {u.avatar && (
-                                            <img src={u.avatar.startsWith('http') ? u.avatar : `http://localhost:5000${u.avatar}`} alt="" style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} onError={e => { e.target.style.display = 'none'; }} />
-                                        )}
-                                        <div>
-                                            <div style={{ fontFamily: sans, fontSize: '13px', fontWeight: 500, color: C.espresso }}>{u.name}</div>
-                                            <div style={{ fontFamily: sans, fontSize: '11px', color: '#9A7A60' }}>{u.email}</div>
-                                        </div>
-                                    </button>
-                                ))}
+                        {/* ── Paws user search ── */}
+                        {adoptMode === 'paws' && (
+                            <div style={{ marginBottom: '8px' }}>
+                                <input
+                                    type="text"
+                                    placeholder="Search by name or email…"
+                                    value={adopterSearch}
+                                    autoFocus
+                                    onChange={e => { setAdopterSearch(e.target.value); setSelectedAdopter(null); }}
+                                    style={{ width: '100%', boxSizing: 'border-box', fontFamily: sans, fontSize: '13px', padding: '10px 12px', border: '1px solid rgba(45,31,20,0.2)', borderRadius: '3px', outline: 'none', background: '#fff', color: C.espresso }}
+                                />
+                                {adopterLoading && (
+                                    <div style={{ fontFamily: sans, fontSize: '12px', color: C.light, padding: '8px 0' }}>Searching…</div>
+                                )}
+                                {adopterResults.length > 0 && !selectedAdopter && (
+                                    <div style={{ marginTop: '6px', border: '1px solid rgba(45,31,20,0.15)', borderRadius: '3px', overflow: 'hidden' }}>
+                                        {adopterResults.map(u => (
+                                            <button
+                                                key={u._id}
+                                                onClick={() => { setSelectedAdopter(u); setAdopterSearch(u.name); setAdopterResults([]); }}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 12px', background: '#fff', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.08)', cursor: 'pointer', textAlign: 'left' }}
+                                                onMouseEnter={e => { e.currentTarget.style.background = '#F5EFE8'; }}
+                                                onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
+                                            >
+                                                {u.avatar && (
+                                                    <img src={u.avatar.startsWith('http') ? u.avatar : `http://localhost:5000${u.avatar}`} alt="" style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} onError={e => { e.target.style.display = 'none'; }} />
+                                                )}
+                                                <div>
+                                                    <div style={{ fontFamily: sans, fontSize: '13px', fontWeight: 500, color: C.espresso }}>{u.name}</div>
+                                                    <div style={{ fontFamily: sans, fontSize: '11px', color: '#9A7A60' }}>{u.email}</div>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                                {selectedAdopter && (
+                                    <div style={{ marginTop: '8px', padding: '10px 12px', background: 'rgba(15,110,86,0.07)', border: '1px solid rgba(15,110,86,0.2)', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <span style={{ fontFamily: sans, fontSize: '13px', color: '#0F6E56' }}>✓ {selectedAdopter.name}</span>
+                                        <button onClick={() => { setSelectedAdopter(null); setAdopterSearch(''); }} style={{ fontFamily: sans, fontSize: '11px', color: '#993C1D', background: 'none', border: 'none', cursor: 'pointer' }}>Change</button>
+                                    </div>
+                                )}
                             </div>
                         )}
 
-                        {selectedAdopter && (
-                            <div style={{ marginTop: '8px', padding: '10px 12px', background: 'rgba(15,110,86,0.07)', border: '1px solid rgba(15,110,86,0.2)', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <span style={{ fontFamily: sans, fontSize: '13px', color: '#0F6E56' }}>✓ {selectedAdopter.name}</span>
-                                <button onClick={() => { setSelectedAdopter(null); setAdopterSearch(''); }} style={{ fontFamily: sans, fontSize: '11px', color: '#993C1D', background: 'none', border: 'none', cursor: 'pointer' }}>Change</button>
+                        {/* ── External name input ── */}
+                        {adoptMode === 'external' && (
+                            <div style={{ marginBottom: '8px' }}>
+                                <input
+                                    type="text"
+                                    placeholder="Adopter's name…"
+                                    value={externalName}
+                                    autoFocus
+                                    onChange={e => setExternalName(e.target.value)}
+                                    maxLength={150}
+                                    style={{ width: '100%', boxSizing: 'border-box', fontFamily: sans, fontSize: '13px', padding: '10px 12px', border: '1px solid rgba(45,31,20,0.2)', borderRadius: '3px', outline: 'none', background: '#fff', color: C.espresso }}
+                                />
                             </div>
                         )}
 
-                        <div style={{ display: 'flex', gap: '8px', marginTop: '20px' }}>
-                            <button onClick={() => confirmMarkAdopted(null)} disabled={adoptConfirming}
-                                style={{ flex: 1, fontFamily: sans, fontSize: '12px', padding: '10px 8px', border: '1px solid rgba(45,31,20,0.2)', borderRadius: '3px', background: 'transparent', color: C.muted, cursor: adoptConfirming ? 'default' : 'pointer', opacity: adoptConfirming ? 0.5 : 1 }}>
-                                Skip — not on Paws
-                            </button>
-                            <button onClick={() => confirmMarkAdopted(selectedAdopter?._id || null)} disabled={adoptConfirming}
-                                style={{ flex: 1, fontFamily: sans, fontSize: '12px', padding: '10px 8px', border: 'none', borderRadius: '3px', background: '#0F6E56', color: '#fff', cursor: adoptConfirming ? 'default' : 'pointer', opacity: adoptConfirming ? 0.6 : 1 }}>
-                                {adoptConfirming ? 'Saving…' : selectedAdopter ? `Confirm — ${selectedAdopter.name}` : 'Confirm'}
-                            </button>
+                        {/* ── Rather not say note ── */}
+                        {adoptMode === 'rather_not' && (
+                            <div style={{ marginBottom: '8px', padding: '10px 12px', background: 'rgba(45,31,20,0.04)', borderRadius: '3px', fontFamily: sans, fontSize: '12px', color: C.muted }}>
+                                The animal will be marked as adopted without a named adopter.
+                            </div>
+                        )}
+
+                        <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
                             <button onClick={closeAdoptDialog} disabled={adoptConfirming}
                                 style={{ fontFamily: sans, fontSize: '12px', padding: '10px 14px', border: '1px solid rgba(153,60,29,0.3)', borderRadius: '3px', background: 'transparent', color: '#993C1D', cursor: adoptConfirming ? 'default' : 'pointer' }}>
                                 Cancel
+                            </button>
+                            <button onClick={confirmMarkAdopted} disabled={adoptConfirming}
+                                style={{ flex: 1, fontFamily: sans, fontSize: '12px', padding: '10px 8px', border: 'none', borderRadius: '3px', background: '#0F6E56', color: '#fff', cursor: adoptConfirming ? 'default' : 'pointer', opacity: adoptConfirming ? 0.6 : 1 }}>
+                                {adoptConfirming ? 'Saving…' : 'Confirm adoption'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Mark as returned confirm dialog ── */}
+            {returnDialog && (
+                <div
+                    style={{ position: 'fixed', inset: 0, background: 'rgba(45,31,20,0.6)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
+                    onClick={() => { if (!returningDialog) setReturnDialog(null); }}
+                >
+                    <div
+                        style={{ background: C.cream, borderRadius: '6px', padding: '32px', maxWidth: '420px', width: '100%' }}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div style={{ fontFamily: serif, fontSize: '22px', fontWeight: 700, color: C.espresso, marginBottom: '8px' }}>
+                            {returnDialog.name} was returned?
+                        </div>
+                        <div style={{ fontFamily: sans, fontSize: '13px', color: C.muted, marginBottom: '24px', lineHeight: 1.6 }}>
+                            The adoption history will be preserved. The listing will become available again so the animal can find a new home.
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                                onClick={() => setReturnDialog(null)} disabled={returningDialog}
+                                style={{ flex: 1, fontFamily: sans, fontSize: '12px', padding: '10px', border: '1px solid rgba(45,31,20,0.2)', borderRadius: '3px', background: 'transparent', color: C.muted, cursor: returningDialog ? 'default' : 'pointer' }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmReturn} disabled={returningDialog}
+                                style={{ flex: 2, fontFamily: sans, fontSize: '12px', padding: '10px', border: 'none', borderRadius: '3px', background: '#5A3CC8', color: '#fff', cursor: returningDialog ? 'default' : 'pointer', opacity: returningDialog ? 0.6 : 1 }}
+                            >
+                                {returningDialog ? 'Saving…' : 'Yes, mark as returned'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Undo adoption confirm dialog ── */}
+            {undoDialog && (
+                <div
+                    style={{ position: 'fixed', inset: 0, background: 'rgba(45,31,20,0.6)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
+                    onClick={() => { if (!undoingDialog) setUndoDialog(null); }}
+                >
+                    <div
+                        style={{ background: C.cream, borderRadius: '6px', padding: '32px', maxWidth: '420px', width: '100%' }}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div style={{ fontFamily: serif, fontSize: '22px', fontWeight: 700, color: C.espresso, marginBottom: '8px' }}>
+                            Undo adoption for {undoDialog.name}?
+                        </div>
+                        <div style={{ fontFamily: sans, fontSize: '13px', color: C.muted, marginBottom: '24px', lineHeight: 1.6 }}>
+                            This will completely remove the adoption record and make the listing active again. Use this only for accidental marks. For a real return, use "Mark as returned" instead.
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                                onClick={() => setUndoDialog(null)} disabled={undoingDialog}
+                                style={{ flex: 1, fontFamily: sans, fontSize: '12px', padding: '10px', border: '1px solid rgba(45,31,20,0.2)', borderRadius: '3px', background: 'transparent', color: C.muted, cursor: undoingDialog ? 'default' : 'pointer' }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmUnadopt} disabled={undoingDialog}
+                                style={{ flex: 2, fontFamily: sans, fontSize: '12px', padding: '10px', border: 'none', borderRadius: '3px', background: C.brown, color: '#fff', cursor: undoingDialog ? 'default' : 'pointer', opacity: undoingDialog ? 0.6 : 1 }}
+                            >
+                                {undoingDialog ? 'Removing…' : 'Yes, undo adoption'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Delete listing confirm dialog ── */}
+            {deleteDialog && (
+                <div
+                    style={{ position: 'fixed', inset: 0, background: 'rgba(45,31,20,0.6)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
+                    onClick={() => { if (!deletingDialog) setDeleteDialog(null); }}
+                >
+                    <div
+                        style={{ background: C.cream, borderRadius: '6px', padding: '32px', maxWidth: '420px', width: '100%' }}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div style={{ fontFamily: serif, fontSize: '22px', fontWeight: 700, color: C.espresso, marginBottom: '8px' }}>
+                            Delete {deleteDialog.name}?
+                        </div>
+                        <div style={{ fontFamily: sans, fontSize: '13px', color: C.muted, marginBottom: '24px', lineHeight: 1.6 }}>
+                            This will permanently remove the listing and all its photos. This action cannot be undone.
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                                onClick={() => setDeleteDialog(null)} disabled={deletingDialog}
+                                style={{ flex: 1, fontFamily: sans, fontSize: '12px', padding: '10px', border: '1px solid rgba(45,31,20,0.2)', borderRadius: '3px', background: 'transparent', color: C.muted, cursor: deletingDialog ? 'default' : 'pointer' }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmDelete} disabled={deletingDialog}
+                                style={{ flex: 2, fontFamily: sans, fontSize: '12px', padding: '10px', border: 'none', borderRadius: '3px', background: '#993C1D', color: '#fff', cursor: deletingDialog ? 'default' : 'pointer', opacity: deletingDialog ? 0.6 : 1 }}
+                            >
+                                {deletingDialog ? 'Deleting…' : 'Yes, delete listing'}
                             </button>
                         </div>
                     </div>
@@ -398,13 +607,14 @@ function FilterGroup({ label, options, value, onChange }) {
     );
 }
 
-function PetCard({ pet, onMarkAdopted, onMarkFound, onUnadopt, undoingId, onDelete, onNavigate, onEdit }) {
-    const photoUrl   = getPrimaryPhotoUrl(pet);
-    const badge      = getBadge(pet);
-    const isMissing  = (pet.situation || '').toLowerCase() === 'went_missing';
-    const isAdopted  = pet.is_adopted || (pet.adoption_status || '').toLowerCase() === 'adopted';
-    // Returned to owner: missing pet marked as found (unavailable but NOT adopted)
-    const isReturned = isMissing && (pet.adoption_status || '').toLowerCase() === 'unavailable' && !isAdopted;
+function PetCard({ pet, onMarkAdopted, onMarkFound, onMarkReturned, onUnadopt, undoingId, onDelete, onNavigate, onEdit }) {
+    const photoUrl      = getPrimaryPhotoUrl(pet);
+    const badge         = getBadge(pet);
+    const isMissing     = (pet.situation || '').toLowerCase() === 'went_missing';
+    const isAdopted     = pet.is_adopted || (pet.adoption_status || '').toLowerCase() === 'adopted';
+    const isReturned    = pet.adoption_status_label === 'returned';
+    // Missing pet returned to owner
+    const isFoundHome   = isMissing && (pet.adoption_status || '').toLowerCase() === 'unavailable' && !isAdopted;
 
     return (
         <div style={{ backgroundColor: '#fff', border: '1px solid rgba(45,31,20,0.1)', borderRadius: '3px', display: 'flex', flexDirection: 'column' }}>
@@ -425,7 +635,7 @@ function PetCard({ pet, onMarkAdopted, onMarkFound, onUnadopt, undoingId, onDele
                     <span style={{ fontFamily: sans, fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '2px 7px', borderRadius: '2px', fontWeight: 600, background: badge.bg, color: badge.color, border: badge.border }}>
                         {badge.label}
                     </span>
-                    <span style={{ fontFamily: sans, fontSize: '9px', color: C.light }}>{timeAgo(pet.created_at)}</span>
+                    <span style={{ fontFamily: sans, fontSize: '9px', color: C.light }}>{formatPostedOn(pet.created_at)}</span>
                 </div>
                 <div style={{ fontFamily: serif, fontSize: '15px', fontWeight: 700, color: C.espresso, lineHeight: 1.25, marginBottom: '4px' }}>
                     {pet.name || 'Unknown animal'}
@@ -437,16 +647,32 @@ function PetCard({ pet, onMarkAdopted, onMarkFound, onUnadopt, undoingId, onDele
 
             {/* Actions */}
             <div style={{ padding: '0 12px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {isAdopted && (
-                    <button
-                        onClick={() => onUnadopt(pet.id)}
-                        disabled={undoingId === pet.id}
-                        style={{ width: '100%', fontFamily: sans, fontSize: '11px', fontWeight: 500, padding: '7px 0', borderRadius: '2px', cursor: undoingId === pet.id ? 'default' : 'pointer', border: '1px solid rgba(45,31,20,0.2)', background: 'transparent', color: C.muted, opacity: undoingId === pet.id ? 0.5 : 1 }}
-                    >
-                        {undoingId === pet.id ? 'Removing…' : 'Undo adoption'}
-                    </button>
+                {/* Adopted but not returned yet */}
+                {isAdopted && !isReturned && (
+                    <>
+                        <button
+                            onClick={() => onMarkReturned(pet)}
+                            style={{ width: '100%', fontFamily: sans, fontSize: '11px', fontWeight: 500, padding: '7px 0', borderRadius: '2px', cursor: 'pointer', border: '1px solid rgba(90,60,200,0.3)', background: 'transparent', color: '#5A3CC8' }}
+                        >
+                            Mark as returned
+                        </button>
+                        <button
+                            onClick={() => onUnadopt(pet)}
+                            disabled={undoingId === pet.id}
+                            style={{ width: '100%', fontFamily: sans, fontSize: '10px', fontWeight: 400, padding: '6px 0', borderRadius: '2px', cursor: undoingId === pet.id ? 'default' : 'pointer', border: '1px solid rgba(45,31,20,0.12)', background: 'transparent', color: C.light, opacity: undoingId === pet.id ? 0.5 : 1 }}
+                        >
+                            {undoingId === pet.id ? 'Removing…' : 'Undo adoption (mistake)'}
+                        </button>
+                    </>
                 )}
-                {!isAdopted && !isReturned && isMissing && (
+                {/* Returned pets — no adopt actions needed, animal re-listed */}
+                {isReturned && (
+                    <div style={{ fontFamily: sans, fontSize: '11px', color: '#5A3CC8', textAlign: 'center', padding: '6px 0', background: 'rgba(90,60,200,0.05)', borderRadius: '2px', border: '1px solid rgba(90,60,200,0.12)' }}>
+                        Returned — now re-listed
+                    </div>
+                )}
+                {/* Missing pet — mark as found (returned to owner) */}
+                {!isAdopted && !isFoundHome && isMissing && (
                     <button
                         onClick={() => onMarkFound(pet)}
                         style={{ width: '100%', fontFamily: sans, fontSize: '11px', fontWeight: 500, padding: '7px 0', borderRadius: '2px', cursor: 'pointer', border: '1px solid rgba(90,60,200,0.3)', background: 'transparent', color: '#5A3CC8' }}
@@ -454,7 +680,8 @@ function PetCard({ pet, onMarkAdopted, onMarkFound, onUnadopt, undoingId, onDele
                         Mark as found
                     </button>
                 )}
-                {!isAdopted && !isReturned && !isMissing && (
+                {/* Normal unlisted pet — mark as adopted */}
+                {!isAdopted && !isFoundHome && !isMissing && (
                     <button
                         onClick={() => onMarkAdopted(pet)}
                         style={{ width: '100%', fontFamily: sans, fontSize: '11px', fontWeight: 500, padding: '7px 0', borderRadius: '2px', cursor: 'pointer', border: '1px solid rgba(15,110,86,0.25)', background: 'transparent', color: '#0F6E56' }}
@@ -469,7 +696,7 @@ function PetCard({ pet, onMarkAdopted, onMarkFound, onUnadopt, undoingId, onDele
                     Edit listing →
                 </button>
                 <button
-                    onClick={() => onDelete(pet.id)}
+                    onClick={() => onDelete(pet)}
                     style={{ width: '100%', fontFamily: sans, fontSize: '10px', fontWeight: 500, padding: '6px 0', borderRadius: '2px', cursor: 'pointer', border: '1px solid rgba(153,60,29,0.3)', background: 'transparent', color: '#993C1D' }}
                 >
                     Delete listing

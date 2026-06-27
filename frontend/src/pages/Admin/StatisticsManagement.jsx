@@ -1,5 +1,6 @@
 // frontend/src/pages/Admin/StatisticsManagement.jsx
 import React, { useState, useEffect, useMemo } from 'react';
+import { formatDate } from '../../utils/date';
 import { useAdoptionStore } from '../../store/adoptionStore';
 import { useDonationStore } from '../../store/donationStore';
 import { Edit, Trash2, Copy, Check } from 'lucide-react';
@@ -53,6 +54,11 @@ const StatisticsManagement = () => {
     const [viewMode, setViewMode] = useState('combined'); // 'combined', 'adoptions', 'donations'
     const [error, setError] = useState(null);
 
+    // Moderation stats state
+    const [modStats, setModStats]           = useState(null);
+    const [modStatsLoading, setModStatsLoading] = useState(false);
+    const [modStatsError, setModStatsError] = useState(null);
+
     // Add these state variables after your existing state
     const [users, setUsers] = useState([]);
     const [filteredUsers, setFilteredUsers] = useState([]);
@@ -97,7 +103,21 @@ const StatisticsManagement = () => {
         getAllAdoptions();
         getAllDonations(donationFilters);
         fetchUsers();
+        fetchModerationStats();
     }, [getAllAdoptions, getAllDonations, donationFilters]);
+
+    const fetchModerationStats = async () => {
+        setModStatsLoading(true);
+        setModStatsError(null);
+        try {
+            const res = await axios.get('http://localhost:5000/api/pets/admin/moderation-stats', { withCredentials: true });
+            if (res.data.success) setModStats(res.data.stats);
+        } catch (err) {
+            setModStatsError(err.response?.data?.message || 'Failed to load moderation statistics');
+        } finally {
+            setModStatsLoading(false);
+        }
+    };
 
     useEffect(() => {
         if (users.length) {
@@ -926,7 +946,7 @@ const StatisticsManagement = () => {
                                     render: (donation) => (
                                         <div className="flex items-center">
                                             <Calendar className="h-4 w-4 text-gray-400 mr-2" />
-                                            <span className="text-sm">{new Date(donation.createdAt).toLocaleDateString()}</span>
+                                            <span className="text-sm">{formatDate(donation.createdAt, 'short')}</span>
                                         </div>
                                     )
                                 },
@@ -1021,6 +1041,242 @@ const StatisticsManagement = () => {
                         />
                     </div>
                 </div>
+            </div>
+
+            {/* ── Moderation Statistics ──────────────────────────────────────────────── */}
+            <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-semibold flex items-center">
+                        <AlertCircle className="h-5 w-5 mr-2 text-tealcustom" />
+                        Moderation Statistics
+                    </h3>
+                    <button
+                        onClick={fetchModerationStats}
+                        className="text-sm text-tealcustom hover:underline flex items-center gap-1"
+                    >
+                        <RefreshCw className="h-4 w-4" /> Refresh
+                    </button>
+                </div>
+
+                {modStatsLoading && (
+                    <div className="flex justify-center py-10">
+                        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-tealcustom" />
+                    </div>
+                )}
+                {modStatsError && !modStatsLoading && (
+                    <div className="p-4 bg-red-50 border border-red-200 rounded text-sm text-red-700">{modStatsError}</div>
+                )}
+
+                {modStats && !modStatsLoading && (() => {
+                    const { approvalRate, rejectionReasons, avgReviewHours, queue, incompleteAnimals, recentActivity, userActivity, topUploaders, overview } = modStats;
+                    const oldestDate = queue.oldestPending ? new Date(queue.oldestPending) : null;
+                    const oldestDays = oldestDate ? Math.floor((Date.now() - oldestDate.getTime()) / 86400000) : null;
+
+                    return (
+                        <div className="space-y-6">
+                            {/* ── 9. Overview card ── */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                {[
+                                    { label: 'Total postings', value: overview.total,    bg: 'bg-gray-50',   color: 'text-gray-900' },
+                                    { label: 'Approved',       value: overview.approved,  bg: 'bg-green-50',  color: 'text-green-700' },
+                                    { label: 'Rejected',       value: overview.rejected,  bg: 'bg-red-50',    color: 'text-red-700' },
+                                    { label: 'Pending now',    value: overview.pending,   bg: 'bg-yellow-50', color: 'text-yellow-700' },
+                                ].map(c => (
+                                    <div key={c.label} className={`${c.bg} rounded-lg p-4 text-center`}>
+                                        <p className="text-xs text-gray-500 mb-1">{c.label}</p>
+                                        <p className={`text-3xl font-bold ${c.color}`}>{c.value}</p>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* ── 1. Approval / rejection rate + 3. Avg review time ── */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="bg-gray-50 rounded-lg p-5">
+                                    <p className="text-sm font-semibold text-gray-700 mb-3">Approval vs Rejection Rate</p>
+                                    <div className="flex items-end gap-4 mb-3">
+                                        <div>
+                                            <p className="text-3xl font-bold text-green-600">{approvalRate.approvalPercent}%</p>
+                                            <p className="text-xs text-gray-500">approved</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-3xl font-bold text-red-600">{approvalRate.total > 0 ? 100 - approvalRate.approvalPercent : 0}%</p>
+                                            <p className="text-xs text-gray-500">rejected</p>
+                                        </div>
+                                    </div>
+                                    {approvalRate.total > 0 && (
+                                        <div className="w-full bg-red-200 rounded-full h-2">
+                                            <div
+                                                className="bg-green-500 h-2 rounded-full"
+                                                style={{ width: `${approvalRate.approvalPercent}%` }}
+                                            />
+                                        </div>
+                                    )}
+                                    <p className="text-xs text-gray-400 mt-2">{approvalRate.approved} approved · {approvalRate.rejected} rejected</p>
+                                </div>
+
+                                <div className="bg-gray-50 rounded-lg p-5">
+                                    <p className="text-sm font-semibold text-gray-700 mb-3">Review Performance</p>
+                                    <div className="space-y-3">
+                                        <div>
+                                            <p className="text-xs text-gray-500">Avg. time to review</p>
+                                            <p className="text-2xl font-bold text-gray-900">
+                                                {avgReviewHours != null
+                                                    ? avgReviewHours < 24
+                                                        ? `${avgReviewHours}h`
+                                                        : `${(avgReviewHours / 24).toFixed(1)}d`
+                                                    : '—'}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-500">Current queue size</p>
+                                            <p className="text-2xl font-bold text-yellow-600">{queue.pendingCount}</p>
+                                        </div>
+                                        {oldestDate && oldestDays != null && (
+                                            <div>
+                                                <p className="text-xs text-gray-500">Oldest pending — waiting</p>
+                                                <p className="text-sm font-semibold text-red-600">
+                                                    {oldestDays === 0 ? 'Today' : oldestDays === 1 ? '1 day' : `${oldestDays} days`}
+                                                </p>
+                                                <p className="text-xs text-gray-400">{formatDate(queue.oldestPending, 'short')}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* ── 2. Rejection reasons ── */}
+                            {rejectionReasons.length > 0 && (
+                                <div className="bg-gray-50 rounded-lg p-5">
+                                    <p className="text-sm font-semibold text-gray-700 mb-3">Most Common Rejection Reasons</p>
+                                    <div className="space-y-2">
+                                        {rejectionReasons.map((r, i) => (
+                                            <div key={i} className="flex items-center gap-3">
+                                                <div className="flex-1">
+                                                    <div className="flex justify-between mb-1">
+                                                        <span className="text-xs text-gray-700 truncate max-w-xs">{r.rejection_reason}</span>
+                                                        <span className="text-xs font-semibold text-gray-600 ml-2 flex-shrink-0">{r.count}</span>
+                                                    </div>
+                                                    <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                                        <div
+                                                            className="bg-red-400 h-1.5 rounded-full"
+                                                            style={{ width: `${Math.round((r.count / rejectionReasons[0].count) * 100)}%` }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            {rejectionReasons.length === 0 && (
+                                <div className="bg-gray-50 rounded-lg p-5 text-sm text-gray-500 italic">No rejection reasons recorded yet.</div>
+                            )}
+
+                            {/* ── 6. Recent activity ── */}
+                            <div className="bg-gray-50 rounded-lg p-5">
+                                <p className="text-sm font-semibold text-gray-700 mb-3">Recent Posting Activity</p>
+                                <div className="grid grid-cols-3 gap-4 text-center">
+                                    {[
+                                        { label: 'Today',      value: recentActivity.today },
+                                        { label: 'This week',  value: recentActivity.this_week },
+                                        { label: 'This month', value: recentActivity.this_month },
+                                    ].map(item => (
+                                        <div key={item.label} className="bg-white rounded-lg p-3 shadow-sm">
+                                            <p className="text-2xl font-bold text-teal-600">{item.value}</p>
+                                            <p className="text-xs text-gray-500 mt-1">{item.label}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* ── 7. Active users + 8. Top uploaders ── */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                <div className="bg-gray-50 rounded-lg p-5">
+                                    <p className="text-sm font-semibold text-gray-700 mb-3">User Activity</p>
+                                    <div className="flex items-end gap-6 mb-3">
+                                        <div>
+                                            <p className="text-3xl font-bold text-teal-600">{userActivity.activePercent}%</p>
+                                            <p className="text-xs text-gray-500">active uploaders</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-lg font-semibold text-gray-700">{userActivity.activeUploaders}</p>
+                                            <p className="text-xs text-gray-500">posted at least 1 animal</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-lg font-semibold text-gray-400">{userActivity.inactiveCount}</p>
+                                            <p className="text-xs text-gray-400">never posted</p>
+                                        </div>
+                                    </div>
+                                    {userActivity.totalUsers > 0 && (
+                                        <div className="w-full bg-gray-200 rounded-full h-2">
+                                            <div
+                                                className="bg-teal-500 h-2 rounded-full"
+                                                style={{ width: `${userActivity.activePercent}%` }}
+                                            />
+                                        </div>
+                                    )}
+                                    <p className="text-xs text-gray-400 mt-2">{userActivity.totalUsers} total registered users</p>
+                                </div>
+
+                                <div className="bg-gray-50 rounded-lg p-5">
+                                    <p className="text-sm font-semibold text-gray-700 mb-3">Top Uploaders</p>
+                                    {topUploaders.length === 0 ? (
+                                        <p className="text-sm text-gray-400 italic">No data yet.</p>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {topUploaders.slice(0, 7).map((u, i) => (
+                                                <div key={i} className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <span className="text-xs text-gray-400 w-4 flex-shrink-0">{i + 1}.</span>
+                                                        <div className="min-w-0">
+                                                            <p className="text-xs font-medium text-gray-800 truncate">{u.name}</p>
+                                                            {u.email && <p className="text-xs text-gray-400 truncate">{u.email}</p>}
+                                                        </div>
+                                                    </div>
+                                                    <span className="text-xs font-bold text-teal-600 ml-2 flex-shrink-0">{u.petCount}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* ── 5. Incomplete animals ── */}
+                            <div className="bg-gray-50 rounded-lg p-5">
+                                <p className="text-sm font-semibold text-gray-700 mb-1">
+                                    Incomplete Approved Listings
+                                    <span className="ml-2 text-xs font-normal text-gray-400">(no photos or missing description)</span>
+                                </p>
+                                {incompleteAnimals.length === 0 ? (
+                                    <p className="text-sm text-green-600 mt-2 font-medium">All approved listings look complete.</p>
+                                ) : (
+                                    <>
+                                        <p className="text-xs text-gray-500 mb-3">{incompleteAnimals.length} listing{incompleteAnimals.length !== 1 ? 's' : ''} need attention</p>
+                                        <div className="space-y-1 max-h-48 overflow-y-auto">
+                                            {incompleteAnimals.map(a => (
+                                                <div key={a.id} className="flex items-center justify-between bg-white rounded p-2 shadow-sm">
+                                                    <div>
+                                                        <span className="text-xs font-medium text-gray-800">{a.name || '(unnamed)'}</span>
+                                                        <span className="text-xs text-gray-400 ml-2">{a.type}</span>
+                                                        {a.photo_count === 0 && <span className="ml-2 text-xs text-red-500">no photos</span>}
+                                                    </div>
+                                                    <a
+                                                        href={`/pet/${a.id}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-xs text-tealcustom hover:underline ml-4 flex-shrink-0"
+                                                    >
+                                                        View →
+                                                    </a>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })()}
             </div>
 
             {/* Copy Toast */}

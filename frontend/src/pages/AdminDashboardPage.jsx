@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
-import { PawPrint, Users, BarChart3, Settings, Heart, ShieldCheck } from 'lucide-react';
+import { PawPrint, Users, BarChart3, Settings, Heart, ShieldCheck, MessageSquare } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Navbar from '../components/Navbar';
 
@@ -11,6 +11,7 @@ import AdoptionsManagement from './Admin/AdoptionsManagement';
 import AdminSettings from './Admin/AdminSettings';
 import StatisticsManagement from './Admin/StatisticsManagement';
 import ModerationPanel from './Admin/ModerationPanel';
+import ForumManagement from './Admin/ForumManagement';
 
 const sans = "'DM Sans', sans-serif";
 
@@ -52,9 +53,10 @@ const AdminDashboardPage = () => {
         { id: 'pets',       label: 'Pets',       icon: <PawPrint   className="h-5 w-5" /> },
         { id: 'adoptions',  label: 'Adoptions',  icon: <Heart      className="h-5 w-5" /> },
         { id: 'users',      label: 'Users',      icon: <Users      className="h-5 w-5" /> },
-        { id: 'moderation', label: 'Moderation', icon: <ShieldCheck className="h-5 w-5" /> },
-        { id: 'statistics', label: 'Statistics', icon: <BarChart3  className="h-5 w-5" /> },
-        { id: 'settings',   label: 'Settings',   icon: <Settings  className="h-5 w-5" /> },
+        { id: 'moderation', label: 'Moderation', icon: <ShieldCheck   className="h-5 w-5" /> },
+        { id: 'forum',      label: 'Forum',      icon: <MessageSquare className="h-5 w-5" /> },
+        { id: 'statistics', label: 'Statistics', icon: <BarChart3    className="h-5 w-5" /> },
+        { id: 'settings',   label: 'Settings',   icon: <Settings    className="h-5 w-5" /> },
     ];
 
     return (
@@ -178,6 +180,7 @@ const AdminDashboardPage = () => {
                 >
                     <div className="max-w-full mx-auto">
                         {activePanel === 'moderation'  && <ModerationPanel />}
+                        {activePanel === 'forum'       && <ForumManagement />}
                         {activePanel === 'statistics'  && <StatisticsManagement />}
                         {activePanel === 'pets'        && <PetsManagement />}
                         {activePanel === 'adoptions'   && <AdoptionsManagement />}

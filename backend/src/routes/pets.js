@@ -11,10 +11,12 @@ import {
     getSearchSuggestions,
     adoptPet,
     unadoptPet,
+    returnPet,
     markPetAsFound,
     getPendingPets,
     approvePet,
     rejectPet,
+    getModerationStats,
 } from '../controllers/pet.controller.js';
 import {
     uploadPhoto,
@@ -35,7 +37,8 @@ router.get('/search', searchPets);
 router.get('/', optionalVerifyToken, getAllPets);
 
 // Admin moderation routes — must come BEFORE /:id to avoid route shadowing
-router.get('/admin/pending', verifyToken, isAdmin, getPendingPets);
+router.get('/admin/pending',           verifyToken, isAdmin, getPendingPets);
+router.get('/admin/moderation-stats',  verifyToken, isAdmin, getModerationStats);
 router.patch('/:id/approve', verifyToken, isAdmin, approvePet);
 router.patch('/:id/reject',  verifyToken, isAdmin, rejectPet);
 
@@ -47,9 +50,10 @@ router.get('/:id', verifyToken, getPetById);
 router.get('/photos/:photoId', getPhotoById); // Public route to fetch photos
 router.get('/:petId/photos', getPetPhotos); // Get all photos for a pet
 
-// Community adopt/unadopt/found — authenticated users (ownership enforced in controller)
+// Community adopt/unadopt/return/found — authenticated users (ownership enforced in controller)
 router.patch('/:id/adopt',   verifyToken, adoptPet);
 router.patch('/:id/unadopt', verifyToken, unadoptPet);
+router.patch('/:id/return',  verifyToken, returnPet);
 router.patch('/:id/found',   verifyToken, markPetAsFound);
 
 // Authenticated users can create; patch for owners, admin-only for full update/delete

@@ -26,6 +26,9 @@ import predictionRoutes from './routes/predictions.routes.js';
 import animalsRoutes from './routes/animals.routes.js';
 import aiRoutes from './routes/ai.routes.js';
 import conversationsRouter from './routes/conversations.routes.js';
+import forumRoutes from './routes/forum.routes.js';
+import notificationRoutes from './routes/notifications.routes.js';
+import settingsRoutes from './routes/settings.routes.js';
 
 // Load .env only in non-Docker environment
 if (!process.env.DOCKER_ENV) {
@@ -119,6 +122,9 @@ app.use('/api/animals', animalsRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/conversations', conversationsRouter);
 app.use("/api/auth", authRoutes);
+app.use('/api/forum', forumRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Root route
 app.get("/", (req, res) => {
@@ -197,6 +203,93 @@ async function runFoundHowMigration() {
     }
 }
 
+async function runForumMigration() {
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS forum_posts (
+                id         SERIAL PRIMARY KEY,
+                author_id  VARCHAR(255) NOT NULL,
+                category   VARCHAR(30)  NOT NULL,
+                title      VARCHAR(150) NOT NULL,
+                content    TEXT         NOT NULL,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            )
+        `);
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS forum_post_photos (
+                id         SERIAL PRIMARY KEY,
+                post_id    INTEGER REFERENCES forum_posts(id) ON DELETE CASCADE,
+                photo_data BYTEA NOT NULL,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            )
+        `);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_forum_posts_category   ON forum_posts(category)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_forum_posts_created_at ON forum_posts(created_at DESC)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_forum_photos_post_id   ON forum_post_photos(post_id)`);
+        console.log('Forum migration applied');
+    } catch (err) {
+        console.error('Forum migration error:', err.message);
+    }
+}
+
+async function runRejectReasonsMigration() {
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS reject_reasons (
+                id            SERIAL PRIMARY KEY,
+                label         TEXT    NOT NULL,
+                is_active     BOOLEAN NOT NULL DEFAULT true,
+                display_order INTEGER NOT NULL DEFAULT 0
+            )
+        `);
+        await pool.query(`
+            INSERT INTO reject_reasons (label, display_order)
+            SELECT label, row_number FROM (VALUES
+                ('Photo quality too low or missing',       1),
+                ('Description insufficient or unclear',    2),
+                ('Duplicate listing',                      3),
+                ('Suspected fake or spam listing',         4),
+                ('Inappropriate or offensive content',     5),
+                ('Animal location unclear or incorrect',   6),
+                ('Insufficient health/status information', 7),
+                ('Other',                                  8)
+            ) AS v(label, row_number)
+            WHERE NOT EXISTS (SELECT 1 FROM reject_reasons LIMIT 1)
+        `);
+        console.log('reject_reasons migration applied');
+    } catch (err) {
+        console.error('reject_reasons migration error:', err.message);
+    }
+}
+
+async function runForbiddenWordsMigration() {
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS forbidden_words (
+                id         SERIAL PRIMARY KEY,
+                word       VARCHAR(100) UNIQUE NOT NULL,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            )
+        `);
+        await pool.query(`
+            INSERT INTO forbidden_words (word)
+            SELECT word FROM (VALUES
+                ('fuck'), ('shit'), ('asshole'), ('bitch'), ('cunt'),
+                ('bastard'), ('dick'), ('pussy'), ('motherfucker'), ('faggot'),
+                ('slut'), ('whore'), ('nigger'), ('retard'), ('jackass'),
+                ('pula'), ('cacat'), ('futut'), ('muie'), ('pizda'),
+                ('rahat'), ('curva'), ('muist'), ('fraier'), ('idiot'),
+                ('imbecil'), ('handicapat'), ('netot'), ('dobitoc')
+            ) AS v(word)
+            WHERE NOT EXISTS (SELECT 1 FROM forbidden_words LIMIT 1)
+        `);
+        console.log('forbidden_words migration applied');
+    } catch (err) {
+        console.error('forbidden_words migration error:', err.message);
+    }
+}
+
 async function start() {
     await connectPostgresDB();
     await connectMongoDB();
@@ -205,6 +298,9 @@ async function start() {
     await runPetCoordsMigration();
     await runAdoptionRequestMigration();
     await runFoundHowMigration();
+    await runForumMigration();
+    await runRejectReasonsMigration();
+    await runForbiddenWordsMigration();
     app.listen(PORT, () => {
         console.log(`Server running on port ${PORT}`);
     });

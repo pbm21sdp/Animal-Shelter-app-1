@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Navbar from '../components/Navbar';
+import { formatDate } from '../utils/date';
 
 const serif = "'Cormorant Garamond', serif";
 const sans  = "'DM Sans', sans-serif";
@@ -171,7 +172,7 @@ export default function DonationsPage() {
                                                 {donor.displayName}
                                             </div>
                                             <div style={{ fontFamily: sans, fontSize: '11px', color: C.lightMuted, marginTop: '2px' }}>
-                                                {new Date(donor.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                                {formatDate(donor.createdAt, 'short')}
                                             </div>
                                         </div>
                                     </div>

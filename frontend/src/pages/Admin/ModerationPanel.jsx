@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { CheckCircle, XCircle, RefreshCw, Clock, MapPin, User, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { formatDate } from '../../utils/date';
 
 const API   = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const serif = "'Cormorant Garamond', serif";
@@ -16,30 +17,53 @@ const getPetPhotoUrl = (pet) => {
     return null;
 };
 
-const formatDate = (dateStr) => {
-    if (!dateStr) return '—';
-    return new Date(dateStr).toLocaleString('ro-RO', {
-        day: '2-digit', month: 'short', year: 'numeric',
-        hour: '2-digit', minute: '2-digit',
-        timeZone: 'Europe/Bucharest',
-    });
-};
-
 const TYPE_LABELS = { dog: 'Dog', cat: 'Cat', bird: 'Bird', rabbit: 'Rabbit', other: 'Other' };
 
 const cap = str => str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
 
+const FALLBACK_REASONS = [
+    'Photo quality too low or missing',
+    'Description insufficient or unclear',
+    'Duplicate listing',
+    'Suspected fake or spam listing',
+    'Inappropriate or offensive content',
+    'Animal location unclear or incorrect',
+    'Insufficient health/status information',
+    'Other',
+];
+
 // ── Reject dialog ──────────────────────────────────────────────────────────────
 const RejectDialog = ({ pet, onConfirm, onCancel }) => {
-    const [reason, setReason] = useState('');
-    const [submitting, setSubmitting] = useState(false);
+    const [reasons, setReasons]         = useState([]);
+    const [selected, setSelected]       = useState('');
+    const [otherText, setOtherText]     = useState('');
+    const [submitting, setSubmitting]   = useState(false);
+    const [loadingReasons, setLoadingReasons] = useState(true);
     const [hoverCancel, setHoverCancel] = useState(false);
     const [hoverReject, setHoverReject] = useState(false);
 
+    useEffect(() => {
+        const load = async () => {
+            try {
+                const res = await axios.get(`${API}/settings/reject-reasons?activeOnly=true`, { withCredentials: true });
+                const labels = (res.data.reasons || []).map(r => r.label);
+                setReasons(labels.length ? labels : FALLBACK_REASONS);
+            } catch {
+                setReasons(FALLBACK_REASONS);
+            } finally {
+                setLoadingReasons(false);
+            }
+        };
+        load();
+    }, []);
+
+    const effectiveReason = selected === 'Other' ? otherText.trim() : selected;
+    const canSubmit = !!effectiveReason && !submitting;
+
     const handleSubmit = async () => {
-        if (!reason.trim()) return;
+        if (!canSubmit) return;
         setSubmitting(true);
-        await onConfirm(pet.id, reason.trim());
+        await onConfirm(pet.id, effectiveReason);
         setSubmitting(false);
     };
 
@@ -54,7 +78,7 @@ const RejectDialog = ({ pet, onConfirm, onCancel }) => {
                 border: '1px solid rgba(45,31,20,0.1)',
                 borderRadius: '12px',
                 boxShadow: '0 8px 32px rgba(45,31,20,0.12)',
-                width: '100%', maxWidth: '440px',
+                width: '100%', maxWidth: '460px',
                 padding: '24px',
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
@@ -69,26 +93,63 @@ const RejectDialog = ({ pet, onConfirm, onCancel }) => {
                     The uploader will receive a notification with your reason.
                 </p>
 
-                <label style={{ fontFamily: sans, fontSize: '11px', fontWeight: 600, color: '#2D1F14', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '8px' }}>
+                <label style={{ fontFamily: sans, fontSize: '11px', fontWeight: 600, color: '#2D1F14', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '10px' }}>
                     Reason <span style={{ color: '#993C1D' }}>*</span>
                 </label>
-                <textarea
-                    rows={4}
-                    placeholder="E.g. Photo quality too low, description insufficient, duplicate listing…"
-                    value={reason}
-                    onChange={e => setReason(e.target.value)}
-                    autoFocus
-                    style={{
-                        width: '100%', boxSizing: 'border-box',
-                        border: '1px solid rgba(45,31,20,0.2)', borderRadius: '6px',
-                        padding: '10px 12px',
-                        fontFamily: sans, fontSize: '13px', color: '#2D1F14',
-                        background: '#FAF7F4', resize: 'none', outline: 'none',
-                        transition: 'border-color 0.15s',
-                    }}
-                    onFocus={e => { e.target.style.borderColor = '#C07A4A'; }}
-                    onBlur={e => { e.target.style.borderColor = 'rgba(45,31,20,0.2)'; }}
-                />
+
+                {loadingReasons ? (
+                    <div style={{ fontFamily: sans, fontSize: '12px', color: '#B09880', padding: '8px 0' }}>Loading reasons…</div>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {reasons.map((label) => (
+                            <label
+                                key={label}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '10px',
+                                    padding: '9px 12px', borderRadius: '7px', cursor: 'pointer',
+                                    border: `1px solid ${selected === label ? 'rgba(153,60,29,0.35)' : 'rgba(45,31,20,0.1)'}`,
+                                    background: selected === label ? 'rgba(153,60,29,0.05)' : 'transparent',
+                                    transition: 'border-color 0.12s, background 0.12s',
+                                    fontFamily: sans, fontSize: '13px', color: '#2D1F14',
+                                }}
+                                onMouseEnter={e => { if (selected !== label) e.currentTarget.style.borderColor = 'rgba(45,31,20,0.2)'; }}
+                                onMouseLeave={e => { if (selected !== label) e.currentTarget.style.borderColor = 'rgba(45,31,20,0.1)'; }}
+                            >
+                                <input
+                                    type="radio"
+                                    name="rejectReason"
+                                    value={label}
+                                    checked={selected === label}
+                                    onChange={() => { setSelected(label); if (label !== 'Other') setOtherText(''); }}
+                                    style={{ accentColor: '#993C1D', width: '14px', height: '14px', flexShrink: 0 }}
+                                />
+                                {label}
+                            </label>
+                        ))}
+                    </div>
+                )}
+
+                {/* Free-text field — only when Other is selected */}
+                {selected === 'Other' && (
+                    <textarea
+                        rows={3}
+                        placeholder="Please describe the reason…"
+                        value={otherText}
+                        onChange={e => setOtherText(e.target.value)}
+                        autoFocus
+                        style={{
+                            marginTop: '12px',
+                            width: '100%', boxSizing: 'border-box',
+                            border: '1px solid rgba(45,31,20,0.2)', borderRadius: '6px',
+                            padding: '10px 12px',
+                            fontFamily: sans, fontSize: '13px', color: '#2D1F14',
+                            background: '#FAF7F4', resize: 'none', outline: 'none',
+                            transition: 'border-color 0.15s',
+                        }}
+                        onFocus={e => { e.target.style.borderColor = '#C07A4A'; }}
+                        onBlur={e => { e.target.style.borderColor = 'rgba(45,31,20,0.2)'; }}
+                    />
+                )}
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
                     <button
@@ -101,8 +162,7 @@ const RejectDialog = ({ pet, onConfirm, onCancel }) => {
                             padding: '8px 16px', borderRadius: '6px', cursor: 'pointer',
                             border: '1px solid rgba(45,31,20,0.2)',
                             background: hoverCancel ? 'rgba(45,31,20,0.04)' : 'transparent',
-                            color: '#7A5C44',
-                            transition: 'background 0.12s',
+                            color: '#7A5C44', transition: 'background 0.12s',
                             opacity: submitting ? 0.5 : 1,
                         }}
                     >
@@ -110,18 +170,18 @@ const RejectDialog = ({ pet, onConfirm, onCancel }) => {
                     </button>
                     <button
                         onClick={handleSubmit}
-                        disabled={!reason.trim() || submitting}
+                        disabled={!canSubmit}
                         onMouseEnter={() => setHoverReject(true)}
                         onMouseLeave={() => setHoverReject(false)}
                         style={{
                             fontFamily: sans, fontSize: '12px', fontWeight: 600,
-                            padding: '8px 16px', borderRadius: '6px', cursor: 'pointer',
+                            padding: '8px 16px', borderRadius: '6px', cursor: canSubmit ? 'pointer' : 'not-allowed',
                             border: 'none',
-                            background: hoverReject && reason.trim() && !submitting ? '#7A2010' : '#993C1D',
+                            background: hoverReject && canSubmit ? '#7A2010' : '#993C1D',
                             color: '#FAF7F4',
                             display: 'flex', alignItems: 'center', gap: '6px',
                             transition: 'background 0.12s',
-                            opacity: (!reason.trim() || submitting) ? 0.5 : 1,
+                            opacity: !canSubmit ? 0.5 : 1,
                         }}
                     >
                         {submitting && <RefreshCw style={{ width: '13px', height: '13px' }} className="animate-spin" />}

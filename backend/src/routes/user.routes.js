@@ -8,6 +8,7 @@ import {
     getAllUsers,
     getUserById,
     updateUserAdminStatus,
+    deleteUser,
     uploadAvatar,
     upload,
     getUserMessages,
@@ -73,5 +74,6 @@ router.get('/:id/received-count', verifyToken, getReceivedCountForUser);
 router.get('/admin',                      verifyToken, isAdmin, getAllUsers);
 router.get('/admin/:userId',              verifyToken, isAdmin, getUserById);
 router.put('/admin/:userId/toggle-admin', verifyToken, isAdmin, updateUserAdminStatus);
+router.delete('/admin/:userId',           verifyToken, isAdmin, deleteUser);
 
 export default router;

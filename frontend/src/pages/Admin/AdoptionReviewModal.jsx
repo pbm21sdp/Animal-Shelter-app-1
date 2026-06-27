@@ -6,6 +6,7 @@ import { useAdoptionStore } from '../../store/adoptionStore';
 import axios from 'axios'; // Make sure to import axios
 import { Check, X, AlertCircle, ExternalLink, User, PawPrint, Home, MessageSquare, Clock } from 'lucide-react';
 import AdminModal from './shared/AdminModal';
+import { formatDate } from '../../utils/date';
 
 const AdoptionReviewModal = ({ adoption, isOpen, onClose, onStatusChange }) => {
     const { updateAdoptionStatus, isLoading, error } = useAdoptionStore();
@@ -39,17 +40,6 @@ const AdoptionReviewModal = ({ adoption, isOpen, onClose, onStatusChange }) => {
     // If no adoption is provided, don't render
     if (!adoption) return null;
 
-    // Format date
-    const formatDate = (dateString) => {
-        const date = new Date(dateString);
-        return date.toLocaleDateString(undefined, {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    };
 
     // Get user information, either from populated object or fetched data
     const getUserName = () => {
