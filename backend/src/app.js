@@ -26,6 +26,7 @@ import predictionRoutes from './routes/predictions.routes.js';
 import animalsRoutes from './routes/animals.routes.js';
 import aiRoutes from './routes/ai.routes.js';
 import conversationsRouter from './routes/conversations.routes.js';
+import forumRoutes from './routes/forum.routes.js';
 
 // Load .env only in non-Docker environment
 if (!process.env.DOCKER_ENV) {
@@ -119,6 +120,7 @@ app.use('/api/animals', animalsRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/conversations', conversationsRouter);
 app.use("/api/auth", authRoutes);
+app.use('/api/forum', forumRoutes);
 
 // Root route
 app.get("/", (req, res) => {
@@ -197,6 +199,36 @@ async function runFoundHowMigration() {
     }
 }
 
+async function runForumMigration() {
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS forum_posts (
+                id         SERIAL PRIMARY KEY,
+                author_id  VARCHAR(255) NOT NULL,
+                category   VARCHAR(30)  NOT NULL,
+                title      VARCHAR(150) NOT NULL,
+                content    TEXT         NOT NULL,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            )
+        `);
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS forum_post_photos (
+                id         SERIAL PRIMARY KEY,
+                post_id    INTEGER REFERENCES forum_posts(id) ON DELETE CASCADE,
+                photo_data BYTEA NOT NULL,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            )
+        `);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_forum_posts_category   ON forum_posts(category)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_forum_posts_created_at ON forum_posts(created_at DESC)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_forum_photos_post_id   ON forum_post_photos(post_id)`);
+        console.log('Forum migration applied');
+    } catch (err) {
+        console.error('Forum migration error:', err.message);
+    }
+}
+
 async function start() {
     await connectPostgresDB();
     await connectMongoDB();
@@ -205,6 +237,7 @@ async function start() {
     await runPetCoordsMigration();
     await runAdoptionRequestMigration();
     await runFoundHowMigration();
+    await runForumMigration();
     app.listen(PORT, () => {
         console.log(`Server running on port ${PORT}`);
     });

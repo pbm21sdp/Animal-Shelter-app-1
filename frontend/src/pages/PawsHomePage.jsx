@@ -615,10 +615,11 @@ export default function PawsHomepage() {
                     {[
                         { label: 'Safety', title: 'How to verify adopters and stay safe', desc: 'Red flags to watch for, how to conduct a safe meet-and-greet, and how to protect yourself and the animal.', href: '/safety-guide' },
                         { label: 'Care', title: 'The first 30 days with your new pet', desc: 'Everything you need to know about helping a rescued animal settle into their new home.', href: '/new-pet-guide' },
+                        { label: 'Forum', title: 'Updates from the Paws team', desc: 'Transparency reports, announcements, urgent appeals, and stories from our community — straight from the people running Paws.', href: '/forum' },
                     ].map((article, i) => (
                         <React.Fragment key={article.href}>
                             <div style={{ height: '1px', backgroundColor: C.border, flexShrink: 0 }} />
-                            <div style={{ paddingTop: '18px', paddingBottom: i < 1 ? '18px' : 0 }}>
+                            <div style={{ paddingTop: '18px', paddingBottom: i < 2 ? '18px' : 0 }}>
                                 <span style={labelStyle}>{article.label}</span>
                                 <div style={{ fontFamily: serif, fontSize: '15px', fontWeight: 700, color: C.espresso, lineHeight: 1.35, marginBottom: '7px', marginTop: '6px' }}>
                                     {article.title}
