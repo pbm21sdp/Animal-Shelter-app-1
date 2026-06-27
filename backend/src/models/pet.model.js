@@ -516,20 +516,23 @@ export const PetModel = {
         }
     },
     // Mark a pet as community-adopted (uploader confirms it found a home).
-    // adoptedBy: MongoDB user _id string of the user triggering the action.
-    adoptPet: async (id, adoptedBy = null) => {
+    // adoptedBy: MongoDB user _id string (Paws user), or null.
+    // adopterExternalName: free-text name when adopter is not a Paws user.
+    adoptPet: async (id, adoptedBy = null, adopterExternalName = null) => {
         try {
             const query = `
                 UPDATE pets
                 SET is_adopted = TRUE,
                     adopted_at = NOW(),
                     adopted_by = $2,
+                    adopter_external_name = $3,
+                    adoption_status_label = 'adopted',
                     adoption_status = 'adopted',
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = $1
                 RETURNING *
             `;
-            const result = await pool.query(query, [id, adoptedBy]);
+            const result = await pool.query(query, [id, adoptedBy, adopterExternalName]);
             return result.rows[0];
         } catch (error) {
             console.error('Error in PetModel.adoptPet:', error);
@@ -556,7 +559,7 @@ export const PetModel = {
         }
     },
 
-    // Reverse a community-adopted mark (uploader correction)
+    // Reverse a community-adopted mark completely (uploader correction for mistakes).
     unadoptPet: async (id) => {
         try {
             const query = `
@@ -564,6 +567,8 @@ export const PetModel = {
                 SET is_adopted = FALSE,
                     adopted_at = NULL,
                     adopted_by = NULL,
+                    adopter_external_name = NULL,
+                    adoption_status_label = NULL,
                     adoption_status = 'available',
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = $1
@@ -573,6 +578,25 @@ export const PetModel = {
             return result.rows[0];
         } catch (error) {
             console.error('Error in PetModel.unadoptPet:', error);
+            throw error;
+        }
+    },
+
+    // Mark an adopted pet as returned — preserves adoption history, makes the animal available again.
+    returnPet: async (id) => {
+        try {
+            const query = `
+                UPDATE pets
+                SET adoption_status_label = 'returned',
+                    adoption_status = 'available',
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = $1
+                RETURNING *
+            `;
+            const result = await pool.query(query, [id]);
+            return result.rows[0];
+        } catch (error) {
+            console.error('Error in PetModel.returnPet:', error);
             throw error;
         }
     },
