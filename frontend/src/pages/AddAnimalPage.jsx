@@ -295,6 +295,7 @@ export default function AddAnimalPage() {
                 coat:          coatType || '',
                 gender:        gender || '',
                 city:          locValue.city || locValue.county || '',
+                address:       locValue.address || '',
                 traits:        selectedTraits,
             }, { withCredentials: true });
             setDescription(res.data.description || '');
