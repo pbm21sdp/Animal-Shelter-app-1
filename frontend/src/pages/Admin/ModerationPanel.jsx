@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { CheckCircle, XCircle, RefreshCw, Clock, MapPin, User, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { formatDate } from '../../utils/date';
 
 const API   = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const serif = "'Cormorant Garamond', serif";
@@ -14,15 +15,6 @@ const getPetPhotoUrl = (pet) => {
     if (primary.id) return `${API}/pets/photos/${primary.id}`;
     if (primary.photo_url) return primary.photo_url;
     return null;
-};
-
-const formatDate = (dateStr) => {
-    if (!dateStr) return '—';
-    return new Date(dateStr).toLocaleString('ro-RO', {
-        day: '2-digit', month: 'short', year: 'numeric',
-        hour: '2-digit', minute: '2-digit',
-        timeZone: 'Europe/Bucharest',
-    });
 };
 
 const TYPE_LABELS = { dog: 'Dog', cat: 'Cat', bird: 'Bird', rabbit: 'Rabbit', other: 'Other' };

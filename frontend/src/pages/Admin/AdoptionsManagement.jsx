@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAdoptionStore } from '../../store/adoptionStore';
 import AdminPagination from './shared/AdminPagination';
 import AdminSearchBar from './shared/AdminSearchBar';
+import { formatDate } from '../../utils/date';
 
 const serif = "'Cormorant Garamond', serif";
 const sans  = "'DM Sans', sans-serif";
@@ -22,19 +23,12 @@ const PET_TYPES = [
 ];
 
 const SORT_OPTIONS = [
-    { value: 'newest',       label: 'Newest first' },
-    { value: 'oldest',       label: 'Oldest first' },
-    { value: 'alpha_pet',    label: 'Animal A–Z' },
-    { value: 'alpha_poster', label: 'Poster A–Z' },
+    { value: 'newest',        label: 'Newest first' },
+    { value: 'oldest',        label: 'Oldest first' },
+    { value: 'alpha_pet',     label: 'Pet A–Z' },
+    { value: 'alpha_adopter', label: 'Adopter A–Z' },
+    { value: 'alpha_poster',  label: 'Poster A–Z' },
 ];
-
-const formatDate = (dateStr) => {
-    if (!dateStr) return '—';
-    return new Date(dateStr).toLocaleDateString('ro-RO', {
-        day: '2-digit', month: 'short', year: 'numeric',
-        timeZone: 'Europe/Bucharest',
-    });
-};
 
 const selectStyle = {
     fontFamily: sans, fontSize: '12px', color: '#7A5C44',
@@ -78,28 +72,35 @@ const AdoptionsManagement = () => {
         if (search.trim()) {
             const s = search.toLowerCase();
             list = list.filter(a =>
-                a.petName?.toLowerCase().includes(s)    ||
-                a.petType?.toLowerCase().includes(s)    ||
-                a.petBreed?.toLowerCase().includes(s)   ||
-                a.city?.toLowerCase().includes(s)       ||
-                a.uploaderName?.toLowerCase().includes(s)  ||
+                a.petName?.toLowerCase().includes(s)             ||
+                a.petType?.toLowerCase().includes(s)             ||
+                a.petBreed?.toLowerCase().includes(s)            ||
+                a.city?.toLowerCase().includes(s)                ||
+                a.adopterName?.toLowerCase().includes(s)         ||
+                a.adopterExternalName?.toLowerCase().includes(s) ||
+                a.uploaderName?.toLowerCase().includes(s)        ||
                 a.uploaderEmail?.toLowerCase().includes(s)
             );
         }
 
-        if (sort === 'alpha_pet')    list.sort((a, b) => (a.petName || '').localeCompare(b.petName || ''));
-        if (sort === 'alpha_poster') list.sort((a, b) => (a.uploaderName || '').localeCompare(b.uploaderName || ''));
+        if (sort === 'alpha_pet')     list.sort((a, b) => (a.petName || '').localeCompare(b.petName || ''));
+        if (sort === 'alpha_adopter') list.sort((a, b) => {
+            const adA = a.adopterName || a.adopterExternalName || 'Unspecified';
+            const adB = b.adopterName || b.adopterExternalName || 'Unspecified';
+            return adA.localeCompare(adB);
+        });
+        if (sort === 'alpha_poster')  list.sort((a, b) => (a.uploaderName || '').localeCompare(b.uploaderName || ''));
 
         return list;
     }, [adoptions, search, sort]);
 
     useEffect(() => { setCurrentPage(1); }, [filtered.length, search]);
 
-    const paginated  = filtered.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
-    const globalOff  = (currentPage - 1) * PER_PAGE;
-    const total      = (adoptions || []).length;
+    const paginated = filtered.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
+    const globalOff = (currentPage - 1) * PER_PAGE;
+    const total     = (adoptions || []).length;
 
-    const COLS = ['#', 'Animal', 'City', 'Found its home', 'Posted by'];
+    const COLS = ['#', 'Pet', 'Adopted on', 'Adopter', 'Posted by', 'Status'];
 
     return (
         <div>
@@ -110,7 +111,7 @@ const AdoptionsManagement = () => {
                 </h2>
                 {total > 0 && (
                     <span style={{ fontFamily: sans, fontSize: '12px', color: '#B09880' }}>
-                        {total} animal{total !== 1 ? 's' : ''} found a home
+                        {total} record{total !== 1 ? 's' : ''}
                     </span>
                 )}
             </div>
@@ -120,7 +121,7 @@ const AdoptionsManagement = () => {
                 <AdminSearchBar
                     value={search}
                     onChange={e => setSearch(e.target.value)}
-                    placeholder="Search by animal, city, poster…"
+                    placeholder="Search by pet, adopter, poster…"
                 />
                 <FilterSelect value={petType} onChange={setPetType} options={PET_TYPES} />
                 <FilterSelect value={sort}    onChange={setSort}    options={SORT_OPTIONS} />
@@ -185,7 +186,7 @@ const AdoptionsManagement = () => {
 
             {/* Pagination */}
             {filtered.length > PER_PAGE && (
-                <div style={{ marginTop: '20px' }}>
+                <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'center' }}>
                     <AdminPagination
                         itemsPerPage={PER_PAGE}
                         totalItems={filtered.length}
@@ -202,12 +203,10 @@ const AdoptionsManagement = () => {
 function AdoptionRow({ adoption, index }) {
     const [hover, setHover] = useState(false);
 
-    const days = adoption.daysToAdoption;
-    const daysLabel = days != null
-        ? days === 0 ? 'same day as posting'
-        : days === 1 ? '1 day after posting'
-        : `${days} days after posting`
-        : null;
+    const isReturned   = adoption.adoptionStatusLabel === 'returned';
+    const adopterDisplay = adoption.adopterName || adoption.adopterExternalName || 'Unspecified';
+    const adopterIsExternal = !adoption.adopterName && !!adoption.adopterExternalName;
+    const adopterIsUnspecified = !adoption.adopterName && !adoption.adopterExternalName;
 
     return (
         <tr
@@ -224,7 +223,7 @@ function AdoptionRow({ adoption, index }) {
                 <span style={{ fontFamily: sans, fontSize: '11px', color: '#B09880', fontWeight: 500 }}>{index}</span>
             </td>
 
-            {/* Animal */}
+            {/* Pet */}
             <td style={{ padding: '10px 10px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <div style={{
@@ -246,22 +245,30 @@ function AdoptionRow({ adoption, index }) {
                 </div>
             </td>
 
-            {/* City */}
-            <td style={{ padding: '10px 10px', whiteSpace: 'nowrap' }}>
-                <span style={{ fontFamily: sans, fontSize: '12px', color: adoption.city ? '#2D1F14' : '#B09880' }}>
-                    {adoption.city || '—'}
-                </span>
-            </td>
-
-            {/* Found its home */}
+            {/* Adopted on */}
             <td style={{ padding: '10px 10px', whiteSpace: 'nowrap' }}>
                 <div style={{ fontFamily: sans, fontSize: '12px', color: '#2D1F14', fontWeight: 500 }}>
-                    {formatDate(adoption.adoptedAt)}
+                    {formatDate(adoption.adoptedAt, 'short')}
                 </div>
-                {daysLabel && (
+                {adoption.daysToAdoption != null && (
                     <div style={{ fontFamily: sans, fontSize: '10px', color: '#B09880', marginTop: '2px' }}>
-                        {daysLabel}
+                        {adoption.daysToAdoption === 0 ? 'same day as post'
+                            : adoption.daysToAdoption === 1 ? '1 day after posting'
+                            : `${adoption.daysToAdoption} days after posting`}
                     </div>
+                )}
+            </td>
+
+            {/* Adopter */}
+            <td style={{ padding: '10px 10px' }}>
+                <div style={{ fontFamily: sans, fontSize: '12px', fontWeight: adopterIsUnspecified ? 400 : 500, color: adopterIsUnspecified ? '#B09880' : '#2D1F14', fontStyle: adopterIsUnspecified ? 'italic' : 'normal' }}>
+                    {adopterDisplay}
+                </div>
+                {adopterIsExternal && (
+                    <div style={{ fontFamily: sans, fontSize: '10px', color: '#B09880', marginTop: '1px' }}>external</div>
+                )}
+                {adoption.adopterName && (
+                    <div style={{ fontFamily: sans, fontSize: '10px', color: '#B09880', marginTop: '1px' }}>Paws user</div>
                 )}
             </td>
 
@@ -274,6 +281,29 @@ function AdoptionRow({ adoption, index }) {
                     <div style={{ fontFamily: sans, fontSize: '11px', color: '#B09880' }}>
                         {adoption.uploaderEmail}
                     </div>
+                )}
+            </td>
+
+            {/* Status */}
+            <td style={{ padding: '10px 10px', whiteSpace: 'nowrap' }}>
+                {isReturned ? (
+                    <span style={{
+                        display: 'inline-block', padding: '3px 8px', borderRadius: '100px',
+                        fontFamily: sans, fontSize: '10px', fontWeight: 600,
+                        background: 'rgba(90,60,200,0.1)', color: '#5A3CC8',
+                        border: '1px solid rgba(90,60,200,0.2)',
+                    }}>
+                        Returned to us
+                    </span>
+                ) : (
+                    <span style={{
+                        display: 'inline-block', padding: '3px 8px', borderRadius: '100px',
+                        fontFamily: sans, fontSize: '10px', fontWeight: 600,
+                        background: 'rgba(15,110,86,0.1)', color: '#0F6E56',
+                        border: '1px solid rgba(15,110,86,0.2)',
+                    }}>
+                        Adopted
+                    </span>
                 )}
             </td>
         </tr>
