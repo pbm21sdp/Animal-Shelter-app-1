@@ -7,6 +7,7 @@ import { usePetStore } from '../store/petStore';
 import { useAuthStore } from '../store/authStore';
 import { buildPetTags } from '../utils/petTags';
 import { getCityCoords, haversineKm, NEAR_RADIUS_KM, WIDER_RADIUS_KM } from '../data/romaniaCities';
+import { formatPostedOn } from '../utils/date';
 
 const API = 'http://localhost:5000/api';
 const serif = "'Cormorant Garamond', serif";
@@ -26,18 +27,6 @@ function getPrimaryPhotoUrl(photos) {
     return null;
 }
 
-function timeAgo(dateStr) {
-    if (!dateStr) return '';
-    const parsed = dateStr.endsWith('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z';
-    const diff = Date.now() - new Date(parsed).getTime();
-    if (diff < 60000) return 'just now';
-    const mins = Math.floor(diff / 60000);
-    if (mins < 60)  return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24)   return `${hrs}h ago`;
-    const days = Math.floor(hrs / 24);
-    return `${days}d ago`;
-}
 
 // ── Tag chip — used on cards ──────────────────────────────────────────────────
 function TagChip({ label, variant }) {
@@ -484,7 +473,7 @@ function AnimalCard({ pet, isSaved, onToggleSave }) {
                     ) : (
                         <TagChip label="Listed" variant="default" />
                     )}
-                    <span style={{ marginLeft: 'auto', fontFamily: sans, fontSize: '9px', color: '#B09880', flexShrink: 0 }}>{timeAgo(pet.created_at)}</span>
+                    <span style={{ marginLeft: 'auto', fontFamily: sans, fontSize: '9px', color: '#B09880', flexShrink: 0 }}>{formatPostedOn(pet.created_at)}</span>
                 </div>
                 <div style={{ fontFamily: serif, fontSize: '15px', fontWeight: 700, color: '#2D1F14', lineHeight: 1.25, marginBottom: '6px' }}>
                     {title}

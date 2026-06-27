@@ -10,6 +10,7 @@ import { useAuthStore } from '../store/authStore';
 import UserAdoptionForm from '../components/UserAdoptionForm';
 import NotFoundPage from './NotFoundPage';
 import { buildPetTags } from '../utils/petTags';
+import { formatDate, formatPostedOn } from '../utils/date';
 
 const API   = 'http://localhost:5000/api';
 const BASE  = 'http://localhost:5000';
@@ -30,18 +31,6 @@ function resolveAvatar(avatar) {
     return `${BASE}${avatar.startsWith('/') ? avatar : `/${avatar}`}`;
 }
 
-function timeAgo(dateStr) {
-    if (!dateStr) return '';
-    const parsed = dateStr.endsWith('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z';
-    const diff = Date.now() - new Date(parsed).getTime();
-    if (diff < 60000) return 'just now';
-    const mins = Math.floor(diff / 60000);
-    if (mins < 60)  return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24)   return `${hrs}h ago`;
-    const days = Math.floor(hrs / 24);
-    return `${days}d ago`;
-}
 
 function fmtMemberSince(d) {
     if (!d) return '';
@@ -289,7 +278,7 @@ export default function PetDetailPage() {
     const cardRows = [
         { label: 'Type',     value: cap(pet.type) },
         { label: 'Location', value: fmtLocation(pet.location_address, pet.location_city) || null },
-        { label: 'Posted',   value: timeAgo(pet.created_at) },
+        { label: 'Posted',   value: formatDate(pet.created_at, 'full') },
         { label: 'Uploader', value: uploader?.name },
     ].filter(r => r.value);
 
@@ -334,7 +323,7 @@ export default function PetDetailPage() {
                         {(pet.location_address || pet.location_city) && <><span>◎ {fmtLocation(pet.location_address, pet.location_city)}</span><Dot /></>}
                         {pet.age_category && <><span>{pet.age_category}</span><Dot /></>}
                         {pet.gender       && <><span>{cap(pet.gender)}</span><Dot /></>}
-                        {pet.created_at   && <span>{timeAgo(pet.created_at)}</span>}
+                        {pet.created_at   && <span>{formatPostedOn(pet.created_at)}</span>}
                     </div>
                 </div>
 
@@ -599,7 +588,7 @@ export default function PetDetailPage() {
                                                     {spSrc && <img src={spSrc} alt={sp.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', display: 'block' }} onError={e => { e.target.style.display = 'none'; }} />}
                                                 </div>
                                                 <div style={{ fontFamily: serif, fontSize: '13px', fontWeight: 700, color: '#2D1F14', lineHeight: 1.2, marginBottom: '3px' }}>{sp.name}</div>
-                                                <div style={{ fontFamily: sans, fontSize: '10px', color: '#9A7A60' }}>{sp.location_city}{sp.created_at ? ` · ${timeAgo(sp.created_at)}` : ''}</div>
+                                                <div style={{ fontFamily: sans, fontSize: '10px', color: '#9A7A60' }}>{sp.location_city}{sp.created_at ? ` · ${formatPostedOn(sp.created_at)}` : ''}</div>
                                             </div>
                                         );
                                     })}

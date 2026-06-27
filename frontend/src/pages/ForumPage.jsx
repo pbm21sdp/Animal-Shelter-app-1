@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import { formatDate } from '../utils/date';
 import Navbar from '../components/Navbar';
 import { useAuthStore } from '../store/authStore';
 import { Plus, ChevronUp } from 'lucide-react';
@@ -194,7 +195,7 @@ function PostCard({ post }) {
                     <div style={{ marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <CategoryBadge category={post.category} />
                         <span style={{ fontFamily: sans, fontSize: '10px', color: C.lightMuted }}>
-                            {new Date(post.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            {formatDate(post.created_at, 'short')}
                         </span>
                     </div>
                     <div style={{ fontFamily: serif, fontSize: '18px', fontWeight: 700, color: C.espresso, lineHeight: 1.3, marginBottom: '6px' }}>

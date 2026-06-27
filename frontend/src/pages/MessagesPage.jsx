@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import Navbar from '../components/Navbar';
 import { useAuthStore } from '../store/authStore';
+import { formatTimeAgo } from '../utils/date';
 
 const API  = 'http://localhost:5000/api';
 const BASE = 'http://localhost:5000';
@@ -18,18 +19,6 @@ const C = {
     borderFaint:'rgba(45,31,20,0.06)',
 };
 
-function timeAgo(dateStr) {
-    if (!dateStr) return '';
-    const parsed = dateStr.endsWith('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z';
-    const diff = Date.now() - new Date(parsed).getTime();
-    if (diff < 60000) return 'now';
-    const mins = Math.floor(diff / 60000);
-    if (mins < 60) return `${mins}m`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24)  return `${hrs}h`;
-    const days = Math.floor(hrs / 24);
-    return `${days}d`;
-}
 
 function fmtTime(dateStr) {
     if (!dateStr) return '';
@@ -284,7 +273,7 @@ export default function MessagesPage() {
                                                             {conv.unread_count}
                                                         </span>
                                                     )}
-                                                    <span style={{ fontFamily: sans, fontSize: '9px', color: C.muted }}>{timeAgo(conv.last_message_at)}</span>
+                                                    <span style={{ fontFamily: sans, fontSize: '9px', color: C.muted }}>{formatTimeAgo(conv.last_message_at)}</span>
                                                 </div>
                                             </div>
                                             {conv.pet_name && (
