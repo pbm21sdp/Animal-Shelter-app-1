@@ -1,297 +1,320 @@
-// components/Admin/AdminSettings.jsx
-import React, { useState, useEffect } from 'react';
-import { Settings, Save, RefreshCw, Check } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Settings, Trash2, Plus, RefreshCw, AlertTriangle } from 'lucide-react';
 import axios from 'axios';
+import toast from 'react-hot-toast';
 
+const API   = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const serif = "'Cormorant Garamond', serif";
+const sans  = "'DM Sans', sans-serif";
+
+// ── Toggle switch ──────────────────────────────────────────────────────────────
+const Toggle = ({ checked, onChange, disabled }) => (
+    <button
+        type="button"
+        onClick={() => !disabled && onChange(!checked)}
+        style={{
+            width: '36px', height: '20px', borderRadius: '100px',
+            background: checked ? '#C07A4A' : 'rgba(45,31,20,0.15)',
+            border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
+            padding: '2px', display: 'flex', alignItems: 'center',
+            transition: 'background 0.2s', flexShrink: 0,
+            justifyContent: checked ? 'flex-end' : 'flex-start',
+        }}
+    >
+        <span style={{
+            width: '16px', height: '16px', borderRadius: '50%',
+            background: '#fff',
+            boxShadow: '0 1px 3px rgba(45,31,20,0.25)',
+            display: 'block',
+            transition: 'transform 0.2s',
+        }} />
+    </button>
+);
+
+// ── Section wrapper ───────────────────────────────────────────────────────────
+const Section = ({ title, description, children }) => (
+    <div style={{
+        backgroundColor: '#FFFAF7',
+        border: '1px solid rgba(45,31,20,0.1)',
+        borderRadius: '10px',
+        padding: '24px',
+        marginBottom: '24px',
+    }}>
+        <div style={{ marginBottom: '20px' }}>
+            <h3 style={{ fontFamily: serif, fontSize: '20px', fontWeight: 700, color: '#2D1F14', margin: '0 0 4px' }}>
+                {title}
+            </h3>
+            {description && (
+                <p style={{ fontFamily: sans, fontSize: '12px', color: '#B09880', margin: 0 }}>
+                    {description}
+                </p>
+            )}
+        </div>
+        {children}
+    </div>
+);
+
+// ── Main component ─────────────────────────────────────────────────────────────
 const AdminSettings = () => {
-    // Settings state
-    const [settings, setSettings] = useState({
-        siteName: '',
-        contactEmail: '',
-        donationFees: {
-            enabled: false,
-            percentage: 0
-        },
-        notificationEmails: {
-            newPet: true,
-            newDonation: true,
-            newMessage: true
-        },
-        maintenanceMode: false
-    });
+    // ── Reject reasons state ────────────────────────────────────────────────
+    const [reasons, setReasons]           = useState([]);
+    const [loadingReasons, setLoadingReasons] = useState(true);
+    const [togglingId, setTogglingId]     = useState(null);
 
-    // UI state
-    const [isLoading, setIsLoading] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
-    const [error, setError] = useState(null);
-    const [successMessage, setSuccessMessage] = useState('');
+    // ── Forbidden words state ───────────────────────────────────────────────
+    const [words, setWords]               = useState([]);
+    const [loadingWords, setLoadingWords] = useState(true);
+    const [newWord, setNewWord]           = useState('');
+    const [addingWord, setAddingWord]     = useState(false);
+    const [deletingId, setDeletingId]     = useState(null);
+    const wordInputRef = useRef(null);
 
-    // Fetch settings
-    const fetchSettings = async () => {
-        setIsLoading(true);
-        setError(null);
-        try {
-            const response = await axios.get('http://localhost:5000/api/settings/admin', { withCredentials: true });
-            if (response.data.success) {
-                setSettings(response.data.settings);
-            } else {
-                setError('Failed to fetch settings');
-            }
-        } catch (error) {
-            console.error('Error fetching settings:', error);
-            setError(error.response?.data?.message || 'Error fetching settings');
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    // Initial fetch
+    // ── Fetch on mount ──────────────────────────────────────────────────────
     useEffect(() => {
-        fetchSettings();
+        fetchReasons();
+        fetchWords();
     }, []);
 
-    // Handle input change
-    const handleChange = (e) => {
-        const { name, value, type, checked } = e.target;
-
-        if (name.includes('.')) {
-            // Handle nested properties
-            const [parent, child] = name.split('.');
-            setSettings(prev => ({
-                ...prev,
-                [parent]: {
-                    ...prev[parent],
-                    [child]: type === 'checkbox' ? checked : value
-                }
-            }));
-        } else {
-            // Handle top-level properties
-            setSettings(prev => ({
-                ...prev,
-                [name]: type === 'checkbox' ? checked : value
-            }));
+    const fetchReasons = async () => {
+        setLoadingReasons(true);
+        try {
+            const res = await axios.get(`${API}/settings/reject-reasons`, { withCredentials: true });
+            setReasons(res.data.reasons || []);
+        } catch {
+            toast.error('Failed to load rejection reasons');
+        } finally {
+            setLoadingReasons(false);
         }
     };
 
-    // Save settings
-    const saveSettings = async (e) => {
-        e.preventDefault();
-        setIsSaving(true);
-        setError(null);
-        setSuccessMessage('');
-
+    const fetchWords = async () => {
+        setLoadingWords(true);
         try {
-            const response = await axios.put(
-                'http://localhost:5000/api/settings/admin',
-                { settings },
+            const res = await axios.get(`${API}/settings/forbidden-words`, { withCredentials: true });
+            setWords(res.data.words || []);
+        } catch {
+            toast.error('Failed to load forbidden words');
+        } finally {
+            setLoadingWords(false);
+        }
+    };
+
+    // ── Rejection reasons actions ───────────────────────────────────────────
+    const handleToggleReason = async (reason) => {
+        setTogglingId(reason.id);
+        try {
+            const res = await axios.patch(
+                `${API}/settings/reject-reasons/${reason.id}/toggle`,
+                {},
                 { withCredentials: true }
             );
-
-            if (response.data.success) {
-                setSuccessMessage('Settings saved successfully!');
-                // Hide success message after 3 seconds
-                setTimeout(() => {
-                    setSuccessMessage('');
-                }, 3000);
-            } else {
-                setError('Failed to save settings');
-            }
-        } catch (error) {
-            console.error('Error saving settings:', error);
-            setError(error.response?.data?.message || 'Error saving settings');
+            setReasons(prev => prev.map(r => r.id === reason.id ? res.data.reason : r));
+        } catch {
+            toast.error('Failed to update reason');
         } finally {
-            setIsSaving(false);
+            setTogglingId(null);
         }
     };
 
-    if (isLoading) {
-        return (
-            <div className="flex justify-center items-center h-64">
-                <RefreshCw className="h-8 w-8 text-tealcustom animate-spin" />
-                <span className="ml-2 text-lg">Loading settings...</span>
-            </div>
-        );
-    }
+    // ── Forbidden words actions ─────────────────────────────────────────────
+    const handleAddWord = async (e) => {
+        e.preventDefault();
+        const trimmed = newWord.trim().toLowerCase();
+        if (!trimmed) return;
+        setAddingWord(true);
+        try {
+            const res = await axios.post(
+                `${API}/settings/forbidden-words`,
+                { word: trimmed },
+                { withCredentials: true }
+            );
+            setWords(prev => [...prev, res.data.word].sort((a, b) => a.word.localeCompare(b.word)));
+            setNewWord('');
+            wordInputRef.current?.focus();
+        } catch (err) {
+            const msg = err.response?.data?.message || 'Failed to add word';
+            toast.error(msg);
+        } finally {
+            setAddingWord(false);
+        }
+    };
+
+    const handleDeleteWord = async (word) => {
+        setDeletingId(word.id);
+        try {
+            await axios.delete(`${API}/settings/forbidden-words/${word.id}`, { withCredentials: true });
+            setWords(prev => prev.filter(w => w.id !== word.id));
+        } catch {
+            toast.error('Failed to delete word');
+        } finally {
+            setDeletingId(null);
+        }
+    };
 
     return (
         <div>
-            <div className="flex flex-wrap justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold mb-4 sm:mb-0 flex items-center">
-                    <Settings className="h-6 w-6 mr-2" />
-                    Admin Settings
-                </h2>
+            {/* Header */}
+            <div style={{ marginBottom: '28px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                    <Settings style={{ width: '20px', height: '20px', color: '#C07A4A' }} />
+                    <h2 style={{ fontFamily: serif, fontSize: '26px', fontWeight: 700, color: '#2D1F14', margin: 0 }}>
+                        Settings
+                    </h2>
+                </div>
+                <p style={{ fontFamily: sans, fontSize: '13px', color: '#B09880', margin: 0 }}>
+                    Manage content moderation rules and platform configuration.
+                </p>
             </div>
 
-            {/* Error Display */}
-            {error && (
-                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                    {error}
-                </div>
-            )}
-
-            {/* Success Message */}
-            {successMessage && (
-                <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4 flex items-center">
-                    <Check className="h-5 w-5 mr-2" />
-                    {successMessage}
-                </div>
-            )}
-
-            <div className="bg-white shadow-md rounded-lg p-6">
-                <form onSubmit={saveSettings}>
-                    <div className="mb-8">
-                        <h3 className="text-lg font-semibold mb-4 pb-2 border-b border-gray-200">General Settings</h3>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="siteName">
-                                    Site Name
-                                </label>
-                                <input
-                                    id="siteName"
-                                    name="siteName"
-                                    type="text"
-                                    value={settings.siteName}
-                                    onChange={handleChange}
-                                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            {/* ── Rejection Reasons ── */}
+            <Section
+                title="Rejection Reasons"
+                description="Toggle which reasons are shown to admins when rejecting a listing. Disabled reasons won't appear in the moderation panel."
+            >
+                {loadingReasons ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontFamily: sans, fontSize: '13px', color: '#B09880', padding: '8px 0' }}>
+                        <RefreshCw style={{ width: '14px', height: '14px' }} className="animate-spin" />
+                        Loading…
+                    </div>
+                ) : reasons.length === 0 ? (
+                    <div style={{ fontFamily: sans, fontSize: '13px', color: '#B09880' }}>No reasons configured.</div>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {reasons.map((reason) => (
+                            <div
+                                key={reason.id}
+                                style={{
+                                    display: 'flex', alignItems: 'center',
+                                    justifyContent: 'space-between', gap: '12px',
+                                    padding: '12px 16px', borderRadius: '8px',
+                                    border: `1px solid ${reason.is_active ? 'rgba(192,122,74,0.2)' : 'rgba(45,31,20,0.1)'}`,
+                                    background: reason.is_active ? 'rgba(192,122,74,0.03)' : 'transparent',
+                                    transition: 'border-color 0.15s, background 0.15s',
+                                }}
+                            >
+                                <span style={{
+                                    fontFamily: sans, fontSize: '13px',
+                                    color: reason.is_active ? '#2D1F14' : '#B09880',
+                                    transition: 'color 0.15s',
+                                    flex: 1,
+                                }}>
+                                    {reason.label}
+                                </span>
+                                <Toggle
+                                    checked={reason.is_active}
+                                    onChange={() => handleToggleReason(reason)}
+                                    disabled={togglingId === reason.id}
                                 />
                             </div>
-
-                            <div>
-                                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="contactEmail">
-                                    Contact Email
-                                </label>
-                                <input
-                                    id="contactEmail"
-                                    name="contactEmail"
-                                    type="email"
-                                    value={settings.contactEmail}
-                                    onChange={handleChange}
-                                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="mt-4">
-                            <label className="flex items-center">
-                                <input
-                                    type="checkbox"
-                                    name="maintenanceMode"
-                                    checked={settings.maintenanceMode}
-                                    onChange={handleChange}
-                                    className="h-4 w-4 text-tealcustom focus:ring-teal-500 border-gray-300 rounded"
-                                />
-                                <span className="ml-2 text-gray-700">Enable Maintenance Mode</span>
-                                <span className="ml-2 text-xs text-gray-500">(Only admins can access the site)</span>
-                            </label>
-                        </div>
+                        ))}
                     </div>
+                )}
+            </Section>
 
-                    <div className="mb-8">
-                        <h3 className="text-lg font-semibold mb-4 pb-2 border-b border-gray-200">Donation Settings</h3>
-
-                        <div>
-                            <label className="flex items-center">
-                                <input
-                                    type="checkbox"
-                                    name="donationFees.enabled"
-                                    checked={settings.donationFees.enabled}
-                                    onChange={handleChange}
-                                    className="h-4 w-4 text-tealcustom focus:ring-teal-500 border-gray-300 rounded"
-                                />
-                                <span className="ml-2 text-gray-700">Enable Platform Fee</span>
-                            </label>
-                        </div>
-
-                        <div className="mt-4">
-                            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="donationFeesPercentage">
-                                Platform Fee Percentage
-                            </label>
-                            <input
-                                id="donationFeesPercentage"
-                                name="donationFees.percentage"
-                                type="number"
-                                min="0"
-                                max="100"
-                                step="0.1"
-                                value={settings.donationFees.percentage}
-                                onChange={handleChange}
-                                disabled={!settings.donationFees.enabled}
-                                className={`shadow appearance-none border rounded w-32 py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline ${!settings.donationFees.enabled && 'opacity-50 cursor-not-allowed'}`}
-                            />
-                            <span className="ml-2">%</span>
-                        </div>
-                    </div>
-
-                    <div className="mb-8">
-                        <h3 className="text-lg font-semibold mb-4 pb-2 border-b border-gray-200">Notification Settings</h3>
-
-                        <div className="space-y-2">
-                            <div>
-                                <label className="flex items-center">
-                                    <input
-                                        type="checkbox"
-                                        name="notificationEmails.newPet"
-                                        checked={settings.notificationEmails.newPet}
-                                        onChange={handleChange}
-                                        className="h-4 w-4 text-tealcustom focus:ring-teal-500 border-gray-300 rounded"
-                                    />
-                                    <span className="ml-2 text-gray-700">Email when new pet is added</span>
-                                </label>
-                            </div>
-
-                            <div>
-                                <label className="flex items-center">
-                                    <input
-                                        type="checkbox"
-                                        name="notificationEmails.newDonation"
-                                        checked={settings.notificationEmails.newDonation}
-                                        onChange={handleChange}
-                                        className="h-4 w-4 text-tealcustom focus:ring-teal-500 border-gray-300 rounded"
-                                    />
-                                    <span className="ml-2 text-gray-700">Email when new donation is received</span>
-                                </label>
-                            </div>
-
-                            <div>
-                                <label className="flex items-center">
-                                    <input
-                                        type="checkbox"
-                                        name="notificationEmails.newMessage"
-                                        checked={settings.notificationEmails.newMessage}
-                                        onChange={handleChange}
-                                        className="h-4 w-4 text-tealcustom focus:ring-teal-500 border-gray-300 rounded"
-                                    />
-                                    <span className="ml-2 text-gray-700">Email when new message is received</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex justify-end">
-                        <button
-                            type="button"
-                            onClick={fetchSettings}
-                            className="mr-4 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded flex items-center"
-                        >
-                            <RefreshCw className="h-5 w-5 mr-2" />
-                            Reset
-                        </button>
-                        <button
-                            type="submit"
-                            className="bg-tealcustom hover:bg-teal-700 text-white px-4 py-2 rounded flex items-center"
-                            disabled={isSaving}
-                        >
-                            {isSaving ? (
-                                <RefreshCw className="h-5 w-5 mr-2 animate-spin" />
-                            ) : (
-                                <Save className="h-5 w-5 mr-2" />
-                            )}
-                            Save Settings
-                        </button>
-                    </div>
+            {/* ── Forbidden Words ── */}
+            <Section
+                title="Forbidden Words"
+                description="Words listed here are flagged or blocked from appearing in pet listing content. All words are matched case-insensitively."
+            >
+                {/* Add new word form */}
+                <form onSubmit={handleAddWord} style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+                    <input
+                        ref={wordInputRef}
+                        type="text"
+                        value={newWord}
+                        onChange={e => setNewWord(e.target.value)}
+                        placeholder="Add a word…"
+                        maxLength={100}
+                        style={{
+                            flex: 1, border: '1px solid rgba(45,31,20,0.15)',
+                            borderRadius: '6px', padding: '8px 12px',
+                            fontFamily: sans, fontSize: '13px', color: '#2D1F14',
+                            background: '#FAF7F4', outline: 'none',
+                            transition: 'border-color 0.15s',
+                        }}
+                        onFocus={e => { e.target.style.borderColor = '#C07A4A'; }}
+                        onBlur={e => { e.target.style.borderColor = 'rgba(45,31,20,0.15)'; }}
+                    />
+                    <button
+                        type="submit"
+                        disabled={!newWord.trim() || addingWord}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: '6px',
+                            padding: '8px 14px', borderRadius: '6px', border: 'none',
+                            background: newWord.trim() && !addingWord ? '#2D1F14' : 'rgba(45,31,20,0.15)',
+                            color: newWord.trim() && !addingWord ? '#FAF7F4' : '#B09880',
+                            fontFamily: sans, fontSize: '12px', fontWeight: 600,
+                            cursor: newWord.trim() && !addingWord ? 'pointer' : 'not-allowed',
+                            transition: 'background 0.15s, color 0.15s',
+                            whiteSpace: 'nowrap',
+                        }}
+                    >
+                        {addingWord
+                            ? <RefreshCw style={{ width: '13px', height: '13px' }} className="animate-spin" />
+                            : <Plus style={{ width: '13px', height: '13px' }} />
+                        }
+                        Add word
+                    </button>
                 </form>
-            </div>
+
+                {/* Words list */}
+                {loadingWords ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontFamily: sans, fontSize: '13px', color: '#B09880' }}>
+                        <RefreshCw style={{ width: '14px', height: '14px' }} className="animate-spin" />
+                        Loading…
+                    </div>
+                ) : words.length === 0 ? (
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        fontFamily: sans, fontSize: '13px', color: '#B09880',
+                        padding: '16px', borderRadius: '8px',
+                        border: '1px dashed rgba(45,31,20,0.15)',
+                        justifyContent: 'center',
+                    }}>
+                        <AlertTriangle style={{ width: '14px', height: '14px' }} />
+                        No forbidden words configured yet.
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                        {words.map((w) => (
+                            <div
+                                key={w.id}
+                                style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                    padding: '5px 10px 5px 12px',
+                                    background: 'rgba(153,60,29,0.07)',
+                                    border: '1px solid rgba(153,60,29,0.2)',
+                                    borderRadius: '100px',
+                                    fontFamily: sans, fontSize: '12px', color: '#2D1F14',
+                                }}
+                            >
+                                <span>{w.word}</span>
+                                <button
+                                    onClick={() => handleDeleteWord(w)}
+                                    disabled={deletingId === w.id}
+                                    title="Remove"
+                                    style={{
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        width: '16px', height: '16px', borderRadius: '50%',
+                                        background: 'none', border: 'none', padding: 0,
+                                        cursor: deletingId === w.id ? 'not-allowed' : 'pointer',
+                                        color: deletingId === w.id ? '#B09880' : '#993C1D',
+                                        transition: 'color 0.12s',
+                                        flexShrink: 0,
+                                    }}
+                                    onMouseEnter={e => { if (deletingId !== w.id) e.currentTarget.style.color = '#7A2010'; }}
+                                    onMouseLeave={e => { if (deletingId !== w.id) e.currentTarget.style.color = '#993C1D'; }}
+                                >
+                                    {deletingId === w.id
+                                        ? <RefreshCw style={{ width: '11px', height: '11px' }} className="animate-spin" />
+                                        : <Trash2 style={{ width: '11px', height: '11px' }} />
+                                    }
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </Section>
         </div>
     );
 };
