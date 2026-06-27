@@ -1,26 +1,38 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LogOut, MessageCircle } from 'lucide-react';
+import { LogOut, MessageCircle, Bell } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import { formatTimeAgo } from '../utils/date';
 import axios from 'axios';
 
 const BASE_URL = 'http://localhost:5000';
+const API      = 'http://localhost:5000/api';
 
 export default function Navbar() {
     const { user, logout } = useAuthStore();
     const isAuthenticated = !!user;
-    const navigate = useNavigate();
-    const location = useLocation();
-    const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-    const [searchValue, setSearchValue] = useState('');
-    const [unreadCount, setUnreadCount] = useState(0);
+    const navigate  = useNavigate();
+    const location  = useLocation();
 
+    const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+    const [searchValue, setSearchValue]                 = useState('');
+    const [unreadCount, setUnreadCount]                 = useState(0);
+
+    // ── Notifications state ──────────────────────────────────────────────────
+    const [notifUnread, setNotifUnread]           = useState(0);
+    const [showNotifDropdown, setShowNotifDropdown] = useState(false);
+    const [notifications, setNotifications]       = useState([]);
+    const [notifLoading, setNotifLoading]         = useState(false);
+    const notifRef   = useRef(null);
+    const profileRef = useRef(null);
+
+    // ── Unread messages polling ──────────────────────────────────────────────
     useEffect(() => {
         if (!isAuthenticated) { setUnreadCount(0); return; }
         const fetchUnread = async () => {
             try {
-                const r = await axios.get('http://localhost:5000/api/conversations/unread-count', { withCredentials: true });
+                const r = await axios.get(`${API}/conversations/unread-count`, { withCredentials: true });
                 setUnreadCount(r.data.count || 0);
             } catch (e) {}
         };
@@ -29,17 +41,35 @@ export default function Navbar() {
         return () => clearInterval(interval);
     }, [isAuthenticated]);
 
+    // ── Notification unread count polling ───────────────────────────────────
     useEffect(() => {
-        const handleClickOutside = (event) => {
-            const el = document.getElementById('profile-dropdown');
-            if (showProfileDropdown && el && !el.contains(event.target)) {
+        if (!isAuthenticated) { setNotifUnread(0); return; }
+        const fetchNotifUnread = async () => {
+            try {
+                const r = await axios.get(`${API}/notifications/unread-count`, { withCredentials: true });
+                setNotifUnread(r.data.count || 0);
+            } catch (e) {}
+        };
+        fetchNotifUnread();
+        const interval = setInterval(fetchNotifUnread, 30000);
+        return () => clearInterval(interval);
+    }, [isAuthenticated]);
+
+    // ── Click-outside: close both dropdowns ─────────────────────────────────
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (showNotifDropdown && notifRef.current && !notifRef.current.contains(e.target)) {
+                setShowNotifDropdown(false);
+            }
+            if (showProfileDropdown && profileRef.current && !profileRef.current.contains(e.target)) {
                 setShowProfileDropdown(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [showProfileDropdown]);
+    }, [showNotifDropdown, showProfileDropdown]);
 
+    // ── Helpers ──────────────────────────────────────────────────────────────
     const getAvatarUrl = (url) => {
         if (!url) return '/default-avatar.png';
         if (url.startsWith('http')) return url;
@@ -56,12 +86,54 @@ export default function Navbar() {
         }
     };
 
+    // ── Notification actions ─────────────────────────────────────────────────
+    const openNotifDropdown = async () => {
+        setShowNotifDropdown(true);
+        setShowProfileDropdown(false);
+        setNotifLoading(true);
+        try {
+            const r = await axios.get(`${API}/notifications?limit=20`, { withCredentials: true });
+            setNotifications(r.data.notifications || []);
+        } catch (e) {}
+        finally { setNotifLoading(false); }
+    };
+
+    const toggleNotifDropdown = () => {
+        if (showNotifDropdown) {
+            setShowNotifDropdown(false);
+        } else {
+            openNotifDropdown();
+        }
+    };
+
+    const handleNotifClick = async (notif) => {
+        if (!notif.is_read) {
+            try {
+                await axios.patch(`${API}/notifications/${notif.id}/read`, {}, { withCredentials: true });
+                setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, is_read: true } : n));
+                setNotifUnread(prev => Math.max(0, prev - 1));
+            } catch (e) {}
+        }
+        setShowNotifDropdown(false);
+        if (notif.related_animal_id) {
+            navigate(`/pet/${notif.related_animal_id}`);
+        }
+    };
+
+    const handleMarkAllRead = async () => {
+        try {
+            await axios.patch(`${API}/notifications/read-all`, {}, { withCredentials: true });
+            setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+            setNotifUnread(0);
+        } catch (e) {}
+    };
+
     const navLinks = [
-        { to: '/',         label: 'Home' },
-        { to: '/animals',  label: 'Animals' },
-        { to: '/map',      label: 'Map' },
+        { to: '/',           label: 'Home' },
+        { to: '/animals',    label: 'Animals' },
+        { to: '/map',        label: 'Map' },
         { to: '/my-animals', label: 'My Animals' },
-        { to: '/about',    label: 'About' },
+        { to: '/about',      label: 'About' },
     ];
 
     const dropdownLinks = [
@@ -82,25 +154,13 @@ export default function Navbar() {
             zIndex: 1000,
             flexShrink: 0,
         }}>
-            {/* Logo — left */}
+            {/* Logo */}
             <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '7px', textDecoration: 'none', outline: 'none', flexShrink: 0, marginRight: '36px' }}>
-                <span style={{
-                    width: '8px', height: '8px',
-                    borderRadius: '50%',
-                    backgroundColor: '#C07A4A',
-                    display: 'inline-block',
-                    flexShrink: 0,
-                }} />
-                <span style={{
-                    fontFamily: "'Cormorant Garamond', serif",
-                    color: '#2D1F14',
-                    fontWeight: 700,
-                    fontSize: '20px',
-                    letterSpacing: '0.01em',
-                }}>Paws</span>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#C07A4A', display: 'inline-block', flexShrink: 0 }} />
+                <span style={{ fontFamily: "'Cormorant Garamond', serif", color: '#2D1F14', fontWeight: 700, fontSize: '20px', letterSpacing: '0.01em' }}>Paws</span>
             </Link>
 
-            {/* Nav links — left-aligned, next to logo */}
+            {/* Nav links */}
             <nav style={{ display: 'flex', alignItems: 'center', gap: '28px', flexShrink: 0 }}>
                 {navLinks.map(({ to, label }) => (
                     <Link
@@ -123,35 +183,22 @@ export default function Navbar() {
                 ))}
             </nav>
 
-            {/* Spacer */}
             <div style={{ flex: 1 }} />
 
-            {/* Search + actions — right */}
+            {/* Right section */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
 
                 {/* Location pill */}
                 <div
                     style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '5px',
-                        padding: '5px 12px',
-                        borderRadius: '100px',
+                        display: 'flex', alignItems: 'center', gap: '5px',
+                        padding: '5px 12px', borderRadius: '100px',
                         backgroundColor: 'rgba(192,122,74,0.08)',
                         border: '1px solid rgba(192,122,74,0.2)',
-                        cursor: 'default',
-                        transition: 'background-color 0.15s',
-                        flexShrink: 0,
+                        cursor: 'default', flexShrink: 0,
                     }}
-                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(192,122,74,0.14)'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(192,122,74,0.08)'; }}
                 >
-                    <span style={{
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: '11px',
-                        color: '#8B4E28',
-                        whiteSpace: 'nowrap',
-                    }}>
+                    <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', color: '#8B4E28', whiteSpace: 'nowrap' }}>
                         ◎ {user?.city || 'Somewhere'}
                     </span>
                 </div>
@@ -164,15 +211,10 @@ export default function Navbar() {
                     onChange={(e) => setSearchValue(e.target.value)}
                     onKeyDown={handleSearchKeyDown}
                     style={{
-                        width: '200px',
-                        backgroundColor: '#FAF7F4',
-                        border: '1px solid rgba(45,31,20,0.15)',
-                        borderRadius: '100px',
-                        padding: '6px 14px',
-                        fontSize: '12px',
-                        fontFamily: "'DM Sans', sans-serif",
-                        color: '#7A5C44',
-                        outline: 'none',
+                        width: '200px', backgroundColor: '#FAF7F4',
+                        border: '1px solid rgba(45,31,20,0.15)', borderRadius: '100px',
+                        padding: '6px 14px', fontSize: '12px',
+                        fontFamily: "'DM Sans', sans-serif", color: '#7A5C44', outline: 'none',
                     }}
                     onFocus={(e) => { e.target.style.borderColor = '#C07A4A'; }}
                     onBlur={(e)  => { e.target.style.borderColor = 'rgba(45,31,20,0.15)'; }}
@@ -182,17 +224,11 @@ export default function Navbar() {
                 <Link
                     to="/add-animal"
                     style={{
-                        backgroundColor: '#2D1F14',
-                        color: '#FAF7F4',
-                        borderRadius: '100px',
-                        fontSize: '12px',
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontWeight: 500,
-                        padding: '7px 16px',
-                        textDecoration: 'none',
-                        transition: 'opacity 0.15s',
-                        whiteSpace: 'nowrap',
-                        display: 'inline-block',
+                        backgroundColor: '#2D1F14', color: '#FAF7F4',
+                        borderRadius: '100px', fontSize: '12px',
+                        fontFamily: "'DM Sans', sans-serif", fontWeight: 500,
+                        padding: '7px 16px', textDecoration: 'none',
+                        transition: 'opacity 0.15s', whiteSpace: 'nowrap', display: 'inline-block',
                     }}
                     onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.82'; }}
                     onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
@@ -200,76 +236,190 @@ export default function Navbar() {
                     + Add animal
                 </Link>
 
-                    {/* Auth section */}
-                    {user ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {/* Auth section */}
+                {user ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
 
-                            {/* Notifications icon */}
-                            <div style={{ position: 'relative' }}>
-                                <button
-                                    onClick={() => navigate('/messages')}
-                                    style={{
-                                        width: '30px',
-                                        height: '30px',
-                                        borderRadius: '50%',
-                                        backgroundColor: '#fff',
-                                        border: '1px solid rgba(45,31,20,0.15)',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        cursor: 'pointer',
-                                        padding: 0,
-                                        flexShrink: 0,
-                                        transition: 'background-color 0.15s',
-                                    }}
-                                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(45,31,20,0.04)'; }}
-                                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
-                                >
-                                    <MessageCircle style={{ width: '14px', height: '14px', color: '#2D1F14' }} />
-                                </button>
-                                {/* Unread badge */}
-                                {unreadCount > 0 && (
-                                    <span style={{
-                                        position: 'absolute',
-                                        top: '-2px',
-                                        right: '-2px',
-                                        minWidth: '14px',
-                                        height: '14px',
-                                        borderRadius: '50%',
-                                        backgroundColor: '#C07A4A',
-                                        border: '2px solid #FAF7F4',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        fontFamily: "'DM Sans', sans-serif",
-                                        fontSize: '8px',
-                                        fontWeight: 600,
-                                        color: '#FAF7F4',
-                                        lineHeight: 1,
-                                        padding: '0 2px',
-                                    }}>
-                                        {unreadCount > 99 ? '99+' : unreadCount}
-                                    </span>
-                                )}
-                            </div>
-
+                        {/* Messages button */}
                         <div style={{ position: 'relative' }}>
-                            {/* Avatar button */}
                             <button
-                                onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                                onClick={() => navigate('/messages')}
                                 style={{
-                                    width: '30px',
-                                    height: '30px',
-                                    borderRadius: '50%',
-                                    backgroundColor: '#FDEADE',
-                                    border: '1px solid #E8D4C8',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    cursor: 'pointer',
-                                    overflow: 'hidden',
-                                    padding: 0,
-                                    flexShrink: 0,
+                                    width: '30px', height: '30px', borderRadius: '50%',
+                                    backgroundColor: '#fff', border: '1px solid rgba(45,31,20,0.15)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    cursor: 'pointer', padding: 0, flexShrink: 0, transition: 'background-color 0.15s',
+                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(45,31,20,0.04)'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                            >
+                                <MessageCircle style={{ width: '14px', height: '14px', color: '#2D1F14' }} />
+                            </button>
+                            {unreadCount > 0 && (
+                                <span style={{
+                                    position: 'absolute', top: '-2px', right: '-2px',
+                                    minWidth: '14px', height: '14px', borderRadius: '50%',
+                                    backgroundColor: '#C07A4A', border: '2px solid #FAF7F4',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontFamily: "'DM Sans', sans-serif", fontSize: '8px',
+                                    fontWeight: 600, color: '#FAF7F4', lineHeight: 1, padding: '0 2px',
+                                }}>
+                                    {unreadCount > 99 ? '99+' : unreadCount}
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Bell notifications button */}
+                        <div style={{ position: 'relative' }} ref={notifRef}>
+                            <button
+                                onClick={toggleNotifDropdown}
+                                style={{
+                                    width: '30px', height: '30px', borderRadius: '50%',
+                                    backgroundColor: showNotifDropdown ? 'rgba(45,31,20,0.06)' : '#fff',
+                                    border: '1px solid rgba(45,31,20,0.15)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    cursor: 'pointer', padding: 0, flexShrink: 0, transition: 'background-color 0.15s',
+                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(45,31,20,0.04)'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = showNotifDropdown ? 'rgba(45,31,20,0.06)' : '#fff'; }}
+                            >
+                                <Bell style={{ width: '14px', height: '14px', color: '#2D1F14' }} />
+                            </button>
+
+                            {/* Unread badge */}
+                            {notifUnread > 0 && (
+                                <span style={{
+                                    position: 'absolute', top: '-2px', right: '-2px',
+                                    minWidth: '14px', height: '14px', borderRadius: '50%',
+                                    backgroundColor: '#993C1D', border: '2px solid #FAF7F4',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontFamily: "'DM Sans', sans-serif", fontSize: '8px',
+                                    fontWeight: 600, color: '#FAF7F4', lineHeight: 1, padding: '0 2px',
+                                    pointerEvents: 'none',
+                                }}>
+                                    {notifUnread > 99 ? '99+' : notifUnread}
+                                </span>
+                            )}
+
+                            {/* Notification dropdown */}
+                            <AnimatePresence>
+                                {showNotifDropdown && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: -6 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -6 }}
+                                        transition={{ duration: 0.15 }}
+                                        style={{
+                                            position: 'absolute',
+                                            top: 'calc(100% + 8px)',
+                                            right: 0,
+                                            width: '320px',
+                                            maxHeight: '400px',
+                                            backgroundColor: '#FFFAF7',
+                                            border: '1px solid #E8D4C8',
+                                            borderRadius: '12px',
+                                            boxShadow: '0 6px 24px rgba(92,61,46,0.12)',
+                                            overflow: 'hidden',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            zIndex: 200,
+                                        }}
+                                    >
+                                        {/* Dropdown header */}
+                                        <div style={{
+                                            display: 'flex', alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            padding: '12px 16px',
+                                            borderBottom: '1px solid #E8D4C8',
+                                            flexShrink: 0,
+                                        }}>
+                                            <span style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '16px', fontWeight: 700, color: '#2D1F14' }}>
+                                                Notifications
+                                            </span>
+                                            {notifUnread > 0 && (
+                                                <button
+                                                    onClick={handleMarkAllRead}
+                                                    style={{
+                                                        fontFamily: "'DM Sans', sans-serif",
+                                                        fontSize: '11px', color: '#C07A4A',
+                                                        background: 'none', border: 'none',
+                                                        cursor: 'pointer', padding: '2px 4px',
+                                                        borderRadius: '4px', transition: 'background 0.12s',
+                                                    }}
+                                                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(192,122,74,0.08)'; }}
+                                                    onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
+                                                >
+                                                    Mark all as read
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {/* List */}
+                                        <div style={{ overflowY: 'auto', flex: 1 }}>
+                                            {notifLoading ? (
+                                                <div style={{ padding: '24px 16px', textAlign: 'center', fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#B09880' }}>
+                                                    Loading…
+                                                </div>
+                                            ) : notifications.length === 0 ? (
+                                                <div style={{ padding: '24px 16px', textAlign: 'center', fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: '#B09880' }}>
+                                                    No notifications yet
+                                                </div>
+                                            ) : (
+                                                notifications.map((notif) => (
+                                                    <button
+                                                        key={notif.id}
+                                                        onClick={() => handleNotifClick(notif)}
+                                                        style={{
+                                                            display: 'flex', flexDirection: 'column', gap: '4px',
+                                                            width: '100%', textAlign: 'left',
+                                                            padding: '12px 16px',
+                                                            borderBottom: '1px solid rgba(45,31,20,0.06)',
+                                                            background: notif.is_read ? 'transparent' : 'rgba(192,122,74,0.05)',
+                                                            border: 'none', cursor: 'pointer',
+                                                            transition: 'background 0.12s',
+                                                            position: 'relative',
+                                                        }}
+                                                        onMouseEnter={(e) => { e.currentTarget.style.background = notif.is_read ? 'rgba(45,31,20,0.03)' : 'rgba(192,122,74,0.1)'; }}
+                                                        onMouseLeave={(e) => { e.currentTarget.style.background = notif.is_read ? 'transparent' : 'rgba(192,122,74,0.05)'; }}
+                                                    >
+                                                        {/* Unread dot */}
+                                                        {!notif.is_read && (
+                                                            <span style={{
+                                                                position: 'absolute', top: '14px', right: '14px',
+                                                                width: '7px', height: '7px', borderRadius: '50%',
+                                                                backgroundColor: '#C07A4A', flexShrink: 0,
+                                                            }} />
+                                                        )}
+                                                        <span style={{
+                                                            fontFamily: "'DM Sans', sans-serif",
+                                                            fontSize: '12px',
+                                                            color: '#2D1F14',
+                                                            lineHeight: 1.5,
+                                                            paddingRight: '16px',
+                                                        }}>
+                                                            {notif.message}
+                                                        </span>
+                                                        <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '10px', color: '#B09880' }}>
+                                                            {formatTimeAgo(notif.created_at)}
+                                                        </span>
+                                                    </button>
+                                                ))
+                                            )}
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
+
+                        {/* Avatar + profile dropdown */}
+                        <div style={{ position: 'relative' }} ref={profileRef}>
+                            <button
+                                onClick={() => { setShowProfileDropdown(!showProfileDropdown); setShowNotifDropdown(false); }}
+                                style={{
+                                    width: '30px', height: '30px', borderRadius: '50%',
+                                    backgroundColor: '#FDEADE', border: '1px solid #E8D4C8',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    cursor: 'pointer', overflow: 'hidden', padding: 0, flexShrink: 0,
                                 }}
                             >
                                 {user.avatar ? (
@@ -286,11 +436,9 @@ export default function Navbar() {
                                 )}
                             </button>
 
-                            {/* Dropdown */}
                             <AnimatePresence>
                                 {showProfileDropdown && (
                                     <motion.div
-                                        id="profile-dropdown"
                                         initial={{ opacity: 0, y: -6 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         exit={{ opacity: 0, y: -6 }}
@@ -313,12 +461,10 @@ export default function Navbar() {
                                                 key={label}
                                                 to={to}
                                                 style={{
-                                                    display: 'block',
-                                                    padding: '10px 16px',
-                                                    color: '#5C3D2E',
-                                                    fontSize: '13px',
-                                                    textDecoration: 'none',
-                                                    transition: 'background-color 0.12s',
+                                                    display: 'block', padding: '10px 16px',
+                                                    color: '#5C3D2E', fontSize: '13px',
+                                                    textDecoration: 'none', transition: 'background-color 0.12s',
+                                                    fontFamily: "'DM Sans', sans-serif",
                                                 }}
                                                 onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#FDEADE'; }}
                                                 onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
@@ -331,13 +477,11 @@ export default function Navbar() {
                                             <Link
                                                 to="/admin/pets"
                                                 style={{
-                                                    display: 'block',
-                                                    padding: '10px 16px',
-                                                    color: '#C07A4A',
-                                                    fontSize: '13px',
-                                                    textDecoration: 'none',
+                                                    display: 'block', padding: '10px 16px',
+                                                    color: '#C07A4A', fontSize: '13px',
+                                                    textDecoration: 'none', fontWeight: 500,
                                                     transition: 'background-color 0.12s',
-                                                    fontWeight: 500,
+                                                    fontFamily: "'DM Sans', sans-serif",
                                                 }}
                                                 onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#FDEADE'; }}
                                                 onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
@@ -349,19 +493,14 @@ export default function Navbar() {
                                         <button
                                             onClick={() => { logout(); setShowProfileDropdown(false); }}
                                             style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '7px',
-                                                width: '100%',
-                                                padding: '10px 16px',
-                                                color: '#9C7B6A',
-                                                fontSize: '13px',
-                                                background: 'none',
-                                                border: 'none',
+                                                display: 'flex', alignItems: 'center', gap: '7px',
+                                                width: '100%', padding: '10px 16px',
+                                                color: '#9C7B6A', fontSize: '13px',
+                                                background: 'none', border: 'none',
                                                 borderTop: '1px solid #E8D4C8',
-                                                cursor: 'pointer',
-                                                textAlign: 'left',
+                                                cursor: 'pointer', textAlign: 'left',
                                                 transition: 'background-color 0.12s',
+                                                fontFamily: "'DM Sans', sans-serif",
                                             }}
                                             onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#FDEADE'; }}
                                             onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
@@ -373,27 +512,23 @@ export default function Navbar() {
                                 )}
                             </AnimatePresence>
                         </div>
-                        </div>
-                    ) : (
-                        <Link
-                            to="/signup"
-                            style={{
-                                backgroundColor: '#D4967A',
-                                color: '#FDF8F5',
-                                borderRadius: '20px',
-                                padding: '7px 18px',
-                                fontSize: '13px',
-                                fontWeight: 600,
-                                textDecoration: 'none',
-                                transition: 'background-color 0.15s',
-                            }}
-                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#C4846A'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#D4967A'; }}
-                        >
-                            Sign up
-                        </Link>
-                    )}
-                </div>
+                    </div>
+                ) : (
+                    <Link
+                        to="/signup"
+                        style={{
+                            backgroundColor: '#D4967A', color: '#FDF8F5',
+                            borderRadius: '20px', padding: '7px 18px',
+                            fontSize: '13px', fontWeight: 600,
+                            textDecoration: 'none', transition: 'background-color 0.15s',
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#C4846A'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#D4967A'; }}
+                    >
+                        Sign up
+                    </Link>
+                )}
+            </div>
         </header>
     );
 }
