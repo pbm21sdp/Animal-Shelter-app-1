@@ -36,6 +36,7 @@ import SafetyGuidePage from './pages/SafetyGuidePage';
 import NewPetGuidePage from './pages/NewPetGuidePage';
 import MessagesPage from './pages/MessagesPage';
 import DonationsPage from './pages/DonationsPage';
+import CommunityStoriesPage from './pages/CommunityStoriesPage';
 
 // Protect routes that require authentication
 const ProtectedRoute = ({children}) => {
@@ -281,6 +282,11 @@ function App() {
                 <Route path="/messages" element={
                     <ProtectedRoute>
                         <MessagesPage />
+                    </ProtectedRoute>
+                }/>
+                <Route path="/community" element={
+                    <ProtectedRoute>
+                        <CommunityStoriesPage />
                     </ProtectedRoute>
                 }/>
                 <Route path="/oauth-callback" element={<OAuthCallbackPage />} />

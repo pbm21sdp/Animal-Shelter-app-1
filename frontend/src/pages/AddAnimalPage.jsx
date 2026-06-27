@@ -4,6 +4,7 @@ import axios from 'axios';
 import Navbar from '../components/Navbar';
 import LocationPicker from '../components/LocationPicker';
 import { cropToFocalPoint } from '../utils/imageCrop.js';
+import { useAuthStore } from '../store/authStore';
 
 const API   = 'http://localhost:5000/api';
 const serif = "'Cormorant Garamond', serif";
@@ -12,6 +13,30 @@ const sans  = "'DM Sans', sans-serif";
 const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
 const sentenceCase = str => str ? str.charAt(0).toUpperCase() + str.slice(1).toLowerCase() : '';
+
+const SITUATION_MAP = {
+    'Found on the street': 'found_on_street',
+    'Appears to be lost': 'appears_lost',
+    'Went missing': 'went_missing',
+    'Owner surrendered it': 'owner_surrendered',
+    'Rescued from danger': 'rescued_from_danger',
+    'Other': 'other',
+};
+const CURRENT_STATUS_MAP = {
+    'Found / Stray': 'found_stray',
+    'Needs urgent care': 'needs_urgent_care',
+    'Vaccinated & healthy': 'vaccinated_healthy',
+    'Foster': 'foster',
+    'Vet check pending': 'vet_check_pending',
+    'In recovery': 'in_recovery',
+    'Ready for adoption': 'ready_for_adoption',
+    'Special needs': 'special_needs',
+    'Quarantine': 'quarantine',
+    'Unknown': 'unknown',
+};
+const MICROCHIP_MAP = { 'Yes': 'yes', 'No': 'no', "Don't know": 'unknown' };
+const NEUTERED_MAP  = { 'Yes': 'yes', 'No': 'no', "Don't know": 'unknown' };
+const VACCINATION_MAP = { 'Yes, fully': 'fully', 'Partially': 'partially', 'No': 'no', "Don't know": 'unknown' };
 
 // ── Pill toggle (single-select) ───────────────────────────────────────────────
 function PillToggle({ options, value, onChange, large }) {
@@ -124,6 +149,7 @@ function SectionDivider() {
 // ── Main component ────────────────────────────────────────────────────────────
 export default function AddAnimalPage() {
     const navigate = useNavigate();
+    const { user } = useAuthStore();
     const fileInputRef          = useRef(null);
     const descTextareaRef       = useRef(null);
     const pageContainerRef      = useRef(null);
@@ -177,6 +203,7 @@ export default function AddAnimalPage() {
     const [coatColorOther,  setCoatColorOther]  = useState('');
     const [coatType,        setCoatType]        = useState('');
     const [breed,           setBreed]           = useState('');
+    const [breedUnsure,     setBreedUnsure]     = useState(false);
     const [gender,          setGender]          = useState('');
 
     // ── Step 2 state ──────────────────────────────────────────────────────────
@@ -198,6 +225,11 @@ export default function AddAnimalPage() {
 
     const [selectedTraits, setSelectedTraits] = useState([]);
 
+    // ── Auto-fill contact email from logged-in user ───────────────────────────
+    useEffect(() => {
+        if (user?.email && !contact) setContact(user.email);
+    }, [user?.email]); // eslint-disable-line react-hooks/exhaustive-deps
+
     // ── AI generation state ───────────────────────────────────────────────────
     const [aiLoading,   setAiLoading]   = useState(false);
     const [aiGenerated, setAiGenerated] = useState(false);
@@ -217,6 +249,18 @@ export default function AddAnimalPage() {
 
     // ── Map step 1 answers → step 2 defaults when advancing ──────────────────
     const handleContinue = () => {
+        const e = {};
+        if (!foundHow)      e.foundHow     = 'Please select the situation.';
+        if (!animalType)    e.animalType   = 'Please select a type.';
+        if (animalType === 'Other' && !animalTypeOther.trim()) e.animalType = 'Please specify the type.';
+        if (!animalStatus)  e.animalStatus = 'Please select a current status.';
+        if (!hasMicrochip)  e.hasMicrochip = 'Please select one option.';
+        if (!isNeutered)    e.isNeutered   = 'Please select one option.';
+        if (!isVaccinated)  e.isVaccinated = 'Please select one option.';
+        if (!gender)        e.gender       = 'Please select a gender.';
+        if (!locValue.city && !locValue.county) e.location = 'Please add at least a city or county.';
+        if (Object.keys(e).length > 0) { setErrors(e); return; }
+        setErrors({});
         const statusMap = {
             'Vaccinated & healthy': 'Vaccinated',
             'Needs urgent care':    'Urgent',
@@ -235,20 +279,24 @@ export default function AddAnimalPage() {
         setAiGenerated(false);
         try {
             const res = await axios.post(`${API}/ai/generate-description`, {
-                type:       actualType || animalType,
-                status:     animalStatus,
-                age:        exactAge || approxAge,
-                size:       exactWeight ? `${exactWeight}${approxSize ? ` (${approxSize})` : ''}` : approxSize,
-                vaccinated: isVaccinated,
-                neutered:   isNeutered,
-                microchip:  hasMicrochip,
-                foundHow:   actualFoundHow || foundHow,
-                breed:      breed || '',
-                color:      effectiveColors.join(', ') || '',
-                coat:       coatType || '',
-                gender:     gender || '',
-                city:       locValue.city || locValue.county || '',
-                traits:     selectedTraits,
+                type:          actualType || animalType,
+                status:        animalStatus,
+                currentStatus: CURRENT_STATUS_MAP[animalStatus] || null,
+                situation:     SITUATION_MAP[foundHow] || (foundHow ? 'other' : null),
+                age:           exactAge || approxAge,
+                size:          exactWeight ? `${exactWeight}${approxSize ? ` (${approxSize})` : ''}` : approxSize,
+                vaccinated:    isVaccinated,
+                neutered:      isNeutered,
+                microchip:     hasMicrochip,
+                foundHow:      actualFoundHow || foundHow,
+                breed:         breed || '',
+                breedUnsure:   breedUnsure,
+                color:         effectiveColors.join(', ') || '',
+                coat:          coatType || '',
+                gender:        gender || '',
+                city:          locValue.city || locValue.county || '',
+                address:       locValue.address || '',
+                traits:        selectedTraits,
             }, { withCredentials: true });
             setDescription(res.data.description || '');
             setDescVersion(v => v + 1);
@@ -335,13 +383,14 @@ export default function AddAnimalPage() {
         }
     };
 
-    // ── Validation ────────────────────────────────────────────────────────────
+    // ── Validation (step 2 submit) ────────────────────────────────────────────
     const validate = () => {
         const e = {};
         if (!headline.trim())    e.headline    = 'Please add a headline.';
-        if (!animalType)         e.animalType  = 'Please select a type in step 1.';
+        if (!animalType)         e.animalType  = 'Please select a type.';
         if (animalType === 'Other' && !animalTypeOther.trim()) e.animalType = 'Please specify the type of animal.';
         if (!description.trim()) e.description = 'Please describe the animal.';
+        if (previews.length < 1) e.photos      = 'Please add at least one photo.';
         if (!agreed)             e.agreed      = 'Please agree to the terms.';
         return e;
     };
@@ -382,6 +431,12 @@ export default function AddAnimalPage() {
                 shelter_contact_phone: !looksLikeEmail ? contact.trim() : '',
                 zip_code:              '',
                 found_how:             actualFoundHow || '',
+                situation:             SITUATION_MAP[foundHow] || (foundHow ? 'other' : null),
+                current_status:        CURRENT_STATUS_MAP[animalStatus] || null,
+                microchip_status:      MICROCHIP_MAP[hasMicrochip] || null,
+                neutered_spayed_status: NEUTERED_MAP[isNeutered] || null,
+                vaccination_status:    VACCINATION_MAP[isVaccinated] || null,
+                breed_unsure:          breedUnsure,
             };
 
             const response = await axios.post(`${API}/pets`, petPayload, { withCredentials: true });
@@ -442,7 +497,7 @@ export default function AddAnimalPage() {
     // STEP 1 — QUICK QUESTIONS (sectioned layout)
     // ══════════════════════════════════════════════════════════════════════════
     if (step === 1) {
-        const COAT_COLOR_OPTIONS = ['Black', 'White', 'Brown', 'Tan / Fawn', 'Gray', 'Golden', 'Cream', 'Black & white', 'Brindle', 'Tricolor', 'Other'];
+        const COAT_COLOR_OPTIONS = ['Black', 'White', 'Brown', 'Tan / Fawn', 'Gray', 'Silver', 'Golden', 'Cream', 'Orange / Red', 'Chocolate', 'Sable', 'Black & white', 'Brindle', 'Tricolor', 'Calico', 'Merle', 'Spotted', 'Other'];
         const COAT_TYPE_OPTIONS  = ['Short', 'Medium', 'Long', 'Curly', 'Wire-haired', 'Hairless', 'Unknown'];
 
         return (
@@ -481,12 +536,12 @@ export default function AddAnimalPage() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
                         <div>
-                            <FieldLabel>What's this animal's situation?</FieldLabel>
+                            <FieldLabel>What's this animal's situation? <span style={{ color: '#C07A4A' }}>*</span></FieldLabel>
                             <PillToggle
                                 large
                                 options={['Found on the street', 'Appears to be lost', 'Went missing', 'Owner surrendered it', 'Rescued from danger', 'Other']}
                                 value={foundHow}
-                                onChange={setFoundHow}
+                                onChange={v => { setFoundHow(v); if (errors.foundHow) setErrors(prev => ({ ...prev, foundHow: undefined })); }}
                             />
                             {foundHow === 'Other' && (
                                 <input
@@ -498,11 +553,12 @@ export default function AddAnimalPage() {
                                     style={{ width: '100%', marginTop: '10px', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }}
                                 />
                             )}
+                            {errors.foundHow && <div style={{ fontFamily: sans, fontSize: '11px', color: '#C07A4A', marginTop: '6px' }}>{errors.foundHow}</div>}
                         </div>
 
                         <div>
-                            <FieldLabel>Type of animal</FieldLabel>
-                            <PillToggle large options={['Dog', 'Cat', 'Rabbit', 'Bird', 'Fish', 'Hamster', 'Guinea pig', 'Reptile', 'Other']} value={animalType} onChange={setAnimalType} />
+                            <FieldLabel>Type of animal <span style={{ color: '#C07A4A' }}>*</span></FieldLabel>
+                            <PillToggle large options={['Dog', 'Cat', 'Rabbit', 'Bird', 'Fish', 'Hamster', 'Guinea pig', 'Reptile', 'Other']} value={animalType} onChange={v => { setAnimalType(v); if (errors.animalType) setErrors(prev => ({ ...prev, animalType: undefined })); }} />
                             {animalType === 'Other' && (
                                 <input
                                     type="text"
@@ -513,16 +569,18 @@ export default function AddAnimalPage() {
                                     style={{ width: '100%', marginTop: '10px', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }}
                                 />
                             )}
+                            {errors.animalType && <div style={{ fontFamily: sans, fontSize: '11px', color: '#C07A4A', marginTop: '6px' }}>{errors.animalType}</div>}
                         </div>
 
                         <div>
-                            <FieldLabel>Current status</FieldLabel>
+                            <FieldLabel>Current status <span style={{ color: '#C07A4A' }}>*</span></FieldLabel>
                             <PillToggle
                                 large
-                                options={['Found / Stray', 'Needs urgent care', 'Vaccinated & healthy', 'Unknown']}
+                                options={['Found / Stray', 'Needs urgent care', 'Vaccinated & healthy', 'Foster', 'Vet check pending', 'In recovery', 'Ready for adoption', 'Special needs', 'Quarantine', 'Unknown']}
                                 value={animalStatus}
-                                onChange={setAnimalStatus}
+                                onChange={v => { setAnimalStatus(v); if (errors.animalStatus) setErrors(prev => ({ ...prev, animalStatus: undefined })); }}
                             />
+                            {errors.animalStatus && <div style={{ fontFamily: sans, fontSize: '11px', color: '#C07A4A', marginTop: '6px' }}>{errors.animalStatus}</div>}
                         </div>
 
                     </div>
@@ -534,18 +592,23 @@ export default function AddAnimalPage() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
                         <div>
-                            <FieldLabel>Microchip</FieldLabel>
-                            <PillToggle large options={['Yes', 'No', "Don't know"]} value={hasMicrochip} onChange={setHasMicrochip} />
+                            <FieldLabel>Microchip <span style={{ color: '#C07A4A' }}>*</span></FieldLabel>
+                            <PillToggle large options={['Yes', 'No', "Don't know"]} value={hasMicrochip} onChange={v => { setHasMicrochip(v); if (errors.hasMicrochip) setErrors(prev => ({ ...prev, hasMicrochip: undefined })); }} />
+                            {errors.hasMicrochip && <div style={{ fontFamily: sans, fontSize: '11px', color: '#C07A4A', marginTop: '6px' }}>{errors.hasMicrochip}</div>}
                         </div>
 
                         <div>
-                            <FieldLabel>Neutered / spayed</FieldLabel>
-                            <PillToggle large options={['Yes', 'No', "Don't know"]} value={isNeutered} onChange={setIsNeutered} />
+                            <FieldLabel>
+                                {gender === 'Male' ? 'Neutered' : gender === 'Female' ? 'Spayed' : 'Neutered / spayed'} <span style={{ color: '#C07A4A' }}>*</span>
+                            </FieldLabel>
+                            <PillToggle large options={['Yes', 'No', "Don't know"]} value={isNeutered} onChange={v => { setIsNeutered(v); if (errors.isNeutered) setErrors(prev => ({ ...prev, isNeutered: undefined })); }} />
+                            {errors.isNeutered && <div style={{ fontFamily: sans, fontSize: '11px', color: '#C07A4A', marginTop: '6px' }}>{errors.isNeutered}</div>}
                         </div>
 
                         <div>
-                            <FieldLabel>Vaccinated</FieldLabel>
-                            <PillToggle large options={['Yes, fully', 'Partially', 'No', "Don't know"]} value={isVaccinated} onChange={setIsVaccinated} />
+                            <FieldLabel>Vaccinated <span style={{ color: '#C07A4A' }}>*</span></FieldLabel>
+                            <PillToggle large options={['Yes, fully', 'Partially', 'No', "Don't know"]} value={isVaccinated} onChange={v => { setIsVaccinated(v); if (errors.isVaccinated) setErrors(prev => ({ ...prev, isVaccinated: undefined })); }} />
+                            {errors.isVaccinated && <div style={{ fontFamily: sans, fontSize: '11px', color: '#C07A4A', marginTop: '6px' }}>{errors.isVaccinated}</div>}
                         </div>
 
                     </div>
@@ -557,8 +620,9 @@ export default function AddAnimalPage() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
                         <div>
-                            <FieldLabel>Gender</FieldLabel>
-                            <PillToggle large options={['Male', 'Female', 'Unknown']} value={gender} onChange={setGender} />
+                            <FieldLabel>Gender <span style={{ color: '#C07A4A' }}>*</span></FieldLabel>
+                            <PillToggle large options={['Male', 'Female', 'Unknown']} value={gender} onChange={v => { setGender(v); if (errors.gender) setErrors(prev => ({ ...prev, gender: undefined })); }} />
+                            {errors.gender && <div style={{ fontFamily: sans, fontSize: '11px', color: '#C07A4A', marginTop: '6px' }}>{errors.gender}</div>}
                         </div>
 
                         <div>
@@ -589,7 +653,7 @@ export default function AddAnimalPage() {
                                 large
                                 options={['Very small (under 5kg)', 'Small (5–10kg)', 'Medium (10–25kg)', 'Large (over 25kg)', 'Unknown']}
                                 value={approxSize}
-                                onChange={setApproxSize}
+                                onChange={v => { setApproxSize(v); if (v) setExactWeight(''); }}
                             />
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '12px 0 0' }}>
                                 <div style={{ flex: 1, height: '1px', background: 'rgba(45,31,20,0.1)' }} />
@@ -600,7 +664,7 @@ export default function AddAnimalPage() {
                                 type="text"
                                 placeholder="e.g. 14 kg"
                                 value={exactWeight}
-                                onChange={e => setExactWeight(e.target.value)}
+                                onChange={e => { setExactWeight(e.target.value); if (e.target.value) setApproxSize(''); }}
                                 style={{ width: '100%', marginTop: '8px', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }}
                             />
                         </div>
@@ -651,11 +715,22 @@ export default function AddAnimalPage() {
                             <FieldLabel>Breed (if known)</FieldLabel>
                             <input
                                 type="text"
-                                placeholder="e.g. Labrador mix, unknown"
+                                placeholder="e.g. Labrador, German Shepherd"
                                 value={breed}
                                 onChange={e => setBreed(e.target.value)}
                                 style={{ width: '100%', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }}
                             />
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px', cursor: 'pointer' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={breedUnsure}
+                                    onChange={e => setBreedUnsure(e.target.checked)}
+                                    style={{ width: '14px', height: '14px', cursor: 'pointer', accentColor: '#C07A4A' }}
+                                />
+                                <span style={{ fontFamily: sans, fontSize: '11px', color: '#7A5C44' }}>
+                                    I'm not 100% sure of the breed
+                                </span>
+                            </label>
                         </div>
 
                     </div>
@@ -663,8 +738,15 @@ export default function AddAnimalPage() {
                     <SectionDivider />
 
                     {/* ── SECTION 4: Location ──────────────────────────────── */}
-                    <SectionLabel>Location</SectionLabel>
-                    <LocationPicker value={locValue} onChange={setLocValue} />
+                    <SectionLabel>Location <span style={{ color: '#C07A4A' }}>*</span></SectionLabel>
+                    <LocationPicker value={locValue} onChange={v => { setLocValue(v); if (errors.location) setErrors(prev => ({ ...prev, location: undefined })); }} />
+                    {errors.location && <div style={{ fontFamily: sans, fontSize: '11px', color: '#C07A4A', marginTop: '6px' }}>{errors.location}</div>}
+                    {locValue.address && locValue.city &&
+                        locValue.address.trim().toLowerCase() === locValue.city.trim().toLowerCase() && (
+                        <div style={{ marginTop: '8px', fontFamily: sans, fontSize: '11px', color: '#8B4E28', background: 'rgba(192,122,74,0.08)', border: '1px solid rgba(192,122,74,0.2)', borderRadius: '4px', padding: '8px 12px' }}>
+                            Ai introdus orașul și la adresă — strada e opțională, poți lăsa gol dacă nu o specifici.
+                        </div>
+                    )}
 
                     {/* Continue button */}
                     <div style={{ display: 'flex', justifyContent: 'center', marginTop: '32px' }}>
@@ -933,6 +1015,9 @@ export default function AddAnimalPage() {
                         'Friendly', 'Playful', 'Calm', 'Affectionate', 'Gentle',
                         'Energetic', 'Curious', 'Loyal', 'Sociable', 'Independent',
                         'Shy', 'Good with kids', 'Good with dogs', 'Good with cats', 'House-trained',
+                        'Food motivated', 'Stubborn', 'Anxious', 'Vocal / Barks a lot',
+                        'Needs patient owner', 'Not good with other animals', 'Not good with children',
+                        'Territorial', 'Reactive on leash', 'Escape artist',
                     ];
                     const toggle = (t) => setSelectedTraits(prev =>
                         prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]
@@ -1017,18 +1102,6 @@ export default function AddAnimalPage() {
                     />
                     <div style={{ height: '1px', backgroundColor: 'rgba(45,31,20,0.1)' }} />
                     {errors.description && <div style={{ fontFamily: sans, fontSize: '11px', color: '#C07A4A', marginTop: '4px', textAlign: 'center' }}>{errors.description}</div>}
-                </div>
-
-                {/* ── DETAILS ROW ─────────────────────────────────────── */}
-                <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                    <span style={{ fontFamily: sans, fontSize: '9px', color: '#B09880', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Type:</span>
-                    <PillToggle options={['Dog', 'Cat', 'Rabbit', 'Bird', 'Fish', 'Hamster', 'Guinea pig', 'Reptile', 'Other']} value={animalType} onChange={setAnimalType} />
-                    {errors.animalType && <span style={{ fontFamily: sans, fontSize: '11px', color: '#C07A4A' }}>{errors.animalType}</span>}
-
-                    <span style={{ color: '#D4C4B8', fontSize: '14px' }}>·</span>
-
-                    <span style={{ fontFamily: sans, fontSize: '9px', color: '#B09880', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Status:</span>
-                    <PillToggle options={['Found', 'Urgent', 'Vaccinated']} value={status} onChange={setStatus} />
                 </div>
 
                 {/* ── STEP 1 SUMMARY BADGES ───────────────────────────── */}

@@ -15,9 +15,9 @@ export const getAllPets = async (req, res) => {
         if (zipCode) filters.zipCode = zipCode;
         if (uploader_id) filters.uploader_id = uploader_id;
 
-        // Only apply the availability filter for non-admin requests
-        // This allows admins to see all pets regardless of adoption status
-        if (showAll !== 'true') {
+        // Skip availability filter when explicitly fetching adopted pets
+        // (adopted pets have is_available = false by definition)
+        if (showAll !== 'true' && adopted !== 'true') {
             filters.is_available = true;
         }
 
@@ -189,8 +189,20 @@ export const getSimilarPets = async (req, res) => {
     }
 };
 
+const REQUIRED_PET_FIELDS = ['name', 'type', 'description', 'gender', 'situation', 'current_status', 'microchip_status', 'neutered_spayed_status', 'vaccination_status'];
+
 export const createPet = async (req, res) => {
     try {
+        const missing = REQUIRED_PET_FIELDS.filter(f => !req.body[f]);
+        const hasLocation = req.body.location_city || req.body.location_address;
+        if (!hasLocation) missing.push('location_city');
+        if (missing.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: `Missing required fields: ${missing.join(', ')}`,
+            });
+        }
+
         const petData = { ...req.body, uploader_id: req.userId };
         const newPet = await PetModel.create(petData);
 
@@ -212,6 +224,18 @@ export const createPet = async (req, res) => {
 export const updatePet = async (req, res) => {
     try {
         const {id} = req.params;
+
+        const missing = REQUIRED_PET_FIELDS.filter(f => req.body[f] !== undefined && !req.body[f]);
+        const bodyHasLocation = 'location_city' in req.body || 'location_address' in req.body;
+        if (bodyHasLocation && !req.body.location_city && !req.body.location_address) {
+            missing.push('location_city');
+        }
+        if (missing.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: `Missing required fields: ${missing.join(', ')}`,
+            });
+        }
 
         // Ownership check — uploader or admin
         const existing = await PetModel.findById(id);
@@ -294,6 +318,27 @@ export const adoptPet = async (req, res) => {
     } catch (error) {
         console.error('Error in adoptPet:', error);
         res.status(500).json({ success: false, message: 'Failed to mark pet as adopted', error: error.message });
+    }
+};
+
+// PATCH /api/pets/:id/found
+// Marks a missing pet as returned to its owner. Does NOT set is_adopted — won't appear in Community.
+export const markPetAsFound = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const pet = await PetModel.findById(id);
+        if (!pet) return res.status(404).json({ success: false, message: 'Pet not found' });
+
+        const isOwner = pet.uploader_id && pet.uploader_id === req.userId;
+        if (!isOwner && !req.isAdmin) {
+            return res.status(403).json({ success: false, message: 'Forbidden — only the uploader or an admin can update this animal' });
+        }
+
+        const updated = await PetModel.markAsFound(id);
+        res.status(200).json({ success: true, message: 'Pet marked as found/returned home', pet: updated });
+    } catch (error) {
+        console.error('Error in markPetAsFound:', error);
+        res.status(500).json({ success: false, message: 'Failed to mark pet as found', error: error.message });
     }
 };
 

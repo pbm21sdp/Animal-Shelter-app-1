@@ -244,6 +244,7 @@ export const PetModel = {
                 FROM pets p
                          LEFT JOIN pet_photos pp ON p.id = pp.pet_id
                 WHERE p.is_available = true
+                  AND p.status = 'approved'
                   AND p.id != $1
                   AND (p.type = (SELECT type FROM current_pet)
                    OR p.breed = (SELECT breed FROM current_pet))
@@ -270,7 +271,9 @@ export const PetModel = {
                 fee, description, health_status, story, location_address,
                 location_city, location_country, shelter_contact_email,
                 shelter_contact_phone, traits, photos, zip_code,
-                uploader_id, latitude, longitude, found_how
+                uploader_id, latitude, longitude, found_how,
+                situation, current_status, microchip_status,
+                neutered_spayed_status, vaccination_status, breed_unsure
             } = petData;
 
             // Insert pet
@@ -279,8 +282,10 @@ export const PetModel = {
                     name, type, breed, age_category, gender, size, color, coat,
                     fee, description, health_status, story, location_address,
                     location_city, location_country, shelter_contact_email,
-                    shelter_contact_phone, zip_code, uploader_id, latitude, longitude, found_how
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
+                    shelter_contact_phone, zip_code, uploader_id, latitude, longitude, found_how,
+                    situation, current_status, microchip_status, neutered_spayed_status, vaccination_status,
+                    breed_unsure
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
                     RETURNING *
             `;
 
@@ -289,7 +294,10 @@ export const PetModel = {
                 fee, description, health_status, story, location_address,
                 location_city, location_country, shelter_contact_email,
                 shelter_contact_phone, zip_code, uploader_id || null,
-                latitude || null, longitude || null, found_how || null
+                latitude || null, longitude || null, found_how || null,
+                situation || null, current_status || null, microchip_status || null,
+                neutered_spayed_status || null, vaccination_status || null,
+                breed_unsure ?? false
             ];
 
             const petResult = await client.query(petQuery, petValues);
@@ -525,6 +533,25 @@ export const PetModel = {
             return result.rows[0];
         } catch (error) {
             console.error('Error in PetModel.adoptPet:', error);
+            throw error;
+        }
+    },
+
+    // Mark a missing pet as returned to its owner (does NOT set is_adopted = true).
+    markAsFound: async (id) => {
+        try {
+            const query = `
+                UPDATE pets
+                SET is_available = FALSE,
+                    adoption_status = 'unavailable',
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = $1
+                RETURNING *
+            `;
+            const result = await pool.query(query, [id]);
+            return result.rows[0];
+        } catch (error) {
+            console.error('Error in PetModel.markAsFound:', error);
             throw error;
         }
     },

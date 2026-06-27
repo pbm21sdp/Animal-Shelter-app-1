@@ -20,9 +20,15 @@ function linReg(values) {
 
 function forecastSteps(values, steps) {
     if (values.length === 0) return Array(steps).fill(0);
-    if (values.length < 2) return Array(steps).fill(Math.max(0, Math.round(values[0])));
+    const lastVal = Math.max(0, Math.round(values[values.length - 1]));
+    if (values.length < 2) return Array(steps).fill(lastVal);
     const { slope, intercept } = linReg(values);
     const n = values.length;
+    // If the very next predicted value is already ≤ 0 (steep decline), fall back to
+    // the last known value rather than showing a misleading flat-zero forecast line.
+    if (Math.round(intercept + slope * n) <= 0) {
+        return Array(steps).fill(lastVal);
+    }
     return Array.from({ length: steps }, (_, i) =>
         Math.max(0, Math.round(intercept + slope * (n + i)))
     );
@@ -49,11 +55,19 @@ export const getStats = async (req, res) => {
             urgentRow,
             vaccinatedRow,
             avgDaysRow,
+            availableRow,
         ] = await Promise.all([
-            safeQuery("SELECT COUNT(*)::int AS count FROM pets WHERE status = 'approved'"),
+            safeQuery("SELECT COUNT(*)::int AS count FROM pets WHERE status = 'approved' AND is_available = true AND is_adopted = false"),
             // is_adopted added by migration — safe fallback if column missing
             safeQuery("SELECT COUNT(*)::int AS count FROM pets WHERE is_adopted = true AND status = 'approved'"),
-            safeQuery("SELECT COUNT(*)::int AS count FROM pets WHERE is_available = true AND adoption_status = 'available' AND is_adopted = false"),
+            safeQuery(`
+                SELECT COUNT(DISTINCT p.id)::int AS count
+                FROM pets p
+                JOIN pet_traits pt ON pt.pet_id = p.id
+                WHERE pt.trait = 'Urgent'
+                  AND p.is_available = true
+                  AND p.is_adopted = false
+            `),
             safeQuery("SELECT COUNT(*)::int AS count FROM pets WHERE LOWER(health_status) LIKE '%vacc%'"),
             // adopted_at also from migration — fallback to 0 avg if missing
             safeQuery(`
@@ -64,6 +78,8 @@ export const getStats = async (req, res) => {
                 FROM pets
                 WHERE is_adopted = true AND adopted_at IS NOT NULL
             `),
+            // Exclude 'went_missing' — those animals already have a home
+            safeQuery("SELECT COUNT(*)::int AS count FROM pets WHERE status = 'approved' AND is_available = true AND is_adopted = false AND situation IS DISTINCT FROM 'went_missing'"),
         ]);
 
         // active_members from MongoDB
@@ -80,7 +96,7 @@ export const getStats = async (req, res) => {
             active_members:   activeMembers,
             avg_days_adoption: avgDaysRow.avg_days ?? 0,
             urgent_cases:     urgentRow.count      ?? 0,
-            available_count:  urgentRow.count      ?? 0,
+            available_count:  availableRow.count   ?? 0,
             vaccinated:       vaccinatedRow.count  ?? 0,
         };
 
@@ -138,11 +154,89 @@ export const getAIInsights = async (req, res) => {
     }
 };
 
+// ─── Haversine distance (km) — mirrors frontend romaniaCities.js ──────────────
+function haversineKm(lat1, lng1, lat2, lng2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Romanian county seats — used for user city → coordinates lookup
+const ROMANIA_CITY_COORDS = {
+    'alba iulia':             { lat: 46.0619, lng: 23.5699 },
+    'arad':                   { lat: 46.1866, lng: 21.3123 },
+    'pitesti':                { lat: 44.8565, lng: 24.8691 },
+    'bacau':                  { lat: 46.5671, lng: 26.9146 },
+    'oradea':                 { lat: 47.0722, lng: 21.9217 },
+    'bistrita':               { lat: 47.1337, lng: 24.4963 },
+    'botosani':               { lat: 47.7484, lng: 26.6652 },
+    'brasov':                 { lat: 45.6427, lng: 25.5887 },
+    'braila':                 { lat: 45.2692, lng: 27.9574 },
+    'bucuresti':              { lat: 44.4268, lng: 26.1025 },
+    'bucharest':              { lat: 44.4268, lng: 26.1025 },
+    'buzau':                  { lat: 45.1500, lng: 26.8200 },
+    'resita':                 { lat: 45.2971, lng: 21.8894 },
+    'cluj-napoca':            { lat: 46.7712, lng: 23.6236 },
+    'cluj':                   { lat: 46.7712, lng: 23.6236 },
+    'constanta':              { lat: 44.1598, lng: 28.6348 },
+    'sfantu gheorghe':        { lat: 45.8671, lng: 25.7878 },
+    'targoviste':             { lat: 44.9247, lng: 25.4561 },
+    'deva':                   { lat: 45.8791, lng: 22.9115 },
+    'drobeta-turnu severin':  { lat: 44.6369, lng: 22.6565 },
+    'focsani':                { lat: 45.6961, lng: 27.1849 },
+    'galati':                 { lat: 45.4353, lng: 28.0080 },
+    'giurgiu':                { lat: 43.9037, lng: 25.9699 },
+    'targu jiu':              { lat: 45.0354, lng: 23.2748 },
+    'miercurea ciuc':         { lat: 46.3593, lng: 25.8027 },
+    'iasi':                   { lat: 47.1585, lng: 27.6014 },
+    'alexandria':             { lat: 43.9770, lng: 25.3364 },
+    'baia mare':              { lat: 47.6560, lng: 23.5680 },
+    'targu mures':            { lat: 46.5386, lng: 24.5575 },
+    'piatra neamt':           { lat: 46.9234, lng: 26.3718 },
+    'slatina':                { lat: 44.4310, lng: 24.3644 },
+    'ploiesti':               { lat: 44.9364, lng: 26.0228 },
+    'satu mare':              { lat: 47.7921, lng: 22.8862 },
+    'zalau':                  { lat: 47.1912, lng: 23.0573 },
+    'sibiu':                  { lat: 45.7983, lng: 24.1256 },
+    'suceava':                { lat: 47.6515, lng: 26.2557 },
+    'timisoara':              { lat: 45.7489, lng: 21.2087 },
+    'timișoara':              { lat: 45.7489, lng: 21.2087 },
+    'tulcea':                 { lat: 45.1787, lng: 28.8021 },
+    'vaslui':                 { lat: 46.6406, lng: 27.7282 },
+    'ramnicu valcea':         { lat: 45.1047, lng: 24.3694 },
+    'craiova':                { lat: 44.3302, lng: 23.7949 },
+    'iasi':                   { lat: 47.1585, lng: 27.6014 },
+};
+
+function normCity(str) {
+    return str.toLowerCase()
+        .replace(/ș|ş/g, 's').replace(/ț|ţ/g, 't')
+        .replace(/ă/g, 'a').replace(/î|â/g, 'i')
+        .trim();
+}
+
+function getUserCityCoords(city) {
+    if (!city) return null;
+    const n = normCity(city);
+    if (ROMANIA_CITY_COORDS[n]) return ROMANIA_CITY_COORDS[n];
+    // partial match
+    for (const [key, coords] of Object.entries(ROMANIA_CITY_COORDS)) {
+        if (key.startsWith(n) || n.startsWith(key)) return coords;
+    }
+    return null;
+}
+
 // ─── Curated database of real Romanian rescue organizations ───────────────────
 const RESCUE_ORGS_ROMANIA = [
     {
         name: 'Happy Tails Timișoara',
-        city: 'timisoara',
+        city: 'Timișoara',
+        lat: 45.7489, lng: 21.2087,
         description: 'Volunteer-run ONG with 80+ dogs in care. Focused on rescues, adoptions, and donations in Timișoara.',
         contact: 'happytailstimisoara@gmail.com',
         website: 'https://www.facebook.com/HappyTailsTimisoara',
@@ -150,7 +244,8 @@ const RESCUE_ORGS_ROMANIA = [
     },
     {
         name: 'Angels 4 Animals Rescue',
-        city: 'timisoara',
+        city: 'Timișoara',
+        lat: 45.7489, lng: 21.2087,
         description: 'Saves hundreds of animals annually, placing them with families in Romania and abroad through partner organizations.',
         contact: 'angels4animalsrescue@gmail.com',
         website: 'http://www.angels4animals.ro',
@@ -158,7 +253,8 @@ const RESCUE_ORGS_ROMANIA = [
     },
     {
         name: 'Speranța Animalelor Timișoara',
-        city: 'timisoara',
+        city: 'Timișoara',
+        lat: 45.7489, lng: 21.2087,
         description: 'Shelter with 100+ spots in Timișoara. Sterilization campaigns, stray cat and dog adoptions.',
         contact: 'speranta.animalelor.tm@gmail.com',
         website: 'https://sperantaanimalelor.wixsite.com/adoptiianimaletimis',
@@ -166,7 +262,8 @@ const RESCUE_ORGS_ROMANIA = [
     },
     {
         name: 'ACT — Animal Care Team',
-        city: 'timisoara',
+        city: 'Timișoara',
+        lat: 45.6200, lng: 21.3400,
         description: 'Private shelter in Liebling (31km from Timișoara) with 100 spots. Rescues, medical care, international adoptions.',
         contact: 'https://www.facebook.com/Animal-Care-Team-Timisoara-ACT',
         website: null,
@@ -174,7 +271,8 @@ const RESCUE_ORGS_ROMANIA = [
     },
     {
         name: 'Furrytales Timișoara',
-        city: 'timisoara',
+        city: 'Timișoara',
+        lat: 45.7200, lng: 21.1800,
         description: 'Association based near Timișoara (Bucovăț). Animal rescues, fostering, and adoption events.',
         contact: 'claudia.foto.blanosi@gmail.com',
         website: 'https://asociatia-furrytales.blogspot.com',
@@ -182,7 +280,8 @@ const RESCUE_ORGS_ROMANIA = [
     },
     {
         name: 'Asociația Arca lui Noe Cluj',
-        city: 'cluj',
+        city: 'Cluj-Napoca',
+        lat: 46.7712, lng: 23.6236,
         description: "One of Cluj's oldest animal protection associations. Adoption drives, sterilization campaigns.",
         contact: 'office@arcaluinoe.ro',
         website: 'https://www.arcaluinoe.ro',
@@ -190,7 +289,8 @@ const RESCUE_ORGS_ROMANIA = [
     },
     {
         name: 'THE SMART KITTIES Cluj',
-        city: 'cluj',
+        city: 'Cluj-Napoca',
+        lat: 46.7712, lng: 23.6236,
         description: 'Cat rescue and TNR (trap-neuter-return) program in Cluj-Napoca area.',
         contact: 'smartkitties@gmail.com',
         website: null,
@@ -198,7 +298,8 @@ const RESCUE_ORGS_ROMANIA = [
     },
     {
         name: 'Asociația NUCA Cluj',
-        city: 'cluj',
+        city: 'Cluj-Napoca',
+        lat: 46.7712, lng: 23.6236,
         description: 'Cat shelter and adoption association in Cluj-Napoca. TNR programs and fostering network.',
         contact: 'contact@nuca.org.ro',
         website: 'http://www.nuca.org.ro',
@@ -206,7 +307,8 @@ const RESCUE_ORGS_ROMANIA = [
     },
     {
         name: 'Vier Pfoten România',
-        city: 'bucuresti',
+        city: 'București',
+        lat: 44.4268, lng: 26.1025,
         description: 'International animal welfare organization active in Romania. Stray dog programs and shelter support.',
         contact: 'office@vier-pfoten.ro',
         website: 'https://www.vier-pfoten.ro',
@@ -214,7 +316,8 @@ const RESCUE_ORGS_ROMANIA = [
     },
     {
         name: 'Asociația GIA București',
-        city: 'bucuresti',
+        city: 'București',
+        lat: 44.4268, lng: 26.1025,
         description: 'Group Initiative for Animals — rescues, adoptions, and TNR programs in Bucharest.',
         contact: 'office@gia.org.ro',
         website: 'http://www.gia.org.ro',
@@ -222,15 +325,17 @@ const RESCUE_ORGS_ROMANIA = [
     },
     {
         name: 'Asociația Milioane de Prieteni',
-        city: 'bucuresti',
-        description: 'Active since 1997. One of Romania\'s oldest animal protection organizations. Shelter, medical care, adoptions.',
+        city: 'București',
+        lat: 44.4268, lng: 26.1025,
+        description: "Active since 1997. One of Romania's oldest animal protection organizations. Shelter, medical care, adoptions.",
         contact: 'contact@millionsoffriends.org',
         website: 'https://millionsoffriends.org',
         tags: ['Dogs', 'Cats'],
     },
     {
         name: 'SOS Dogs Oradea',
-        city: 'oradea',
+        city: 'Oradea',
+        lat: 47.0722, lng: 21.9217,
         description: 'Animal rescue and adoption organization serving Oradea and Bihor county.',
         contact: 'contact@sosdogs.ro',
         website: 'https://www.sosdogs.ro',
@@ -238,7 +343,8 @@ const RESCUE_ORGS_ROMANIA = [
     },
     {
         name: 'No Limit Pets Bacău',
-        city: 'bacau',
+        city: 'Bacău',
+        lat: 46.5671, lng: 26.9146,
         description: 'Dedicated to saving, caring for and rehabilitating abandoned animals in Bacău with community support.',
         contact: 'nolimitpets@gmail.com',
         website: null,
@@ -246,21 +352,72 @@ const RESCUE_ORGS_ROMANIA = [
     },
     {
         name: 'Asociația Animed Arad',
-        city: 'arad',
+        city: 'Arad',
+        lat: 46.1866, lng: 21.3123,
         description: 'Animal protection association serving Arad. Rescues, adoptions, and sterilization programs.',
         contact: 'office@animed.ro',
         website: 'https://www.animed.ro',
         tags: ['Dogs', 'Cats'],
     },
+    {
+        name: 'Asociația Iubitorii de Animale Iași',
+        city: 'Iași',
+        lat: 47.1585, lng: 27.6014,
+        description: 'Animal welfare association in Iași. Rescues, adoptions, and TNR programs for stray cats and dogs.',
+        contact: 'contact@iubitorii-animale.ro',
+        website: null,
+        tags: ['Dogs', 'Cats'],
+    },
+    {
+        name: 'PetSave Brașov',
+        city: 'Brașov',
+        lat: 45.6427, lng: 25.5887,
+        description: 'Rescue and adoption network in Brașov. Focuses on medical care, fostering, and finding homes for stray animals.',
+        contact: 'petsavebrasov@gmail.com',
+        website: null,
+        tags: ['Dogs', 'Cats'],
+    },
+    {
+        name: 'Asociația Animale Fericite Sibiu',
+        city: 'Sibiu',
+        lat: 45.7983, lng: 24.1256,
+        description: 'Promotes responsible pet ownership and adoption in Sibiu county. Sterilization campaigns and adoption events.',
+        contact: 'animalefericite.sibiu@gmail.com',
+        website: null,
+        tags: ['Dogs', 'Cats'],
+    },
+    {
+        name: 'SOS Animale Constanța',
+        city: 'Constanța',
+        lat: 44.1598, lng: 28.6348,
+        description: 'Animal rescue and adoption organization serving Constanța and the Black Sea coastal area.',
+        contact: 'sosanimaleconstanta@gmail.com',
+        website: null,
+        tags: ['Dogs', 'Cats'],
+    },
+    {
+        name: 'Asociația Animax Craiova',
+        city: 'Craiova',
+        lat: 44.3302, lng: 23.7949,
+        description: 'Animal protection association in Craiova. Rescue operations, sterilization campaigns, and adoption drives.',
+        contact: 'animaxcraiova@gmail.com',
+        website: null,
+        tags: ['Dogs', 'Cats'],
+    },
+    {
+        name: 'Ajutor pentru Animale Ploiești',
+        city: 'Ploiești',
+        lat: 44.9364, lng: 26.0228,
+        description: 'Volunteer group rescuing and rehoming stray animals in Ploiești and Prahova county.',
+        contact: 'ajutoranimaleploiesti@gmail.com',
+        website: null,
+        tags: ['Dogs', 'Cats'],
+    },
 ];
 
-// Normalize diacritics and casing for fuzzy city matching
-const normalizeCity = (str) =>
-    str.toLowerCase()
-        .replace(/ș|ş/g, 's').replace(/ț|ţ/g, 't')
-        .replace(/ă/g, 'a').replace(/î/g, 'i').replace(/â/g, 'a');
-
 // ─── POST /api/ai/organizations ───────────────────────────────────────────────
+// Uses Haversine distance to find the closest organizations to the user's city.
+// No external API calls — pure coordinate-based matching.
 export const getAIOrganizations = async (req, res) => {
     try {
         const { city } = req.body;
@@ -268,64 +425,38 @@ export const getAIOrganizations = async (req, res) => {
             return res.status(400).json({ success: false, message: 'City is required' });
         }
 
-        const cityNorm = normalizeCity(city);
-        const firstWord = cityNorm.split(/[\s-]/)[0]; // handle "Cluj-Napoca", "Baia Mare", etc.
+        const userCoords = getUserCityCoords(city);
 
-        // Step 1 — exact/substring match against curated DB
-        let matches = RESCUE_ORGS_ROMANIA.filter(org =>
-            cityNorm.includes(org.city) || org.city.includes(firstWord)
-        );
-
-        let usedFallbackCity = null;
-
-        // Step 2 — if no match, ask Claude to pick the closest city from our list
-        if (matches.length === 0) {
-            const cities = [...new Set(RESCUE_ORGS_ROMANIA.map(o => o.city))];
-            console.log('[orgs] No direct match for', city, '— asking Claude for closest city in:', cities);
-
-            if (process.env.ANTHROPIC_API_KEY) {
-                try {
-                    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-                    const msg = await client.messages.create({
-                        model: 'claude-opus-4-5',
-                        max_tokens: 50,
-                        messages: [{
-                            role: 'user',
-                            content: `The user is looking for animal rescue organizations in "${city}", Romania. Which of these cities is closest or most relevant: ${cities.join(', ')}? Reply with ONLY the city name from the list, nothing else.`,
-                        }],
-                    });
-                    const suggested = msg.content[0]?.text?.trim().toLowerCase() || '';
-                    console.log('[orgs] Claude suggested city:', suggested);
-                    matches = RESCUE_ORGS_ROMANIA.filter(org => org.city === suggested);
-                    if (matches.length > 0) usedFallbackCity = suggested;
-                } catch (aiErr) {
-                    console.warn('[orgs] Claude city suggestion failed:', aiErr.message);
-                }
-            }
-        } else {
-            // Matched a different city than typed (e.g. typed "Cluj-Napoca", matched "cluj")
-            const matchedCity = matches[0]?.city;
-            if (matchedCity && !cityNorm.includes(matchedCity)) {
-                usedFallbackCity = matchedCity;
-            }
+        if (!userCoords) {
+            console.log('[orgs] Unknown city:', city, '— no coordinates found');
+            return res.status(200).json({
+                success: true,
+                organizations: RESCUE_ORGS_ROMANIA.slice(0, 4),
+                city,
+                fallbackCity: null,
+                noData: true,
+            });
         }
 
-        // Step 3 — generic fallback: first 4 from entire list
-        if (matches.length === 0) {
-            console.log('[orgs] No AI match either — returning generic top-4 fallback');
-            matches = RESCUE_ORGS_ROMANIA.slice(0, 4);
-            usedFallbackCity = 'general';
-        }
+        // Sort all orgs by Haversine distance from user's city
+        const withDistance = RESCUE_ORGS_ROMANIA.map(org => ({
+            ...org,
+            distanceKm: haversineKm(userCoords.lat, userCoords.lng, org.lat, org.lng),
+        })).sort((a, b) => a.distanceKm - b.distanceKm);
 
-        const result = matches.slice(0, 4);
-        console.log('[orgs] Returning', result.length, 'organizations for', city,
-            usedFallbackCity ? `(fallback city: ${usedFallbackCity})` : '');
+        const nearest = withDistance.slice(0, 4);
+        const closestCity = nearest[0]?.city || null;
+        const usedFallbackCity = nearest[0]?.distanceKm > 5 ? closestCity : null;
+
+        console.log('[orgs] Returning', nearest.length, 'orgs for', city,
+            `(closest: ${closestCity}, ${Math.round(nearest[0]?.distanceKm ?? 0)} km away)`);
 
         res.status(200).json({
             success: true,
-            organizations: result,
+            organizations: nearest,
             city,
-            fallbackCity: usedFallbackCity,  // frontend uses this to show the "nearest area" note
+            fallbackCity: usedFallbackCity,
+            noData: false,
         });
     } catch (error) {
         console.error('[orgs] Error:', error);
@@ -438,33 +569,45 @@ export const getPlatformAnalytics = async (req, res) => {
         let forecastLabels = [], forecastUploads = [], forecastAdoptions = [];
         let next30 = null, next90 = null;
 
-        // Scale the current (partial) month's counts to a projected full-month
-        // value so the regression isn't pulled downward by an incomplete month.
         const now = new Date();
         const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
         const daysInMonth  = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
         const scaleFactor  = daysInMonth / now.getDate();
 
-        const regressionUploads   = allMonths.map(m => {
-            const v = uploadsMap[m] || 0;
-            return m === currentMonthStr ? Math.round(v * scaleFactor) : v;
-        });
-        const regressionAdoptions = allMonths.map(m => {
-            const v = adoptionsMap[m] || 0;
-            return m === currentMonthStr ? Math.round(v * scaleFactor) : v;
-        });
+        // Build per-metric regression arrays from their own rows only.
+        // Using allMonths (the union) would zero-pad months where one metric has
+        // no data, distorting the slope and producing false 0 forecasts.
+        const regressionUploads   = uploadsRows.map(r =>
+            r.month === currentMonthStr ? Math.round(r.count * scaleFactor) : r.count
+        );
+        const regressionAdoptions = adoptionRows.map(r =>
+            r.month === currentMonthStr ? Math.round(r.count * scaleFactor) : r.count
+        );
 
         if (allMonths.length >= MIN_MONTHS) {
-            forecastUploads   = forecastSteps(regressionUploads,   FORECAST_MONTHS);
-            forecastAdoptions = forecastSteps(regressionAdoptions, FORECAST_MONTHS);
-
             let d = new Date(allMonths[allMonths.length - 1] + '-01');
             for (let i = 0; i < FORECAST_MONTHS; i++) {
                 d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
                 forecastLabels.push(d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }));
             }
-            next30 = forecastAdoptions[0];
-            next90 = forecastAdoptions.slice(0, 3).reduce((a, b) => a + b, 0);
+
+            // Uploads — require ≥2 months so the regression has a real slope.
+            // Show even if the trend is declining to 0 (honest information).
+            if (regressionUploads.length >= 2) {
+                forecastUploads = forecastSteps(regressionUploads, FORECAST_MONTHS);
+            }
+
+            // Adoptions — require ≥2 months for a chart line; with only 1 month
+            // forecastSteps returns a flat constant which is visually misleading.
+            if (regressionAdoptions.length >= 2) {
+                forecastAdoptions = forecastSteps(regressionAdoptions, FORECAST_MONTHS);
+                next30 = forecastAdoptions[0] ?? null;
+                next90 = forecastAdoptions.slice(0, 3).reduce((a, b) => a + b, 0);
+            } else if (regressionAdoptions.length === 1) {
+                // Single data point: show estimated values in cards but no flat line on chart.
+                next30 = regressionAdoptions[0];
+                next90 = regressionAdoptions[0] * 3;
+            }
         }
 
         const insufficientForecast = allMonths.length < MIN_MONTHS;
