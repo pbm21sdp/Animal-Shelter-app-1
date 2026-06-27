@@ -55,6 +55,7 @@ export const getStats = async (req, res) => {
             urgentRow,
             vaccinatedRow,
             avgDaysRow,
+            availableRow,
         ] = await Promise.all([
             safeQuery("SELECT COUNT(*)::int AS count FROM pets WHERE status = 'approved' AND is_available = true AND is_adopted = false"),
             // is_adopted added by migration — safe fallback if column missing
@@ -77,6 +78,8 @@ export const getStats = async (req, res) => {
                 FROM pets
                 WHERE is_adopted = true AND adopted_at IS NOT NULL
             `),
+            // Exclude 'went_missing' — those animals already have a home
+            safeQuery("SELECT COUNT(*)::int AS count FROM pets WHERE status = 'approved' AND is_available = true AND is_adopted = false AND situation IS DISTINCT FROM 'went_missing'"),
         ]);
 
         // active_members from MongoDB
@@ -93,7 +96,7 @@ export const getStats = async (req, res) => {
             active_members:   activeMembers,
             avg_days_adoption: avgDaysRow.avg_days ?? 0,
             urgent_cases:     urgentRow.count      ?? 0,
-            available_count:  totalRow.count       ?? 0,
+            available_count:  availableRow.count   ?? 0,
             vaccinated:       vaccinatedRow.count  ?? 0,
         };
 
