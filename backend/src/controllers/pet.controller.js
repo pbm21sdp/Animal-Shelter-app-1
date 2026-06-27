@@ -321,6 +321,27 @@ export const adoptPet = async (req, res) => {
     }
 };
 
+// PATCH /api/pets/:id/found
+// Marks a missing pet as returned to its owner. Does NOT set is_adopted — won't appear in Community.
+export const markPetAsFound = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const pet = await PetModel.findById(id);
+        if (!pet) return res.status(404).json({ success: false, message: 'Pet not found' });
+
+        const isOwner = pet.uploader_id && pet.uploader_id === req.userId;
+        if (!isOwner && !req.isAdmin) {
+            return res.status(403).json({ success: false, message: 'Forbidden — only the uploader or an admin can update this animal' });
+        }
+
+        const updated = await PetModel.markAsFound(id);
+        res.status(200).json({ success: true, message: 'Pet marked as found/returned home', pet: updated });
+    } catch (error) {
+        console.error('Error in markPetAsFound:', error);
+        res.status(500).json({ success: false, message: 'Failed to mark pet as found', error: error.message });
+    }
+};
+
 // PATCH /api/pets/:id/unadopt
 // Reverses a community-adopted mark (e.g. uploader correction). Same auth rules.
 export const unadoptPet = async (req, res) => {

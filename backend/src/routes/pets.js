@@ -11,6 +11,7 @@ import {
     getSearchSuggestions,
     adoptPet,
     unadoptPet,
+    markPetAsFound,
     getPendingPets,
     approvePet,
     rejectPet,
@@ -46,9 +47,10 @@ router.get('/:id', verifyToken, getPetById);
 router.get('/photos/:photoId', getPhotoById); // Public route to fetch photos
 router.get('/:petId/photos', getPetPhotos); // Get all photos for a pet
 
-// Community adopt/unadopt — authenticated users (ownership enforced in controller)
+// Community adopt/unadopt/found — authenticated users (ownership enforced in controller)
 router.patch('/:id/adopt',   verifyToken, adoptPet);
 router.patch('/:id/unadopt', verifyToken, unadoptPet);
+router.patch('/:id/found',   verifyToken, markPetAsFound);
 
 // Authenticated users can create; patch for owners, admin-only for full update/delete
 router.post('/', verifyToken, createPet);
