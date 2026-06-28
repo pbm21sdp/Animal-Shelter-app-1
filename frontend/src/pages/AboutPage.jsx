@@ -5,17 +5,19 @@ import axios from 'axios';
 import {
     Chart as ChartJS,
     CategoryScale, LinearScale,
-    PointElement, LineElement,
+    PointElement, LineElement, BarElement,
     Tooltip as ChartTooltip,
+    Filler,
 } from 'chart.js';
-import { Line } from 'react-chartjs-2';
+import { Chart as ReactChart } from 'react-chartjs-2';
+import { makeChartJsLabelFormatter } from '../utils/chartLabels';
 import {
     PieChart, Pie, Cell,
     BarChart, Bar, XAxis, YAxis, Tooltip,
     ResponsiveContainer,
 } from 'recharts';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ChartTooltip);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ChartTooltip, Filler);
 
 const serif = "'Cormorant Garamond', serif";
 const sans  = "'DM Sans', sans-serif";
@@ -353,38 +355,33 @@ export default function AboutPage() {
         ...(analytics?.timeSeries?.forecastAdoptions   ?? []),
     ];
 
+    // Per-bar colors: solid for historical, semi-transparent for forecast
+    const fcastCount   = allLabels.length - hCount;
+    const uploadsBG    = [
+        ...Array(hCount).fill('#E2986A'),
+        ...Array(fcastCount).fill('rgba(226,152,106,0.45)'),
+    ];
+    const adopBG       = [
+        ...Array(hCount).fill('#5DCAA5'),
+        ...Array(fcastCount).fill('rgba(93,202,165,0.45)'),
+    ];
+
     const lineChartData = {
         labels: allLabels,
         datasets: [
             {
                 label: 'Uploads',
                 data: allUploads,
-                borderColor: '#E2986A',
-                backgroundColor: 'transparent',
-                borderWidth: 2,
-                pointRadius: 0,
-                pointHoverRadius: 4,
-                pointHoverBackgroundColor: '#E2986A',
-                tension: 0.3,
-                segment: {
-                    borderDash: ctx =>
-                        hasForecast && ctx.p0DataIndex >= hCount - 1 ? [6, 4] : undefined,
-                },
+                backgroundColor: uploadsBG,
+                borderWidth: 0,
+                borderRadius: 3,
             },
             {
                 label: 'Adoptions',
                 data: allAdoptions,
-                borderColor: '#5DCAA5',
-                backgroundColor: 'transparent',
-                borderWidth: 2,
-                pointRadius: 0,
-                pointHoverRadius: 4,
-                pointHoverBackgroundColor: '#5DCAA5',
-                tension: 0.3,
-                segment: {
-                    borderDash: ctx =>
-                        hasForecast && ctx.p0DataIndex >= hCount - 1 ? [6, 4] : undefined,
-                },
+                backgroundColor: adopBG,
+                borderWidth: 0,
+                borderRadius: 3,
             },
         ],
     };
@@ -394,7 +391,10 @@ export default function AboutPage() {
         maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
         plugins: {
-            legend: { display: false },
+            legend: {
+                display: false,
+                labels: { filter: item => !item.text?.startsWith('_') },
+            },
             tooltip: {
                 backgroundColor: '#FAF7F4',
                 titleColor: '#2D1F14',
@@ -405,19 +405,29 @@ export default function AboutPage() {
                 bodyFont: { family: sans, size: 11 },
                 padding: 10,
                 callbacks: {
-                    label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}`,
+                    label: ctx => ` ${ctx.dataset.label}: ${Math.round(ctx.parsed.y)}`,
                 },
             },
         },
         scales: {
             x: {
-                ticks: { color: '#B09880', font: { size: 9, family: sans } },
+                ticks: {
+                    color: '#B09880',
+                    font: { size: 9, family: sans },
+                    callback: makeChartJsLabelFormatter(allLabels),
+                },
                 grid: { display: false },
                 border: { display: false },
             },
             y: {
                 beginAtZero: true,
-                ticks: { color: '#B09880', font: { size: 9, family: sans }, precision: 0 },
+                ticks: {
+                    color: '#B09880',
+                    font: { size: 9, family: sans },
+                    stepSize: 1,
+                    precision: 0,
+                    callback: value => Math.round(value),
+                },
                 grid: { color: 'rgba(255,255,255,0.06)' },
                 border: { display: false },
             },
@@ -611,21 +621,19 @@ export default function AboutPage() {
                             {/* ── 3. Dual-line forecast chart ── */}
                             <div style={{ marginBottom: '28px' }}>
                                 {/* Custom legend */}
-                                <div style={{ display: 'flex', gap: '20px', marginBottom: '14px', alignItems: 'center' }}>
+                                <div style={{ display: 'flex', gap: '20px', marginBottom: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        <div style={{ width: '20px', height: '2px', background: '#E2986A', borderRadius: '1px' }} />
+                                        <div style={{ width: '12px', height: '12px', background: '#E2986A', borderRadius: '2px' }} />
                                         <span style={{ fontFamily: sans, fontSize: '10px', color: '#B09880' }}>Uploads</span>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        <div style={{ width: '20px', height: '2px', background: '#5DCAA5', borderRadius: '1px' }} />
+                                        <div style={{ width: '12px', height: '12px', background: '#5DCAA5', borderRadius: '2px' }} />
                                         <span style={{ fontFamily: sans, fontSize: '10px', color: '#B09880' }}>Adoptions</span>
                                     </div>
                                     {hasForecast && (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <svg width="20" height="2" style={{ flexShrink: 0 }}>
-                                                <line x1="0" y1="1" x2="20" y2="1" stroke="#B09880" strokeWidth="2" strokeDasharray="4 3" />
-                                            </svg>
-                                            <span style={{ fontFamily: sans, fontSize: '10px', color: '#B09880' }}>Predicted</span>
+                                            <div style={{ width: '12px', height: '12px', background: '#E2986A', borderRadius: '2px', opacity: 0.45 }} />
+                                            <span style={{ fontFamily: sans, fontSize: '10px', color: '#B09880' }}>Predicted (lighter bars)</span>
                                         </div>
                                     )}
                                 </div>
@@ -644,11 +652,16 @@ export default function AboutPage() {
                                 ) : (
                                     <div
                                         role="img"
-                                        aria-label="Line chart showing monthly uploads and adoptions over time, with a 3-month linear forecast shown as dashed lines"
+                                        aria-label="Bar chart showing monthly uploads and adoptions over time, with a 6-month Exponential Smoothing forecast shown as lighter bars with a shaded confidence band"
                                         style={{ height: '140px' }}
                                     >
-                                        <Line data={lineChartData} options={lineChartOptions} />
+                                        <ReactChart type="bar" data={lineChartData} options={lineChartOptions} />
                                     </div>
+                                )}
+                                {!analyticsLoading && (analytics?.confidenceUploads === 'low' || analytics?.confidenceAdoptions === 'low') && (
+                                    <p style={{ fontFamily: sans, fontSize: '10px', fontStyle: 'italic', color: '#C9A98A', marginTop: '10px', marginBottom: 0 }}>
+                                        Low confidence — limited historical data. Predictions will improve as more data is recorded.
+                                    </p>
                                 )}
                             </div>
 
