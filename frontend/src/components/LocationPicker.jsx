@@ -21,7 +21,7 @@ async function photonStreetSearch(query, lat, lon) {
         const bbox = `${(lon-d).toFixed(5)},${(lat-d).toFixed(5)},${(lon+d).toFixed(5)},${(lat+d).toFixed(5)}`;
         const url =
             `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}` +
-            `&lat=${lat}&lon=${lon}&limit=8&layer=street&bbox=${bbox}`;
+            `&lat=${lat}&lon=${lon}&limit=8&bbox=${bbox}`;
         const res = await fetch(url);
         const data = await res.json();
         return data.features || [];
@@ -230,7 +230,7 @@ export default function LocationPicker({ value, onChange }) {
             {city && (
                 <div style={{ position: 'relative' }}>
                     <div style={labelStyle}>
-                        Street
+                        Street / Landmark
                         <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: '#B09880' }}>optional</span>
                         {latitude && longitude && address && (
                             <span style={{ color: '#5C8A5C', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
@@ -240,7 +240,7 @@ export default function LocationPicker({ value, onChange }) {
                     </div>
                     <input
                         type="text"
-                        placeholder="e.g. Str. Gheorghe Lazăr 12"
+                        placeholder="e.g. Str. Gheorghe Lazăr 12 or Iulius Mall"
                         value={addressInput}
                         onChange={e => handleAddressInput(e.target.value)}
                         style={inputStyle}
