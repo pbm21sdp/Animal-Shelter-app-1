@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
+import toast from 'react-hot-toast';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import Navbar from '../components/Navbar';
@@ -491,7 +492,14 @@ export default function PetDetailPage() {
                                             </button>
                                         ) : !isAdopted && (
                                         <button
-                                            onClick={() => setAskOpen(o => !o)}
+                                            onClick={() => {
+                                                if (!currentUser) {
+                                                    toast.error('Sign in to contact this user');
+                                                    navigate('/login');
+                                                    return;
+                                                }
+                                                setAskOpen(o => !o);
+                                            }}
                                             style={{ fontFamily: sans, fontSize: '13px', color: '#2D1F14', background: 'transparent', border: '1.5px solid rgba(45,31,20,0.2)', borderRadius: '100px', padding: '10px 20px', cursor: 'pointer', transition: 'border-color 0.15s' }}
                                             onMouseEnter={e => { e.currentTarget.style.borderColor = '#C07A4A'; }}
                                             onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(45,31,20,0.2)'; }}
@@ -626,6 +634,11 @@ export default function PetDetailPage() {
                                     {/* Primary CTA */}
                                     <button
                                         onClick={() => {
+                                            if (!currentUser) {
+                                                toast.error('Sign in to contact this user');
+                                                navigate('/login');
+                                                return;
+                                            }
                                             setAskOpen(true);
                                             askRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                                         }}

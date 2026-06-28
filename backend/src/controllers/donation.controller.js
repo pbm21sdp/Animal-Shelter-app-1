@@ -52,7 +52,7 @@ export const createCheckoutSession = async (req, res) => {
             amount: amountInEuros,
             currency: 'eur',
             stripeSessionId: session.id,
-            status: 'pending'
+            status: 'pending',
         });
 
         // Return both sessionId and URL
@@ -598,7 +598,7 @@ export const getPublicDonationStats = async (req, res) => {
                         || (d.email ? d.email.split('@')[0] : null)
                         || 'Anonymous';
                 }
-                return { displayName, amount: d.amount, createdAt: d.createdAt };
+                return { displayName, amount: d.amount, createdAt: d.createdAt, note: d.displayPreference === 'anonymous' ? null : (d.note || null) };
             });
 
         res.status(200).json({ success: true, totalRaised, donorCount: completed.length, donors });
@@ -612,7 +612,7 @@ export const getPublicDonationStats = async (req, res) => {
 export const updateDisplayPreference = async (req, res) => {
     try {
         const { sessionId } = req.params;
-        const { displayPreference, displayName } = req.body;
+        const { displayPreference, displayName, note } = req.body;
 
         const donation = await Donation.findOne({ stripeSessionId: sessionId });
         if (!donation) {
@@ -621,6 +621,7 @@ export const updateDisplayPreference = async (req, res) => {
 
         if (displayPreference) donation.displayPreference = displayPreference;
         if (displayName !== undefined) donation.displayName = displayName?.trim() || null;
+        if (note !== undefined) donation.note = note?.trim()?.slice(0, 200) || null;
         await donation.save();
 
         res.status(200).json({ success: true });

@@ -39,6 +39,12 @@ const donationSchema = new mongoose.Schema({
         type: String,
         default: null
     },
+    note: {
+        type: String,
+        default: null,
+        maxlength: 200,
+        trim: true,
+    },
     createdAt: {
         type: Date,
         default: Date.now

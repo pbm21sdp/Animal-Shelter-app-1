@@ -24,7 +24,7 @@ export const useDonationStore = create((set, get) => ({
             const response = await axios.post(`${API_URL}/create-checkout`, {
                 userId,
                 email,
-                amountInCents
+                amountInCents,
             });
 
             if (response.data.url) {

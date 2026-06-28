@@ -280,7 +280,7 @@ export default function ForumPage() {
                 padding: '14px 24px',
                 borderBottom: `1px solid ${C.border}`,
                 overflowX: 'auto',
-                flexWrap: 'wrap',
+                flexShrink: 0,
             }}>
                 {CATEGORIES.map(cat => {
                     const active = category === cat.key;
@@ -300,6 +300,7 @@ export default function ForumPage() {
                                 cursor: 'pointer',
                                 transition: 'all 0.15s',
                                 whiteSpace: 'nowrap',
+                                flexShrink: 0,
                             }}
                         >
                             {cat.label}
@@ -313,7 +314,7 @@ export default function ForumPage() {
             </div>
 
             {/* Posts list */}
-            <div style={{ maxWidth: '760px', margin: '0 auto', width: '100%', padding: '0 24px 40px' }}>
+            <div style={{ maxWidth: '760px', margin: '0 auto', width: '100%', padding: '8px 24px 40px' }}>
                 {loading ? (
                     <div style={{ textAlign: 'center', padding: '60px 0', fontFamily: sans, fontSize: '13px', color: C.lightMuted }}>
                         Loading…

@@ -22,6 +22,7 @@ export default function DonationSuccessPage() {
 
     const [pref, setPref]         = useState('name');
     const [customName, setCustomName] = useState('');
+    const [note, setNote]             = useState('');
     const [prefSaved, setPrefSaved]   = useState(false);
     const [prefSaving, setPrefSaving] = useState(false);
 
@@ -49,6 +50,7 @@ export default function DonationSuccessPage() {
             await axios.patch(`${API}/donations/session/${sessionId}/preference`, {
                 displayPreference: pref,
                 displayName: pref === 'name' ? customName : '',
+                note: note.trim() || null,
             });
             setPrefSaved(true);
         } catch { /* silent */ }
@@ -99,11 +101,8 @@ export default function DonationSuccessPage() {
                         </div>
                     ) : donationDetails ? (
                         <div style={{ padding: '20px 24px', background: 'rgba(192,122,74,0.08)', borderRadius: '4px', borderLeft: '3px solid #C07A4A', textAlign: 'left' }}>
-                            <div style={{ fontSize: '24px', fontFamily: serif, fontWeight: 700, color: '#2D1F14', marginBottom: '4px' }}>
+                            <div style={{ fontSize: '24px', fontFamily: serif, fontWeight: 700, color: '#2D1F14' }}>
                                 {donationDetails.amount} €
-                            </div>
-                            <div style={{ fontSize: '13px', color: '#6B5144' }}>
-                                A confirmation email has been sent to your address.
                             </div>
                         </div>
                     ) : (
@@ -170,6 +169,30 @@ export default function DonationSuccessPage() {
                                     />
                                 </div>
                             )}
+
+                            <div style={{ marginBottom: '16px' }}>
+                                <div style={{ fontSize: '12px', color: '#8B6B5A', marginBottom: '6px' }}>
+                                    Leave a message <span style={{ color: '#B09880' }}>(optional)</span>
+                                </div>
+                                <textarea
+                                    value={note}
+                                    onChange={e => setNote(e.target.value.slice(0, 200))}
+                                    placeholder="e.g. for veterinary care, in memory of my dog…"
+                                    rows={2}
+                                    style={{
+                                        width: '100%', boxSizing: 'border-box',
+                                        padding: '10px 14px',
+                                        border: '1px solid rgba(45,31,20,0.15)',
+                                        borderRadius: '4px',
+                                        fontFamily: sans, fontSize: '14px', color: '#2D1F14',
+                                        background: '#FDFAF8', outline: 'none',
+                                        resize: 'none',
+                                    }}
+                                />
+                                <div style={{ textAlign: 'right', fontSize: '11px', color: '#B09880', marginTop: '3px' }}>
+                                    {note.length}/200
+                                </div>
+                            </div>
 
                             <button
                                 onClick={savePref}
