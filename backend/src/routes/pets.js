@@ -44,7 +44,7 @@ router.patch('/:id/reject',  verifyToken, isAdmin, rejectPet);
 
 // ID-based routes
 router.get('/:id/similar', getSimilarPets);
-router.get('/:id', verifyToken, getPetById);
+router.get('/:id', optionalVerifyToken, getPetById);
 
 // Photo routes
 router.get('/photos/:photoId', getPhotoById); // Public route to fetch photos

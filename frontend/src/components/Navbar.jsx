@@ -514,19 +514,35 @@ export default function Navbar() {
                         </div>
                     </div>
                 ) : (
-                    <Link
-                        to="/signup"
-                        style={{
-                            backgroundColor: '#D4967A', color: '#FDF8F5',
-                            borderRadius: '20px', padding: '7px 18px',
-                            fontSize: '13px', fontWeight: 600,
-                            textDecoration: 'none', transition: 'background-color 0.15s',
-                        }}
-                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#C4846A'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#D4967A'; }}
-                    >
-                        Sign up
-                    </Link>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Link
+                            to="/login"
+                            style={{
+                                color: '#7A5C44', backgroundColor: 'transparent',
+                                borderRadius: '20px', padding: '7px 18px',
+                                fontSize: '13px', fontWeight: 500,
+                                textDecoration: 'none', transition: 'color 0.15s',
+                                border: '1px solid rgba(45,31,20,0.2)',
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.color = '#2D1F14'; e.currentTarget.style.borderColor = 'rgba(45,31,20,0.4)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.color = '#7A5C44'; e.currentTarget.style.borderColor = 'rgba(45,31,20,0.2)'; }}
+                        >
+                            Log in
+                        </Link>
+                        <Link
+                            to="/signup"
+                            style={{
+                                backgroundColor: '#D4967A', color: '#FDF8F5',
+                                borderRadius: '20px', padding: '7px 18px',
+                                fontSize: '13px', fontWeight: 600,
+                                textDecoration: 'none', transition: 'background-color 0.15s',
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#C4846A'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#D4967A'; }}
+                        >
+                            Sign up
+                        </Link>
+                    </div>
                 )}
             </div>
         </header>

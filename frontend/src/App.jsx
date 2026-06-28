@@ -124,21 +124,13 @@ function App() {
             )}
 
             <Routes>
-                <Route path='/' element={
-                    <ProtectedRoute>
-                        <PawsHomePage />
-                    </ProtectedRoute>
-                }/>
+                <Route path='/' element={<PawsHomePage />}/>
                 <Route path='/pet-search' element={
                     <ProtectedRoute>
                         <PetSearchPage />
                     </ProtectedRoute>
                 }/>
-                <Route path='/pet/:id' element={
-                    <ProtectedRoute>
-                        <PetDetailPage />
-                    </ProtectedRoute>
-                }/>
+                <Route path='/pet/:id' element={<PetDetailPage />}/>
                 <Route path='/signup' element={
                     <RedirectAuthenticatedUser>
                         <SignUpPage />
@@ -226,26 +218,14 @@ function App() {
                 }
                 />
 
-                <Route path="/animals" element={
-                    <ProtectedRoute>
-                        <AnimalsPage />
-                    </ProtectedRoute>
-                }/>
-                <Route path="/map" element={
-                    <ProtectedRoute>
-                        <MapPage />
-                    </ProtectedRoute>
-                }/>
+                <Route path="/animals" element={<AnimalsPage />}/>
+                <Route path="/map" element={<MapPage />}/>
                 <Route path="/my-animals" element={
                     <ProtectedRoute>
                         <MyAnimalsPage />
                     </ProtectedRoute>
                 }/>
-                <Route path="/about" element={
-                    <ProtectedRoute>
-                        <AboutPage />
-                    </ProtectedRoute>
-                }/>
+                <Route path="/about" element={<AboutPage />}/>
                 <Route path="/how-to-adopt" element={
                     <ProtectedRoute>
                         <HowToAdoptPage />
@@ -291,16 +271,8 @@ function App() {
                         <CommunityStoriesPage />
                     </ProtectedRoute>
                 }/>
-                <Route path="/forum" element={
-                    <ProtectedRoute>
-                        <ForumPage />
-                    </ProtectedRoute>
-                }/>
-                <Route path="/forum/:id" element={
-                    <ProtectedRoute>
-                        <ForumPostDetailPage />
-                    </ProtectedRoute>
-                }/>
+                <Route path="/forum" element={<ForumPage />}/>
+                <Route path="/forum/:id" element={<ForumPostDetailPage />}/>
                 <Route path="/oauth-callback" element={<OAuthCallbackPage />} />
                 <Route path="/auth/callback" element={<AuthCallbackPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
