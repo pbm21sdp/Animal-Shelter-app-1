@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 import warnings
 import time
+import os
 warnings.filterwarnings('ignore')
 
 # CLIP availability check
@@ -17,6 +18,10 @@ except ImportError:
     CLIP_AVAILABLE = False
     print("WARNING: CLIP not available. Install with: pip install torch transformers Pillow")
 
+# Fine-tuned model path (relative to this script's directory)
+FINETUNED_MODEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "clip_finetuned")
+BASE_CLIP_MODEL = "openai/clip-vit-base-patch32"
+
 # CLIP model — loaded lazily on first request
 clip_model = None
 clip_processor = None
@@ -24,11 +29,28 @@ clip_processor = None
 def load_clip():
     global clip_model, clip_processor
     if clip_model is None:
-        print("Loading CLIP model (first time — may take 1-2 minutes)...")
         from transformers import CLIPProcessor, CLIPModel
-        clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-        clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-        print("CLIP model loaded successfully!")
+        model_config = os.path.join(FINETUNED_MODEL_DIR, "config.json")
+        if os.path.exists(model_config):
+            try:
+                print(f"Loading fine-tuned CLIP model from {FINETUNED_MODEL_DIR}...")
+                clip_model = CLIPModel.from_pretrained(FINETUNED_MODEL_DIR)
+                try:
+                    clip_processor = CLIPProcessor.from_pretrained(FINETUNED_MODEL_DIR)
+                except Exception:
+                    print("Processor not in fine-tuned folder, loading from base model...")
+                    clip_processor = CLIPProcessor.from_pretrained(BASE_CLIP_MODEL)
+                print("Fine-tuned CLIP model loaded successfully!")
+            except Exception as e:
+                print(f"WARNING: Failed to load fine-tuned model: {e}")
+                print(f"Falling back to base model: {BASE_CLIP_MODEL}")
+                clip_model = CLIPModel.from_pretrained(BASE_CLIP_MODEL)
+                clip_processor = CLIPProcessor.from_pretrained(BASE_CLIP_MODEL)
+        else:
+            print(f"WARNING: Fine-tuned model not found at {FINETUNED_MODEL_DIR}")
+            print(f"Loading base model: {BASE_CLIP_MODEL}")
+            clip_model = CLIPModel.from_pretrained(BASE_CLIP_MODEL)
+            clip_processor = CLIPProcessor.from_pretrained(BASE_CLIP_MODEL)
     return clip_model, clip_processor
 
 app = Flask(__name__)
@@ -732,6 +754,7 @@ class AnimalDescriptionGenerator:
         else:
             color_str = ', '.join(color_parts[:-1]) + f', and {color_parts[-1]}'
         coat = (data.get('coat') or '').lower()
+        fur_pattern = (data.get('furPattern') or data.get('fur_pattern') or '').lower()
         traits = [t for t in (data.get('traits') or []) if t]
 
         honest_traits_set = {
@@ -832,6 +855,12 @@ class AnimalDescriptionGenerator:
             parts.append(f'This {animal_type} has a {color_str} coat.')
         elif coat:
             parts.append(f'This {animal_type} has {coat} fur.')
+
+        if fur_pattern and fur_pattern not in ('', 'unknown'):
+            parts.append(random.choice([
+                f'Their coat features a {fur_pattern} pattern.',
+                f'They have a {fur_pattern} coat pattern.',
+            ]))
 
         # Personality traits
         if traits:
@@ -1098,8 +1127,12 @@ def analyse_image():
         model, processor = load_clip()
         results = {}
 
-        # 1. Species
-        species_options = ["a photo of a dog", "a photo of a cat", "a photo of a puppy", "a photo of a kitten", "a photo of a rabbit", "a photo of another animal"]
+        # 1. Species (7 classes — matches fine-tuned training labels)
+        species_options = [
+            "a photo of a cat", "a photo of a dog", "a photo of a puppy",
+            "a photo of a kitten", "a photo of a rabbit",
+            "a photo of a guinea pig", "a photo of a hamster"
+        ]
         inputs = processor(text=species_options, images=image, return_tensors="pt", padding=True)
         with torch.no_grad():
             outputs = model(**inputs)
@@ -1108,14 +1141,28 @@ def analyse_image():
         species = species_options[top_idx]
         results['species'] = {'value': species, 'confidence': round(probs[top_idx].item() * 100, 1)}
 
-        is_dog = 'dog' in species or 'puppy' in species
-        is_cat = 'cat' in species or 'kitten' in species
+        # label order: 0=cat, 1=dog, 2=puppy, 3=kitten, 4=rabbit, 5=guinea_pig, 6=hamster
+        is_dog       = top_idx in (1, 2)
+        is_cat       = top_idx in (0, 3)
+        is_rabbit    = top_idx == 4
+        is_guinea_pig = top_idx == 5
+        is_hamster   = top_idx == 6
 
-        # 2. Breed
+        # 2. Breed — conditioned on species (13 dog breeds / 13 cat breeds)
         if is_dog:
-            breed_options = ["a golden retriever", "a german shepherd", "a labrador retriever", "a french bulldog", "a poodle", "a siberian husky", "a beagle", "a chihuahua", "a dachshund", "a pug", "a rottweiler", "a border collie", "a corgi", "a pitbull", "a mixed breed dog", "a mutt"]
+            breed_options = [
+                "a golden retriever", "a german shepherd", "a labrador retriever",
+                "a siberian husky", "a beagle", "a chihuahua", "a mixed breed dog",
+                "a boxer dog", "an english cocker spaniel", "a havanese dog",
+                "a maltese dog", "a newfoundland dog", "a yorkshire terrier"
+            ]
         elif is_cat:
-            breed_options = ["a persian cat", "a siamese cat", "a maine coon cat", "a british shorthair cat", "a bengal cat", "a ragdoll cat", "a tabby cat", "a domestic shorthair cat", "a mixed breed cat"]
+            breed_options = [
+                "a persian cat", "a siamese cat", "a maine coon cat", "a tabby cat",
+                "a domestic shorthair cat", "a mixed breed cat", "a bengal cat",
+                "a birman cat", "a bombay cat", "a british shorthair cat",
+                "a ragdoll cat", "a russian blue cat", "a sphynx cat"
+            ]
         else:
             breed_options = []
 
@@ -1129,8 +1176,11 @@ def analyse_image():
             if breed_conf > 30:
                 results['breed'] = {'value': breed_options[top_idx], 'confidence': round(breed_conf, 1)}
 
-        # 3. Color
-        color_options = ["a brown animal", "a white animal", "a black animal", "a gray animal", "an orange animal", "a golden animal", "a cream colored animal", "a black and white animal", "a multicolored animal"]
+        # 3. Color (8 classes)
+        color_options = [
+            "a brown animal", "a white animal", "a black animal", "a gray animal",
+            "an orange animal", "a golden animal", "a black and white animal", "a multicolored animal"
+        ]
         inputs = processor(text=color_options, images=image, return_tensors="pt", padding=True)
         with torch.no_grad():
             outputs = model(**inputs)
@@ -1138,8 +1188,11 @@ def analyse_image():
         top_idx = probs.argmax().item()
         results['color'] = {'value': color_options[top_idx], 'confidence': round(probs[top_idx].item() * 100, 1)}
 
-        # 4. Size
-        size_options = ["a very small animal under 5kg", "a small animal 5 to 10kg", "a medium sized animal 10 to 25kg", "a large animal over 25kg"]
+        # 4. Size (4 classes)
+        size_options = [
+            "a very small animal under 5kg", "a small animal 5 to 10kg",
+            "a medium sized animal", "a large animal over 25kg"
+        ]
         inputs = processor(text=size_options, images=image, return_tensors="pt", padding=True)
         with torch.no_grad():
             outputs = model(**inputs)
@@ -1148,8 +1201,12 @@ def analyse_image():
         size_map_result = {0: 'Very small (under 5kg)', 1: 'Small (5-10kg)', 2: 'Medium (10-25kg)', 3: 'Large (over 25kg)'}
         results['size'] = {'value': size_map_result[top_idx], 'confidence': round(probs[top_idx].item() * 100, 1)}
 
-        # 5. Age
-        age_options = ["a very young puppy or kitten under 3 months", "a young animal 3 to 12 months old", "a young adult animal 1 to 3 years old", "a mature adult animal 3 to 7 years old", "an older senior animal over 7 years old"]
+        # 5. Age (5 classes)
+        age_options = [
+            "a newborn baby animal under 3 months", "a young animal 3 to 12 months",
+            "a young adult animal 1 to 3 years", "a mature adult animal 3 to 7 years",
+            "a senior animal over 7 years"
+        ]
         inputs = processor(text=age_options, images=image, return_tensors="pt", padding=True)
         with torch.no_grad():
             outputs = model(**inputs)
@@ -1158,28 +1215,57 @@ def analyse_image():
         age_map_result = {0: 'Under 3 months', 1: '3-12 months', 2: '1-3 years', 3: '3-7 years', 4: 'Over 7 years'}
         results['age'] = {'value': age_map_result[top_idx], 'confidence': round(probs[top_idx].item() * 100, 1)}
 
-        # 6. Fur
-        fur_options = ["a short haired animal", "a medium haired animal", "a long haired fluffy animal", "a hairless animal"]
+        # 6. Fur length (4 classes)
+        fur_options = [
+            "a short haired animal", "a medium haired animal",
+            "a long haired animal", "a hairless animal"
+        ]
         inputs = processor(text=fur_options, images=image, return_tensors="pt", padding=True)
         with torch.no_grad():
             outputs = model(**inputs)
         probs = outputs.logits_per_image.softmax(dim=1)[0]
         top_idx = probs.argmax().item()
-        fur_labels = ['Short hair', 'Medium hair', 'Long hair', 'Hairless']
+        fur_labels = ['Short', 'Medium', 'Long', 'Hairless']
         results['fur'] = {'value': fur_labels[top_idx], 'confidence': round(probs[top_idx].item() * 100, 1)}
 
-        type_str = 'dog' if is_dog else ('cat' if is_cat else 'other')
+        # 7. Fur pattern (7 classes — new axis from fine-tuned model)
+        fur_pattern_options = [
+            "a solid colored animal", "a tabby striped animal", "a spotted animal",
+            "a calico animal", "a tuxedo black and white animal",
+            "a bicolor animal", "a tricolor animal"
+        ]
+        inputs = processor(text=fur_pattern_options, images=image, return_tensors="pt", padding=True)
+        with torch.no_grad():
+            outputs = model(**inputs)
+        probs = outputs.logits_per_image.softmax(dim=1)[0]
+        top_idx = probs.argmax().item()
+        fur_pattern_labels = ['Solid', 'Tabby / Striped', 'Spotted', 'Calico', 'Tuxedo', 'Bicolor', 'Tricolor']
+        results['fur_pattern'] = {'value': fur_pattern_labels[top_idx], 'confidence': round(probs[top_idx].item() * 100, 1)}
+
+        if is_dog:
+            type_str = 'dog'
+        elif is_cat:
+            type_str = 'cat'
+        elif is_rabbit:
+            type_str = 'rabbit'
+        elif is_guinea_pig:
+            type_str = 'guinea pig'
+        elif is_hamster:
+            type_str = 'hamster'
+        else:
+            type_str = 'other'
 
         return jsonify({
             'success': True,
             'results': results,
             'summary': {
                 'type':               type_str,
-                'breed':              results.get('breed', {}).get('value', '').replace('a ', '').replace('an ', ''),
-                'color':              results.get('color', {}).get('value', '').replace('a ', '').replace('an ', ''),
+                'breed':              results.get('breed', {}).get('value', '').replace('a ', '').replace('an ', '').removesuffix(' cat').removesuffix(' dog'),
+                'color':              results.get('color', {}).get('value', '').replace('a ', '').replace('an ', '').removesuffix(' animal'),
                 'size':               results.get('size', {}).get('value', ''),
                 'age':                results.get('age', {}).get('value', ''),
                 'fur':                results.get('fur', {}).get('value', ''),
+                'fur_pattern':        results.get('fur_pattern', {}).get('value', ''),
                 'species_confidence': results.get('species', {}).get('confidence', 0),
             }
         })

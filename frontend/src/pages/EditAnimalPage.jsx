@@ -28,6 +28,7 @@ const sentenceCase = str => str ? str.charAt(0).toUpperCase() + str.slice(1).toL
 
 const COAT_COLOR_OPTIONS  = ['Black', 'White', 'Brown', 'Tan / Fawn', 'Gray', 'Silver', 'Golden', 'Cream', 'Orange / Red', 'Chocolate', 'Sable', 'Black & white', 'Brindle', 'Tricolor', 'Calico', 'Merle', 'Spotted', 'Other'];
 const COAT_TYPE_OPTIONS   = ['Short', 'Medium', 'Long', 'Curly', 'Wire-haired', 'Hairless', 'Unknown'];
+const FUR_PATTERN_OPTIONS = ['Solid', 'Tabby / Striped', 'Spotted', 'Calico', 'Tuxedo', 'Bicolor', 'Tricolor'];
 const TRAITS              = [
     'Friendly', 'Playful', 'Calm', 'Affectionate', 'Gentle', 'Energetic', 'Curious', 'Loyal', 'Sociable', 'Independent',
     'Shy', 'Good with kids', 'Good with dogs', 'Good with cats', 'House-trained',
@@ -167,6 +168,7 @@ export default function EditAnimalPage() {
     const [coatColors,       setCoatColors]       = useState([]);
     const [coatColorOther,   setCoatColorOther]   = useState('');
     const [coatType,         setCoatType]         = useState('');
+    const [furPattern,       setFurPattern]       = useState('');
     const [breed,            setBreed]            = useState('');
     const [breedUnsure,      setBreedUnsure]      = useState(false);
     const [gender,           setGender]           = useState('');
@@ -340,6 +342,9 @@ export default function EditAnimalPage() {
         // Coat type
         setCoatType(COAT_TYPE_OPTIONS.includes(p.coat) ? (p.coat || '') : '');
 
+        // Fur pattern
+        setFurPattern(FUR_PATTERN_OPTIONS.includes(p.fur_pattern) ? (p.fur_pattern || '') : '');
+
         // Breed
         setBreed(p.breed || '');
         setBreedUnsure(!!p.breed_unsure);
@@ -426,7 +431,9 @@ export default function EditAnimalPage() {
                 dewormed:      isDewormed,
                 foundHow:      actualFoundHow || foundHow,
                 breed, breedUnsure,
-                color: effectiveColors.join(', '), coat: coatType,
+                color:      effectiveColors.join(', '),
+                coat:       coatType,
+                furPattern: furPattern || '',
                 gender:        gender || '',
                 city:          locValue.city || locValue.county || '',
                 address:       locValue.address || '',
@@ -478,11 +485,12 @@ export default function EditAnimalPage() {
             setAnimalType(tm[clipResults.type.toLowerCase()] || 'Other');
             if (!tm[clipResults.type.toLowerCase()]) setAnimalTypeOther(sentenceCase(clipResults.type));
         }
-        if (clipSelected.size  && clipResults.size)  setApproxSize(clipResults.size);
-        if (clipSelected.age   && clipResults.age)   setApproxAge(clipResults.age);
-        if (clipSelected.breed && clipResults.breed) setBreed(sentenceCase(clipResults.breed));
-        if (clipSelected.color && clipResults.color) setCoatColors([sentenceCase(clipResults.color)]);
-        if (clipSelected.fur   && clipResults.fur)   setCoatType(sentenceCase(clipResults.fur));
+        if (clipSelected.size        && clipResults.size)        setApproxSize(clipResults.size);
+        if (clipSelected.age         && clipResults.age)         setApproxAge(clipResults.age);
+        if (clipSelected.breed       && clipResults.breed)       setBreed(sentenceCase(clipResults.breed));
+        if (clipSelected.color       && clipResults.color)       setCoatColors([sentenceCase(clipResults.color)]);
+        if (clipSelected.fur         && clipResults.fur)         setCoatType(sentenceCase(clipResults.fur));
+        if (clipSelected.fur_pattern && clipResults.fur_pattern) setFurPattern(clipResults.fur_pattern);
         setClipApplied(true);
     };
 
@@ -521,6 +529,7 @@ export default function EditAnimalPage() {
                 size:                  exactWeight ? `${approxSize ? `${approxSize} — ` : ''}${exactWeight}` : (approxSize || ''),
                 color:                 effectiveColors.join(', ') || '',
                 coat:                  coatType || '',
+                fur_pattern:           furPattern || '',
                 gender:                gender.toLowerCase() || '',
                 description:           description.trim(),
                 traits:                selectedTraits,
@@ -779,6 +788,11 @@ export default function EditAnimalPage() {
                         </div>
 
                         <div>
+                            <FieldLabel>Fur pattern</FieldLabel>
+                            <PillToggle large options={FUR_PATTERN_OPTIONS} value={furPattern} onChange={setFurPattern} />
+                        </div>
+
+                        <div>
                             <FieldLabel>Breed (if known)</FieldLabel>
                             <input type="text" placeholder="e.g. Labrador, German Shepherd" value={breed} onChange={e => setBreed(e.target.value)}
                                 style={{ width: '100%', border: 'none', borderBottom: '1px solid rgba(45,31,20,0.2)', background: 'transparent', fontFamily: sans, fontSize: '13px', color: '#2D1F14', padding: '6px 0', outline: 'none', boxSizing: 'border-box' }} />
@@ -944,7 +958,7 @@ export default function EditAnimalPage() {
                                             <span>⚠️</span> Results may not always be accurate — review before applying.
                                         </div>
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
-                                            {[{ key: 'breed', label: 'Breed' }, { key: 'color', label: 'Color' }, { key: 'fur', label: 'Coat' }, { key: 'age', label: 'Age' }, { key: 'size', label: 'Size' }, { key: 'type', label: 'Type' }].map(({ key, label }) => {
+                                            {[{ key: 'breed', label: 'Breed' }, { key: 'color', label: 'Color' }, { key: 'fur', label: 'Coat' }, { key: 'fur_pattern', label: 'Pattern' }, { key: 'age', label: 'Age' }, { key: 'size', label: 'Size' }, { key: 'type', label: 'Type' }].map(({ key, label }) => {
                                                 const val = clipResults[key];
                                                 if (!val) return null;
                                                 const active = !!clipSelected[key];
