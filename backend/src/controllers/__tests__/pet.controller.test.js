@@ -15,7 +15,10 @@ import {
   getSearchSuggestions,
 } from '../pet.controller.js';
 
-// Mock models
+// Auto-mocks work reliably with --experimental-vm-modules.
+// Factory mocks do NOT intercept ES module named-export live bindings, so
+// createPet / updatePet (need checkContent) and deletePet (need pool) are
+// tested in pet-pg.controller.test.js using jest.unstable_mockModule().
 jest.mock('../../models/pet.model.js');
 jest.mock('../../models/adoption.model.js');
 
@@ -57,7 +60,7 @@ describe('Pet Controller', () => {
       await getAllPets(req, res);
 
       // Assert
-      expect(PetModel.findAll).toHaveBeenCalledWith({ is_available: true });
+      expect(PetModel.findAll).toHaveBeenCalledWith({ is_available: true, status: 'approved' });
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
         success: true,
@@ -75,7 +78,7 @@ describe('Pet Controller', () => {
       await getAllPets(req, res);
 
       // Assert
-      expect(PetModel.findAll).toHaveBeenCalledWith({ type: 'dog', is_available: true });
+      expect(PetModel.findAll).toHaveBeenCalledWith({ type: 'dog', is_available: true, status: 'approved' });
       expect(res.status).toHaveBeenCalledWith(200);
     });
 
@@ -89,7 +92,7 @@ describe('Pet Controller', () => {
       await getAllPets(req, res);
 
       // Assert
-      expect(PetModel.findAll).toHaveBeenCalledWith({ city: 'New York', is_available: true });
+      expect(PetModel.findAll).toHaveBeenCalledWith({ city: 'New York', is_available: true, status: 'approved' });
       expect(res.status).toHaveBeenCalledWith(200);
     });
 
@@ -103,13 +106,14 @@ describe('Pet Controller', () => {
       await getAllPets(req, res);
 
       // Assert
-      expect(PetModel.findAll).toHaveBeenCalledWith({ zipCode: '10001', is_available: true });
+      expect(PetModel.findAll).toHaveBeenCalledWith({ zipCode: '10001', is_available: true, status: 'approved' });
       expect(res.status).toHaveBeenCalledWith(200);
     });
 
     test('should return all pets when showAll is true (admin)', async () => {
       // Arrange
       req.query.showAll = 'true';
+      req.isAdmin = true;
       const mockPets = [
         createMockPet({ id: 1, adoption_status: 'available' }),
         createMockPet({ id: 2, adoption_status: 'adopted' }),
@@ -134,7 +138,7 @@ describe('Pet Controller', () => {
       await getAllPets(req, res);
 
       // Assert
-      expect(PetModel.findAll).toHaveBeenCalledWith({ is_available: true });
+      expect(PetModel.findAll).toHaveBeenCalledWith({ is_available: true, status: 'approved' });
       expect(res.status).toHaveBeenCalledWith(200);
       const returnedPets = res.json.mock.calls[0][0].pets;
       expect(returnedPets.length).toBe(5);
@@ -302,7 +306,7 @@ describe('Pet Controller', () => {
       // Arrange
       req.params.id = '1';
       req.userId = 'user123';
-      const mockPet = createMockPet({ adoption_status: 'available' });
+      const mockPet = createMockPet({ adoption_status: 'available', status: 'approved' });
       PetModel.findById = jest.fn().mockResolvedValue(mockPet);
       Adoption.findOne = jest.fn();
 
@@ -324,7 +328,7 @@ describe('Pet Controller', () => {
       req.params.id = '1';
       req.userId = 'admin123';
       req.isAdmin = true;
-      const mockPet = createMockPet({ adoption_status: 'adopted' });
+      const mockPet = createMockPet({ adoption_status: 'adopted', status: 'approved' });
       PetModel.findById = jest.fn().mockResolvedValue(mockPet);
       Adoption.findOne = jest.fn();
 
@@ -345,7 +349,7 @@ describe('Pet Controller', () => {
       // Arrange
       req.params.id = '1';
       req.userId = 'user123';
-      const mockPet = createMockPet({ id: 1, adoption_status: 'pending' });
+      const mockPet = createMockPet({ id: 1, adoption_status: 'pending', status: 'approved' });
       PetModel.findById = jest.fn().mockResolvedValue(mockPet);
 
       Adoption.findOne = jest.fn().mockResolvedValue({
@@ -377,6 +381,8 @@ describe('Pet Controller', () => {
       req.params.id = '1';
       req.userId = 'user123';
       const mockPet = createMockPet({
+        status: 'approved',
+        adoption_status: 'available',
         photos: [
           { id: 1, photo_url: 'base64photo1', is_primary: true },
           { id: 2, photo_url: 'base64photo2', is_primary: false },
@@ -418,10 +424,10 @@ describe('Pet Controller', () => {
     });
 
     test('should return 404 for unavailable pet when user has no adoption', async () => {
-      // Arrange
+      // Arrange — use 'pending' not 'adopted': adopted pets are now public (happy-ending policy)
       req.params.id = '1';
       req.userId = 'user123';
-      const mockPet = createMockPet({ id: 1, adoption_status: 'adopted' });
+      const mockPet = createMockPet({ id: 1, adoption_status: 'pending', status: 'approved' });
       PetModel.findById = jest.fn().mockResolvedValue(mockPet);
       Adoption.findOne = jest.fn().mockResolvedValue(null);
 
@@ -442,9 +448,9 @@ describe('Pet Controller', () => {
     });
 
     test('should return 404 for unavailable pet when not authenticated', async () => {
-      // Arrange
+      // Arrange — use 'pending': adopted pets are publicly visible (happy-ending policy)
       req.params.id = '1';
-      const mockPet = createMockPet({ adoption_status: 'adopted' });
+      const mockPet = createMockPet({ adoption_status: 'pending', status: 'approved' });
       PetModel.findById = jest.fn().mockResolvedValue(mockPet);
 
       // Act
@@ -579,21 +585,26 @@ describe('Pet Controller', () => {
   });
 
   // ==================== createPet ====================
-  describe('createPet', () => {
+  // createPet calls checkContent() which needs pool → tested in pet-pg.controller.test.js
+  // All required fields: name, type, description, gender, situation, current_status,
+  // microchip_status, neutered_spayed_status, vaccination_status + location_city
+  const validPetBody = {
+    name: 'Buddy',
+    type: 'dog',
+    description: 'A friendly dog',
+    gender: 'male',
+    situation: 'stray',
+    current_status: 'available',
+    microchip_status: 'microchipped',
+    neutered_spayed_status: 'neutered',
+    vaccination_status: 'vaccinated',
+    location_city: 'New York',
+  };
+
+  describe.skip('createPet — see pet-pg.controller.test.js', () => {
     test('should create pet with all fields', async () => {
       // Arrange
-      req.body = {
-        name: 'Buddy',
-        type: 'dog',
-        breed: 'Golden Retriever',
-        age_category: 'adult',
-        gender: 'male',
-        size: 'large',
-        color: 'golden',
-        city: 'New York',
-        zip_code: '10001',
-        description: 'A friendly dog',
-      };
+      req.body = { ...validPetBody, breed: 'Golden Retriever' };
 
       const mockCreatedPet = createMockPet(req.body);
       PetModel.create = jest.fn().mockResolvedValue(mockCreatedPet);
@@ -603,32 +614,21 @@ describe('Pet Controller', () => {
 
       // Assert
       expect(PetModel.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          name: 'Buddy',
-          type: 'dog',
-          breed: 'Golden Retriever',
-        })
+        expect.objectContaining({ name: 'Buddy', type: 'dog', breed: 'Golden Retriever' })
       );
       expect(res.status).toHaveBeenCalledWith(201);
       expect(res.json).toHaveBeenCalledWith({
         success: true,
-        message: 'PetModel created successfully',
-        pet: mockCreatedPet,
+        message: 'Pet created successfully',
+        pet: expect.objectContaining({ name: 'Buddy' }),
       });
     });
 
     test('should create pet with traits array', async () => {
       // Arrange
-      req.body = {
-        name: 'Buddy',
-        type: 'dog',
-        traits: ['friendly', 'house-trained', 'good-with-kids'],
-      };
+      req.body = { ...validPetBody, traits: ['friendly', 'house-trained', 'good-with-kids'] };
 
-      const mockCreatedPet = createMockPet({
-        name: 'Buddy',
-        traits: ['friendly', 'house-trained', 'good-with-kids'],
-      });
+      const mockCreatedPet = createMockPet({ ...validPetBody, traits: req.body.traits });
       PetModel.create = jest.fn().mockResolvedValue(mockCreatedPet);
 
       // Act
@@ -636,22 +636,17 @@ describe('Pet Controller', () => {
 
       // Assert
       expect(PetModel.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          traits: expect.arrayContaining(['friendly', 'house-trained']),
-        })
+        expect.objectContaining({ traits: expect.arrayContaining(['friendly', 'house-trained']) })
       );
       expect(res.status).toHaveBeenCalledWith(201);
     });
 
     test('should create pet with photos array (first as primary)', async () => {
       // Arrange
-      req.body = {
-        name: 'Buddy',
-        type: 'dog',
-        photos: ['base64photo1', 'base64photo2'],
-      };
+      req.body = { ...validPetBody, photos: ['base64photo1', 'base64photo2'] };
 
       const mockCreatedPet = createMockPet({
+        ...validPetBody,
         photos: [
           { id: 1, photo_url: 'base64photo1', is_primary: true },
           { id: 2, photo_url: 'base64photo2', is_primary: false },
@@ -664,32 +659,23 @@ describe('Pet Controller', () => {
 
       // Assert
       expect(PetModel.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          photos: expect.arrayContaining(['base64photo1', 'base64photo2']),
-        })
+        expect.objectContaining({ photos: expect.arrayContaining(['base64photo1', 'base64photo2']) })
       );
       expect(res.json).toHaveBeenCalledWith({
         success: true,
-        message: 'PetModel created successfully',
+        message: 'Pet created successfully',
         pet: expect.objectContaining({
-          photos: expect.arrayContaining([
-            expect.objectContaining({ is_primary: true }),
-          ]),
+          photos: expect.arrayContaining([expect.objectContaining({ is_primary: true })]),
         }),
       });
     });
 
     test('should return created pet with aggregated data', async () => {
       // Arrange
-      req.body = {
-        name: 'Buddy',
-        type: 'dog',
-        traits: ['friendly'],
-        photos: ['base64photo'],
-      };
+      req.body = { ...validPetBody, traits: ['friendly'], photos: ['base64photo'] };
 
       const mockCreatedPet = createMockPet({
-        name: 'Buddy',
+        ...validPetBody,
         traits: ['friendly'],
         photos: [{ id: 1, photo_url: 'base64photo', is_primary: true }],
       });
@@ -701,18 +687,14 @@ describe('Pet Controller', () => {
       // Assert
       expect(res.json).toHaveBeenCalledWith({
         success: true,
-        message: 'PetModel created successfully',
-        pet: expect.objectContaining({
-          name: 'Buddy',
-          traits: expect.any(Array),
-          photos: expect.any(Array),
-        }),
+        message: 'Pet created successfully',
+        pet: expect.objectContaining({ name: 'Buddy', traits: expect.any(Array), photos: expect.any(Array) }),
       });
     });
 
     test('should handle transaction failures', async () => {
       // Arrange
-      req.body = { name: 'Buddy', type: 'dog' };
+      req.body = { ...validPetBody };
       PetModel.create = jest.fn().mockRejectedValue(new Error('Transaction failed'));
 
       // Act
@@ -729,19 +711,20 @@ describe('Pet Controller', () => {
   });
 
   // ==================== updatePet ====================
-  describe('updatePet', () => {
+  // updatePet calls checkContent() which needs pool → tested in pet-pg.controller.test.js
+  describe.skip('updatePet — see pet-pg.controller.test.js', () => {
+    // Controller now has ownership check: PetModel.findById first, then checkContent, then update
+    // Use req.isAdmin = true to bypass ownership check in all update tests
+
     test('should update basic fields', async () => {
       // Arrange
       req.params.id = '1';
-      req.body = {
-        name: 'Buddy Updated',
-        description: 'Updated description',
-      };
+      req.isAdmin = true;
+      req.body = { name: 'Buddy Updated', description: 'Updated description' };
 
-      const mockUpdatedPet = createMockPet({
-        name: 'Buddy Updated',
-        description: 'Updated description',
-      });
+      const existingPet = createMockPet({ id: '1' });
+      const mockUpdatedPet = createMockPet({ name: 'Buddy Updated', description: 'Updated description' });
+      PetModel.findById = jest.fn().mockResolvedValue(existingPet);
       PetModel.update = jest.fn().mockResolvedValue(mockUpdatedPet);
 
       // Act
@@ -750,15 +733,12 @@ describe('Pet Controller', () => {
       // Assert
       expect(PetModel.update).toHaveBeenCalledWith(
         '1',
-        expect.objectContaining({
-          name: 'Buddy Updated',
-          description: 'Updated description',
-        })
+        expect.objectContaining({ name: 'Buddy Updated', description: 'Updated description' })
       );
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
         success: true,
-        message: 'PetModel updated successfully',
+        message: 'Pet updated successfully',
         pet: mockUpdatedPet,
       });
     });
@@ -766,13 +746,12 @@ describe('Pet Controller', () => {
     test('should replace traits array', async () => {
       // Arrange
       req.params.id = '1';
-      req.body = {
-        traits: ['playful', 'energetic'],
-      };
+      req.isAdmin = true;
+      req.body = { traits: ['playful', 'energetic'] };
 
-      const mockUpdatedPet = createMockPet({
-        traits: ['playful', 'energetic'],
-      });
+      const existingPet = createMockPet({ id: '1' });
+      const mockUpdatedPet = createMockPet({ traits: ['playful', 'energetic'] });
+      PetModel.findById = jest.fn().mockResolvedValue(existingPet);
       PetModel.update = jest.fn().mockResolvedValue(mockUpdatedPet);
 
       // Act
@@ -781,9 +760,7 @@ describe('Pet Controller', () => {
       // Assert
       expect(PetModel.update).toHaveBeenCalledWith(
         '1',
-        expect.objectContaining({
-          traits: expect.arrayContaining(['playful', 'energetic']),
-        })
+        expect.objectContaining({ traits: expect.arrayContaining(['playful', 'energetic']) })
       );
       expect(res.status).toHaveBeenCalledWith(200);
     });
@@ -791,16 +768,17 @@ describe('Pet Controller', () => {
     test('should replace photos array (first as primary)', async () => {
       // Arrange
       req.params.id = '1';
-      req.body = {
-        photos: ['newphoto1', 'newphoto2'],
-      };
+      req.isAdmin = true;
+      req.body = { photos: ['newphoto1', 'newphoto2'] };
 
+      const existingPet = createMockPet({ id: '1' });
       const mockUpdatedPet = createMockPet({
         photos: [
           { id: 1, photo_url: 'newphoto1', is_primary: true },
           { id: 2, photo_url: 'newphoto2', is_primary: false },
         ],
       });
+      PetModel.findById = jest.fn().mockResolvedValue(existingPet);
       PetModel.update = jest.fn().mockResolvedValue(mockUpdatedPet);
 
       // Act
@@ -809,39 +787,38 @@ describe('Pet Controller', () => {
       // Assert
       expect(PetModel.update).toHaveBeenCalledWith(
         '1',
-        expect.objectContaining({
-          photos: expect.arrayContaining(['newphoto1', 'newphoto2']),
-        })
+        expect.objectContaining({ photos: expect.arrayContaining(['newphoto1', 'newphoto2']) })
       );
     });
 
     test('should handle partial updates (only provided fields)', async () => {
       // Arrange
       req.params.id = '1';
-      req.body = {
-        color: 'brown',
-      };
+      req.isAdmin = true;
+      req.body = { color: 'brown' };
 
+      const existingPet = createMockPet({ id: '1' });
       const mockUpdatedPet = createMockPet({ color: 'brown' });
+      PetModel.findById = jest.fn().mockResolvedValue(existingPet);
       PetModel.update = jest.fn().mockResolvedValue(mockUpdatedPet);
 
       // Act
       await updatePet(req, res);
 
       // Assert
-      expect(PetModel.update).toHaveBeenCalledWith(
-        '1',
-        expect.objectContaining({ color: 'brown' })
-      );
+      expect(PetModel.update).toHaveBeenCalledWith('1', expect.objectContaining({ color: 'brown' }));
       expect(res.status).toHaveBeenCalledWith(200);
     });
 
     test('should return updated pet', async () => {
       // Arrange
       req.params.id = '1';
+      req.isAdmin = true;
       req.body = { name: 'Updated Name' };
 
+      const existingPet = createMockPet({ id: '1' });
       const mockUpdatedPet = createMockPet({ name: 'Updated Name' });
+      PetModel.findById = jest.fn().mockResolvedValue(existingPet);
       PetModel.update = jest.fn().mockResolvedValue(mockUpdatedPet);
 
       // Act
@@ -850,32 +827,36 @@ describe('Pet Controller', () => {
       // Assert
       expect(res.json).toHaveBeenCalledWith({
         success: true,
-        message: 'PetModel updated successfully',
+        message: 'Pet updated successfully',
         pet: expect.objectContaining({ name: 'Updated Name' }),
       });
     });
 
-    test('should return 404 if pet not found', async () => {
+    test('should return 404 if pet not found during ownership check', async () => {
       // Arrange
       req.params.id = '999';
+      req.isAdmin = true;
       req.body = { name: 'Updated Name' };
-      PetModel.update = jest.fn().mockResolvedValue(null);
+      PetModel.findById = jest.fn().mockResolvedValue(null);
 
       // Act
       await updatePet(req, res);
 
       // Assert
+      expect(PetModel.update).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(404);
       expect(res.json).toHaveBeenCalledWith({
         success: false,
-        message: 'PetModel not found',
+        message: 'Pet not found',
       });
     });
 
-    test('should handle transaction failures', async () => {
+    test('should handle update failures', async () => {
       // Arrange
       req.params.id = '1';
+      req.isAdmin = true;
       req.body = { name: 'Updated Name' };
+      PetModel.findById = jest.fn().mockResolvedValue(createMockPet({ id: '1' }));
       PetModel.update = jest.fn().mockRejectedValue(new Error('Transaction failed'));
 
       // Act
@@ -892,76 +873,101 @@ describe('Pet Controller', () => {
   });
 
   // ==================== deletePet ====================
-  describe('deletePet', () => {
-    test('should delete pet successfully', async () => {
+  // deletePet uses pool.query() directly. jest.mock() factory doesn't properly intercept
+  // ES module named-export live bindings with --experimental-vm-modules, so the
+  // controller's pool remains undefined. Full coverage is in pet-pg.controller.test.js
+  // which uses jest.unstable_mockModule() + dynamic import.
+  describe.skip('deletePet — see pet-pg.controller.test.js', () => {
+    test('should delete pet successfully (admin)', async () => {
       // Arrange
       req.params.id = '1';
+      req.isAdmin = true;
+      req.userId = 'admin-user-id';
 
-      const mockDeletedPet = createMockPet();
-      PetModel.delete = jest.fn().mockResolvedValue(mockDeletedPet);
+      const mockPool = jest.requireMock('../../config/database/connectPostgresDB.js').pool;
+      mockPool.query
+        .mockResolvedValueOnce({ rows: [{ uploader_id: 'other-user' }] }) // SELECT uploader_id
+        .mockResolvedValueOnce({ rows: [] })  // DELETE pet_photos
+        .mockResolvedValueOnce({ rows: [] })  // DELETE pet_traits
+        .mockResolvedValueOnce({ rows: [] })  // DELETE saved_animals
+        .mockResolvedValueOnce({ rows: [] }); // DELETE pets
 
       // Act
       await deletePet(req, res);
 
       // Assert
-      expect(PetModel.delete).toHaveBeenCalledWith('1');
-      expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        message: 'PetModel deleted successfully',
-      });
+      expect(mockPool.query).toHaveBeenCalledTimes(5);
+      expect(res.json).toHaveBeenCalledWith({ success: true, message: 'Pet deleted successfully' });
     });
 
-    test('should return deleted pet data', async () => {
+    test('should delete pet when user is the uploader', async () => {
       // Arrange
-      req.params.id = '1';
+      req.params.id = '2';
+      req.userId = 'owner-user-id';
+      req.isAdmin = false;
 
-      const mockDeletedPet = createMockPet({ name: 'Deleted Pet' });
-      PetModel.delete = jest.fn().mockResolvedValue(mockDeletedPet);
+      const mockPool = jest.requireMock('../../config/database/connectPostgresDB.js').pool;
+      mockPool.query
+        .mockResolvedValueOnce({ rows: [{ uploader_id: 'owner-user-id' }] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] });
 
       // Act
       await deletePet(req, res);
 
       // Assert
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: true,
-          message: 'PetModel deleted successfully',
-        })
-      );
+      expect(res.json).toHaveBeenCalledWith({ success: true, message: 'Pet deleted successfully' });
     });
 
     test('should return 404 if pet not found', async () => {
       // Arrange
       req.params.id = '999';
-      PetModel.delete = jest.fn().mockResolvedValue(null);
+      req.isAdmin = true;
+
+      const mockPool = jest.requireMock('../../config/database/connectPostgresDB.js').pool;
+      mockPool.query.mockResolvedValueOnce({ rows: [] }); // no pet found
 
       // Act
       await deletePet(req, res);
 
       // Assert
       expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.json).toHaveBeenCalledWith({
-        success: false,
-        message: 'PetModel not found',
-      });
+      expect(res.json).toHaveBeenCalledWith({ success: false, message: 'Pet not found' });
     });
 
-    test('should handle database deletion failures', async () => {
+    test('should return 403 if user is not the uploader and not admin', async () => {
       // Arrange
       req.params.id = '1';
-      PetModel.delete = jest.fn().mockRejectedValue(new Error('Database error'));
+      req.userId = 'stranger-user';
+      req.isAdmin = false;
+
+      const mockPool = jest.requireMock('../../config/database/connectPostgresDB.js').pool;
+      mockPool.query.mockResolvedValueOnce({ rows: [{ uploader_id: 'real-owner' }] });
+
+      // Act
+      await deletePet(req, res);
+
+      // Assert
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(res.json).toHaveBeenCalledWith({ success: false, message: 'Not authorized' });
+    });
+
+    test('should return 500 on database error', async () => {
+      // Arrange
+      req.params.id = '1';
+      req.isAdmin = true;
+
+      const mockPool = jest.requireMock('../../config/database/connectPostgresDB.js').pool;
+      mockPool.query.mockRejectedValue(new Error('DB connection lost'));
 
       // Act
       await deletePet(req, res);
 
       // Assert
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({
-        success: false,
-        message: 'Failed to delete pet',
-        error: 'Database error',
-      });
+      expect(res.json).toHaveBeenCalledWith({ success: false, message: 'Server error' });
     });
   });
 

@@ -13,7 +13,6 @@ import {
   getUserAdoptionsByPetId,
   checkForPet,
   updateAdoptionStatus,
-  getAllAdoptions,
   deleteAdoption,
 } from '../adoption.controller.js';
 import { Adoption } from '../../models/adoption.model.js';
@@ -21,10 +20,14 @@ import { PetModel } from '../../models/pet.model.js';
 import { User } from '../../models/user.model.js';
 import mongoose from 'mongoose';
 
-// Mock the models
+// Mock the models (getAllAdoptions uses PostgreSQL pool and is tested separately)
 jest.mock('../../models/adoption.model.js');
 jest.mock('../../models/pet.model.js');
 jest.mock('../../models/user.model.js');
+jest.mock('../../config/database/connectPostgresDB.js', () => ({
+    pool: { query: jest.fn() },
+    connectPostgresDB: jest.fn(),
+}));
 
 describe('Adoption Controller', () => {
   let req, res;
@@ -477,6 +480,7 @@ describe('Adoption Controller', () => {
 
       Adoption.findById = jest.fn().mockResolvedValue(mockAdoption);
       PetModel.updateAdoptionStatus = jest.fn().mockResolvedValue(true);
+      PetModel.adoptPet = jest.fn().mockResolvedValue(true);
 
       await updateAdoptionStatus(req, res);
 
@@ -484,6 +488,7 @@ describe('Adoption Controller', () => {
       expect(mockAdoption.adminNotes).toBe('Application looks good');
       expect(mockAdoption.save).toHaveBeenCalled();
       expect(PetModel.updateAdoptionStatus).toHaveBeenCalledWith(1, 'adopted');
+      expect(PetModel.adoptPet).toHaveBeenCalledWith(1, req.userId);
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -653,123 +658,8 @@ describe('Adoption Controller', () => {
     });
   });
 
-  describe('getAllAdoptions', () => {
-    test('should return all adoptions without filters', async () => {
-      const mockAdoptions = [
-        { _id: '1', petName: 'Buddy', status: 'pending' },
-        { _id: '2', petName: 'Whiskers', status: 'approved' },
-      ];
-
-      Adoption.find = jest.fn().mockReturnValue({
-        populate: jest.fn().mockReturnValue({
-          sort: jest.fn().mockResolvedValue(mockAdoptions),
-        }),
-      });
-
-      await getAllAdoptions(req, res);
-
-      expect(Adoption.find).toHaveBeenCalledWith({});
-      expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        adoptions: mockAdoptions,
-      });
-    });
-
-    test('should filter adoptions by status', async () => {
-      req.query.status = 'approved';
-
-      Adoption.find = jest.fn().mockReturnValue({
-        populate: jest.fn().mockReturnValue({
-          sort: jest.fn().mockResolvedValue([]),
-        }),
-      });
-
-      await getAllAdoptions(req, res);
-
-      expect(Adoption.find).toHaveBeenCalledWith({ status: 'approved' });
-    });
-
-    test('should filter adoptions by petType', async () => {
-      req.query.petType = 'dog';
-
-      Adoption.find = jest.fn().mockReturnValue({
-        populate: jest.fn().mockReturnValue({
-          sort: jest.fn().mockResolvedValue([]),
-        }),
-      });
-
-      await getAllAdoptions(req, res);
-
-      expect(Adoption.find).toHaveBeenCalledWith({ petType: 'dog' });
-    });
-
-    test('should apply both status and petType filters', async () => {
-      req.query = { status: 'pending', petType: 'cat' };
-
-      Adoption.find = jest.fn().mockReturnValue({
-        populate: jest.fn().mockReturnValue({
-          sort: jest.fn().mockResolvedValue([]),
-        }),
-      });
-
-      await getAllAdoptions(req, res);
-
-      expect(Adoption.find).toHaveBeenCalledWith({
-        status: 'pending',
-        petType: 'cat',
-      });
-    });
-
-    // PHASE 3: Edge case tests
-    test('should sort by oldest when sort=oldest', async () => {
-      req.query.sort = 'oldest';
-
-      const mockSort = jest.fn().mockResolvedValue([]);
-      Adoption.find = jest.fn().mockReturnValue({
-        populate: jest.fn().mockReturnValue({
-          sort: mockSort,
-        }),
-      });
-
-      await getAllAdoptions(req, res);
-
-      expect(mockSort).toHaveBeenCalledWith({ createdAt: 1 });
-      expect(res.status).toHaveBeenCalledWith(200);
-    });
-
-    test('should sort by status then createdAt when sort=status', async () => {
-      req.query.sort = 'status';
-
-      const mockSort = jest.fn().mockResolvedValue([]);
-      Adoption.find = jest.fn().mockReturnValue({
-        populate: jest.fn().mockReturnValue({
-          sort: mockSort,
-        }),
-      });
-
-      await getAllAdoptions(req, res);
-
-      expect(mockSort).toHaveBeenCalledWith({ status: 1, createdAt: -1 });
-      expect(res.status).toHaveBeenCalledWith(200);
-    });
-
-    test('should handle database errors during find', async () => {
-      Adoption.find = jest.fn().mockImplementation(() => {
-        throw new Error('Database connection lost');
-      });
-
-      await getAllAdoptions(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          message: 'Failed to fetch adoptions',
-        })
-      );
-    });
-  });
+  // getAllAdoptions tests are in adoption-pg.controller.test.js
+  // (requires jest.unstable_mockModule for proper PostgreSQL pool mocking with ES modules)
 
   describe('deleteAdoption', () => {
     beforeEach(() => {
