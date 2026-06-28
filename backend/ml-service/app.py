@@ -711,6 +711,7 @@ class AnimalDescriptionGenerator:
         vaccinated = data.get('vaccinated') or 'unknown'
         microchip = data.get('microchip') or 'unknown'
         neutered = data.get('neutered') or 'unknown'
+        dewormed = data.get('dewormed') or 'unknown'
         age = data.get('age') or 'Unknown'
         status = data.get('status') or ''
         current_status_val = (data.get('currentStatus') or data.get('current_status') or '').lower()
@@ -975,6 +976,11 @@ class AnimalDescriptionGenerator:
             health_parts.append(random.choice(['microchipped', 'already microchipped for peace of mind']))
         elif microchip == 'No':
             health_parts.append('not yet microchipped')
+
+        if dewormed == 'Yes':
+            health_parts.append('dewormed')
+        elif dewormed == 'No':
+            health_parts.append('not yet dewormed')
 
         if health_parts:
             health_intros = [
