@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Adoption } from "../models/adoption.model.js";
+import { pool } from "../config/database/connectPostgresDB.js";
 
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://127.0.0.1:5001';
 
@@ -7,33 +7,34 @@ export const getAdoptionPredictions = async (req, res) => {
     try {
         const { viewMode = 'daily', petType = 'all' } = req.body;
 
-        // Build query
-        const query = { status: 'approved' };
+        // Build PostgreSQL query — source of truth for adopted animals
+        let sql = 'SELECT adopted_at FROM pets WHERE is_adopted = true AND adopted_at IS NOT NULL';
+        const params = [];
 
-        // Add pet type filter if not 'all'
         if (petType && petType !== 'all') {
-            query.petType = petType;
+            if (petType === 'other') {
+                sql += ` AND type NOT IN ('dog', 'cat')`;
+            } else {
+                params.push(petType);
+                sql += ` AND type = $${params.length}`;
+            }
         }
 
-        // Fetch only approved adoptions with minimal data
-        const adoptions = await Adoption.find(
-            query,
-            { createdAt: 1, _id: 0 } // Only fetch createdAt field
-        ).lean();
+        const { rows } = await pool.query(sql, params);
 
         // Check if we have enough data
-        if (adoptions.length < 7) {
+        if (rows.length < 7) {
             return res.status(400).json({
                 success: false,
-                message: `Not enough data for predictions. Need at least 7 approved adoptions${petType !== 'all' ? ` for ${petType}s` : ''}.`
+                message: `Not enough data for predictions. Need at least 7 adopted animals${petType !== 'all' ? ` for ${petType}s` : ''}.`
             });
         }
 
-        // Send minimal data to Python service
+        // Send minimal data to Python service — use 'createdAt' key for Flask compatibility
         const response = await axios.post(
             `${ML_SERVICE_URL}/api/ml/predict`,
             {
-                adoptions: adoptions.map(a => ({ createdAt: a.createdAt })),
+                adoptions: rows.map(r => ({ createdAt: r.adopted_at })),
                 viewMode,
                 petType: 'all' // Already filtered by backend
             },
