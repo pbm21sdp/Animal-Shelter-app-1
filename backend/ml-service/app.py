@@ -230,13 +230,40 @@ class AdoptionPredictor:
             print(f"Statistics: {stats}")
             print(f"=== END STATS ===\n")
 
+            # Confidence interval via residual standard deviation (deterministic)
+            try:
+                residuals = fitted_model.fittedvalues - df['y']
+                sigma = float(residuals.std())
+            except Exception:
+                sigma = float(df['y'].std()) * 0.5
+
+            # Cap sigma so CI lower doesn't collapse to 0, which would make the
+            # band appear as a triangle instead of a symmetric band around the forecast
+            pred_mean_for_cap = float(forecast.mean())
+            sigma = min(sigma, max(pred_mean_for_cap * 0.4, 0.5))
+
+            lower_ci = [max(0, round(v)) for v in (forecast - 1.96 * sigma).tolist()]
+            upper_ci = [round(v) for v in (forecast + 1.96 * sigma).tolist()]
+
+            hist_mean_v = float(df['y'].mean())
+            rel_sigma = sigma / max(hist_mean_v, 0.1)
+            if hist_mean_v < 0.5 or len(df) < 4 or rel_sigma > 1.5:
+                confidence_level = 'low'
+            elif hist_mean_v < 2.0 or len(df) < 10 or rel_sigma > 0.6:
+                confidence_level = 'medium'
+            else:
+                confidence_level = 'high'
+
             return {
                 'historicalDates': df['ds'].dt.strftime('%m/%d/%Y').tolist(),
                 'historical': [int(x) for x in df['y'].tolist()],
                 'predictionDates': [d.strftime('%m/%d/%Y') for d in future_dates],
                 'predictions': [int(x) for x in forecast.tolist()],
                 'statistics': stats,
-                'aggregation': aggregation
+                'aggregation': aggregation,
+                'lower': lower_ci,
+                'upper': upper_ci,
+                'confidenceLevel': confidence_level,
             }
 
         except Exception as e:
@@ -269,22 +296,14 @@ class AdoptionPredictor:
 
         predictions = []
         for i in range(periods):
-            # Base prediction with trend
             pred = recent_avg + (trend * i)
-
-            # Add some variation (10% of average)
-            variation = np.random.normal(0, max(recent_avg * 0.1, 0.3))
-            pred = pred + variation
-
-            # Ensure minimum of 1 if historical average > 0
             if recent_avg > 0:
                 pred = max(1, round(pred))
             else:
                 pred = max(0, round(pred))
-
             predictions.append(int(pred))
 
-        print(f"Simple predictions: {predictions}")
+        print(f"Simple predictions (deterministic): {predictions}")
         print(f"=== END SIMPLE PREDICTION ===\n")
 
         last_date = df['ds'].iloc[-1]
@@ -297,6 +316,18 @@ class AdoptionPredictor:
 
         hist_mean = float(df['y'].mean())
         pred_mean = float(np.mean(predictions))
+
+        # Deterministic CI: cap at 35% of recent avg so lower doesn't collapse to 0
+        sigma_proxy = max(recent_avg * 0.35, 0.35)
+        lower_ci = [max(0, round(p - 1.96 * sigma_proxy)) for p in predictions]
+        upper_ci = [round(p + 1.96 * sigma_proxy) for p in predictions]
+
+        if hist_mean < 0.5 or len(df) < 4:
+            confidence_level = 'low'
+        elif hist_mean < 2.0 or len(df) < 10:
+            confidence_level = 'medium'
+        else:
+            confidence_level = 'high'
 
         stats = {
             'averageHistorical': round(hist_mean, 1),
@@ -312,10 +343,125 @@ class AdoptionPredictor:
             'predictionDates': [d.strftime('%m/%d/%Y') for d in future_dates],
             'predictions': predictions,
             'statistics': stats,
-            'aggregation': aggregation
+            'aggregation': aggregation,
+            'lower': lower_ci,
+            'upper': upper_ci,
+            'confidenceLevel': confidence_level,
         }
 
+    def train_and_predict_from_df(self, df, periods, aggregation='monthly'):
+        """Fit ExponentialSmoothing on a pre-built DataFrame and forecast."""
+        min_periods_map = {'daily': 14, 'weekly': 8, 'monthly': 3}
+        required = min_periods_map.get(aggregation, 3)
+        if len(df) < required:
+            raise ValueError(
+                f"Not enough {aggregation} periods: need at least {required}, got {len(df)}."
+            )
+
+        try:
+            if len(df) >= 14:
+                seasonal_periods = 7 if aggregation == 'daily' else (4 if aggregation == 'weekly' else None)
+                if seasonal_periods and len(df) >= seasonal_periods * 2:
+                    model = ExponentialSmoothing(df['y'], seasonal_periods=seasonal_periods, trend='add', seasonal='add', damped_trend=True)
+                else:
+                    model = ExponentialSmoothing(df['y'], trend='add', damped_trend=True)
+            else:
+                model = ExponentialSmoothing(df['y'], trend='add')
+
+            fitted_model = model.fit(optimized=True)
+            forecast = fitted_model.forecast(steps=periods)
+
+            hist_mean = float(df['y'].mean())
+            if forecast.mean() < 0.5 and hist_mean > 0:
+                forecast = forecast + (hist_mean * 0.7)
+            forecast = np.maximum(forecast, 0)
+            forecast = np.round(forecast)
+            if forecast.sum() == 0 and hist_mean > 0:
+                forecast = np.full(periods, float(max(1, round(hist_mean))))
+
+            try:
+                residuals = fitted_model.fittedvalues - df['y']
+                sigma = float(residuals.std())
+            except Exception:
+                sigma = float(df['y'].std()) * 0.5
+
+            # Cap sigma so CI lower doesn't collapse to 0 and create a triangular band
+            pred_mean_for_cap = float(forecast.mean())
+            sigma = min(sigma, max(pred_mean_for_cap * 0.4, 0.5))
+
+            lower_ci = [max(0, round(v)) for v in (forecast - 1.96 * sigma).tolist()]
+            upper_ci = [round(v) for v in (forecast + 1.96 * sigma).tolist()]
+
+            rel_sigma = sigma / max(hist_mean, 0.1)
+            if hist_mean < 0.5 or len(df) < 4 or rel_sigma > 1.5:
+                confidence_level = 'low'
+            elif hist_mean < 2.0 or len(df) < 10 or rel_sigma > 0.6:
+                confidence_level = 'medium'
+            else:
+                confidence_level = 'high'
+
+            last_date = df['ds'].iloc[-1]
+            if aggregation == 'daily':
+                future_dates = pd.date_range(start=last_date + timedelta(days=1), periods=periods, freq='D')
+            elif aggregation == 'weekly':
+                future_dates = pd.date_range(start=last_date + timedelta(weeks=1), periods=periods, freq='W')
+            else:
+                future_dates = pd.date_range(start=last_date + pd.DateOffset(months=1), periods=periods, freq='MS')
+
+            pred_mean = float(forecast.mean())
+            stats = {
+                'averageHistorical': round(hist_mean, 1),
+                'averagePredicted': round(pred_mean, 1),
+                'totalPredicted': int(round(float(forecast.sum()))),
+                'trend': 'increasing' if pred_mean > hist_mean else 'decreasing',
+                'trendPercentage': abs(int(((pred_mean - hist_mean) / hist_mean) * 100)) if hist_mean > 0 else 0
+            }
+
+            return {
+                'historicalDates': df['ds'].dt.strftime('%m/%d/%Y').tolist(),
+                'historical': [int(x) for x in df['y'].tolist()],
+                'predictionDates': [d.strftime('%m/%d/%Y') for d in future_dates],
+                'predictions': [int(x) for x in forecast.tolist()],
+                'statistics': stats,
+                'aggregation': aggregation,
+                'lower': lower_ci,
+                'upper': upper_ci,
+                'confidenceLevel': confidence_level,
+            }
+
+        except Exception as e:
+            print(f"ES model failed in train_and_predict_from_df: {e}")
+            return self.simple_prediction(df, periods, aggregation)
+
+
 predictor = AdoptionPredictor()
+
+@app.route('/api/ml/predict-series', methods=['POST'])
+def predict_series():
+    """Accept a pre-aggregated time series and return an ES forecast with CI."""
+    try:
+        data = request.get_json()
+        series = data.get('series', [])
+        aggregation = data.get('aggregation', 'monthly')
+        periods = int(data.get('periods', 6))
+
+        if len(series) < 2:
+            return jsonify({'error': 'Need at least 2 data points'}), 400
+
+        df = pd.DataFrame(series)
+        df['ds'] = pd.to_datetime(df['ds'])
+        df['y'] = pd.to_numeric(df['y'], errors='coerce').fillna(0).astype(float)
+        df = df.sort_values('ds').reset_index(drop=True)
+
+        result = predictor.train_and_predict_from_df(df, periods, aggregation)
+        return jsonify(result)
+
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/ml/predict', methods=['POST'])
 def predict():
