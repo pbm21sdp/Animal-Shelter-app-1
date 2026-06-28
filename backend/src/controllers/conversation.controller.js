@@ -1,5 +1,6 @@
 import { pool } from '../config/database/connectPostgresDB.js';
 import { User } from '../models/user.model.js';
+import { checkContent } from '../utils/contentFilter.js';
 
 export const startConversation = async (req, res) => {
     try {
@@ -7,6 +8,14 @@ export const startConversation = async (req, res) => {
         const sender_id = req.userId;
         if (!recipient_id || !message?.trim())
             return res.status(400).json({ success: false, message: 'recipient_id and message required' });
+
+        const contentCheck = await checkContent([message]);
+        if (!contentCheck.ok) {
+            return res.status(400).json({
+                success: false,
+                message: "Your submission contains language that isn't allowed. Please revise and try again.",
+            });
+        }
         if (sender_id === recipient_id)
             return res.status(400).json({ success: false, message: 'Cannot message yourself' });
 
@@ -184,6 +193,14 @@ export const sendMessage = async (req, res) => {
 
         if (!content?.trim())
             return res.status(400).json({ success: false, message: 'Empty message' });
+
+        const contentCheck = await checkContent([content]);
+        if (!contentCheck.ok) {
+            return res.status(400).json({
+                success: false,
+                message: "Your submission contains language that isn't allowed. Please revise and try again.",
+            });
+        }
 
         const convCheck = await pool.query(
             `SELECT * FROM conversations WHERE id=$1 AND (participant_one=$2 OR participant_two=$2)`,

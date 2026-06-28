@@ -56,6 +56,7 @@ export default function MessagesPage() {
     const [newMessage, setNewMessage]               = useState('');
     const [loading, setLoading]                     = useState(true);
     const [sending, setSending]                     = useState(false);
+    const [sendError, setSendError]                 = useState('');
     const [hoveredConvId, setHoveredConvId]         = useState(null);
     const [contractGenerating, setContractGenerating] = useState(false);
     const messagesEndRef = useRef(null);
@@ -111,6 +112,7 @@ export default function MessagesPage() {
     const handleSend = async () => {
         if (!newMessage.trim() || !activeConvId || sending) return;
         setSending(true);
+        setSendError('');
         try {
             await axios.post(`${API}/conversations/${activeConvId}/messages`,
                 { content: newMessage.trim() },
@@ -123,6 +125,7 @@ export default function MessagesPage() {
                 c.id === activeConvId ? { ...c, last_message: newMessage.trim(), last_message_at: new Date().toISOString() } : c
             ));
         } catch (e) {
+            setSendError(e.response?.data?.message || 'Failed to send message.');
         } finally {
             setSending(false);
         }
@@ -469,7 +472,19 @@ export default function MessagesPage() {
                             </div>
 
                             {/* Input area */}
-                            <div style={{ borderTop: `1px solid ${C.border}`, padding: '12px 16px', display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+                            <div style={{ borderTop: `1px solid ${C.border}`, padding: '12px 16px' }}>
+                            {sendError && (
+                                <div style={{
+                                    fontFamily: sans, fontSize: '12px', color: '#7A3010',
+                                    backgroundColor: 'rgba(201,122,74,0.08)',
+                                    border: '1px solid rgba(201,122,74,0.25)',
+                                    borderRadius: '6px', padding: '8px 12px',
+                                    marginBottom: '8px',
+                                }}>
+                                    {sendError}
+                                </div>
+                            )}
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
                                 <textarea
                                     rows={2}
                                     value={newMessage}
@@ -499,6 +514,7 @@ export default function MessagesPage() {
                                 >
                                     Send
                                 </button>
+                            </div>
                             </div>
                         </>
                     )}

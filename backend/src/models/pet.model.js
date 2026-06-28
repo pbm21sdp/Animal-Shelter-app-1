@@ -1,5 +1,6 @@
 // models/pet.model.js
 import { pool } from '../config/database/connectPostgresDB.js';
+import { getCityCoords, haversineKm } from '../utils/cityCoords.js';
 
 export const PetModel = {
     // Get all available pets
@@ -225,15 +226,20 @@ export const PetModel = {
         }
     },
 
-    // Get similar pets
+    // Get similar pets — same species (mandatory), nearest city first, breed as tiebreaker.
+    // Candidates whose city is not in the known list are placed at the end, not excluded.
     findSimilar: async (petId) => {
         try {
+            // Fetch current pet's type, breed and city
+            const petRes = await pool.query(
+                'SELECT type, breed, location_city FROM pets WHERE id = $1',
+                [petId]
+            );
+            if (petRes.rows.length === 0) return [];
+            const { type: currentType, breed: currentBreed, location_city: currentCity } = petRes.rows[0];
+
+            // Fetch up to 20 candidates: same type (AND), available, approved, not self
             const query = `
-                WITH current_pet AS (
-                    SELECT type, breed, age_category
-                    FROM pets
-                    WHERE id = $1
-                )
                 SELECT p.*,
                        json_agg(json_build_object(
                            'id', pp.id, 'pet_id', pp.pet_id,
@@ -242,18 +248,48 @@ export const PetModel = {
                            'created_at', pp.created_at
                        )) FILTER (WHERE pp.id IS NOT NULL) as photos
                 FROM pets p
-                         LEFT JOIN pet_photos pp ON p.id = pp.pet_id
+                LEFT JOIN pet_photos pp ON p.id = pp.pet_id
                 WHERE p.is_available = true
                   AND p.status = 'approved'
                   AND p.id != $1
-                  AND (p.type = (SELECT type FROM current_pet)
-                   OR p.breed = (SELECT breed FROM current_pet))
+                  AND LOWER(p.type) = LOWER($2)
                 GROUP BY p.id
-                    LIMIT 4
+                LIMIT 20
             `;
+            const result = await pool.query(query, [petId, currentType]);
 
-            const result = await pool.query(query, [petId]);
-            return result.rows;
+            // Rank by geographic proximity then breed match
+            const currentCoords = getCityCoords(currentCity);
+            const scored = result.rows.map(c => {
+                const candidateCoords = getCityCoords(c.location_city);
+                let distKm = null;
+                if (currentCoords && candidateCoords) {
+                    distKm = haversineKm(currentCoords.lat, currentCoords.lng, candidateCoords.lat, candidateCoords.lng);
+                }
+                const breedMatch = !!(currentBreed && c.breed &&
+                    c.breed.toLowerCase() === currentBreed.toLowerCase());
+                return { ...c, _distKm: distKm, _breedMatch: breedMatch };
+            });
+
+            scored.sort((a, b) => {
+                const aKnown = a._distKm !== null;
+                const bKnown = b._distKm !== null;
+                if (aKnown && !bKnown) return -1;
+                if (!aKnown && bKnown) return 1;
+                if (aKnown && bKnown) {
+                    const diff = a._distKm - b._distKm;
+                    if (Math.abs(diff) > 5) return diff;
+                    if (a._breedMatch && !b._breedMatch) return -1;
+                    if (!a._breedMatch && b._breedMatch) return 1;
+                    return diff;
+                }
+                // Both city unknown: breed match wins
+                if (a._breedMatch && !b._breedMatch) return -1;
+                if (!a._breedMatch && b._breedMatch) return 1;
+                return 0;
+            });
+
+            return scored.slice(0, 4).map(({ _distKm, _breedMatch, ...pet }) => pet);
         } catch (error) {
             console.error('Error in PetModel.findSimilar:', error);
             throw error;
@@ -273,7 +309,7 @@ export const PetModel = {
                 shelter_contact_phone, traits, photos, zip_code,
                 uploader_id, latitude, longitude, found_how,
                 situation, current_status, microchip_status,
-                neutered_spayed_status, vaccination_status, breed_unsure
+                neutered_spayed_status, vaccination_status, deworming_status, breed_unsure
             } = petData;
 
             // Insert pet
@@ -283,9 +319,9 @@ export const PetModel = {
                     fee, description, health_status, story, location_address,
                     location_city, location_country, shelter_contact_email,
                     shelter_contact_phone, zip_code, uploader_id, latitude, longitude, found_how,
-                    situation, current_status, microchip_status, neutered_spayed_status, vaccination_status,
-                    breed_unsure
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
+                    situation, current_status, microchip_status, neutered_spayed_status,
+                    vaccination_status, deworming_status, breed_unsure
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29)
                     RETURNING *
             `;
 
@@ -297,7 +333,7 @@ export const PetModel = {
                 latitude || null, longitude || null, found_how || null,
                 situation || null, current_status || null, microchip_status || null,
                 neutered_spayed_status || null, vaccination_status || null,
-                breed_unsure ?? false
+                deworming_status || null, breed_unsure ?? false
             ];
 
             const petResult = await client.query(petQuery, petValues);

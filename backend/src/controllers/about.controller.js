@@ -2,37 +2,9 @@
 import { pool } from '../config/database/connectPostgresDB.js';
 import { User } from '../models/user.model.js';
 import Anthropic from '@anthropic-ai/sdk';
+import axios from 'axios';
 
-// ─── Forecast helpers ─────────────────────────────────────────────────────────
-function linReg(values) {
-    const n = values.length;
-    if (n <= 1) return { slope: 0, intercept: values[0] || 0 };
-    const meanX = (n - 1) / 2;
-    const meanY = values.reduce((a, b) => a + b, 0) / n;
-    let num = 0, den = 0;
-    for (let i = 0; i < n; i++) {
-        num += (i - meanX) * (values[i] - meanY);
-        den += (i - meanX) ** 2;
-    }
-    const slope = den !== 0 ? num / den : 0;
-    return { slope, intercept: meanY - slope * meanX };
-}
-
-function forecastSteps(values, steps) {
-    if (values.length === 0) return Array(steps).fill(0);
-    const lastVal = Math.max(0, Math.round(values[values.length - 1]));
-    if (values.length < 2) return Array(steps).fill(lastVal);
-    const { slope, intercept } = linReg(values);
-    const n = values.length;
-    // If the very next predicted value is already ≤ 0 (steep decline), fall back to
-    // the last known value rather than showing a misleading flat-zero forecast line.
-    if (Math.round(intercept + slope * n) <= 0) {
-        return Array(steps).fill(lastVal);
-    }
-    return Array.from({ length: steps }, (_, i) =>
-        Math.max(0, Math.round(intercept + slope * (n + i)))
-    );
-}
+const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://127.0.0.1:5001';
 
 // ─── GET /api/animals/stats ───────────────────────────────────────────────────
 // Each query is isolated — one failing column doesn't kill all stats.
@@ -566,51 +538,78 @@ export const getPlatformAnalytics = async (req, res) => {
 
         const MIN_MONTHS      = 3;
         const FORECAST_MONTHS = 6;
-        let forecastLabels = [], forecastUploads = [], forecastAdoptions = [];
-        let next30 = null, next90 = null;
 
         const now = new Date();
         const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
         const daysInMonth  = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
         const scaleFactor  = daysInMonth / now.getDate();
 
-        // Build per-metric regression arrays from their own rows only.
-        // Using allMonths (the union) would zero-pad months where one metric has
-        // no data, distorting the slope and producing false 0 forecasts.
-        const regressionUploads   = uploadsRows.map(r =>
-            r.month === currentMonthStr ? Math.round(r.count * scaleFactor) : r.count
-        );
-        const regressionAdoptions = adoptionRows.map(r =>
-            r.month === currentMonthStr ? Math.round(r.count * scaleFactor) : r.count
-        );
-
-        if (allMonths.length >= MIN_MONTHS) {
-            let d = new Date(allMonths[allMonths.length - 1] + '-01');
-            for (let i = 0; i < FORECAST_MONTHS; i++) {
-                d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
-                forecastLabels.push(d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }));
-            }
-
-            // Uploads — require ≥2 months so the regression has a real slope.
-            // Show even if the trend is declining to 0 (honest information).
-            if (regressionUploads.length >= 2) {
-                forecastUploads = forecastSteps(regressionUploads, FORECAST_MONTHS);
-            }
-
-            // Adoptions — require ≥2 months for a chart line; with only 1 month
-            // forecastSteps returns a flat constant which is visually misleading.
-            if (regressionAdoptions.length >= 2) {
-                forecastAdoptions = forecastSteps(regressionAdoptions, FORECAST_MONTHS);
-                next30 = forecastAdoptions[0] ?? null;
-                next90 = forecastAdoptions.slice(0, 3).reduce((a, b) => a + b, 0);
-            } else if (regressionAdoptions.length === 1) {
-                // Single data point: show estimated values in cards but no flat line on chart.
-                next30 = regressionAdoptions[0];
-                next90 = regressionAdoptions[0] * 3;
-            }
-        }
+        let forecastLabels = [], forecastUploads = [], forecastAdoptions = [];
+        let forecastUploadsLower = [], forecastUploadsUpper = [];
+        let forecastAdoptionsLower = [], forecastAdoptionsUpper = [];
+        let confidenceUploads = null, confidenceAdoptions = null;
+        let next30 = null, next90 = null;
 
         const insufficientForecast = allMonths.length < MIN_MONTHS;
+
+        // Convert a '%m/%d/%Y' date string from Flask into 'Mon YY' label
+        const fmtPredDate = (mmddyyyy) => {
+            const [m, d, y] = mmddyyyy.split('/');
+            return new Date(+y, +m - 1, +d).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+        };
+
+        // Call Flask predict-series with pre-scaled monthly data
+        const callFlask = async (series) => {
+            if (series.length < MIN_MONTHS) return null;
+            try {
+                const resp = await axios.post(
+                    `${ML_SERVICE_URL}/api/ml/predict-series`,
+                    { series, periods: FORECAST_MONTHS, aggregation: 'monthly' },
+                    { timeout: 30000 }
+                );
+                return resp.data;
+            } catch (err) {
+                console.warn('[analytics] Flask predict-series failed:', err.message);
+                return null;
+            }
+        };
+
+        if (!insufficientForecast) {
+            // Apply scaleFactor to the current month BEFORE sending to Flask
+            const uploadsSeries   = uploadsRows.map(r => ({
+                ds: r.month,
+                y: r.month === currentMonthStr ? Math.round(r.count * scaleFactor) : r.count,
+            }));
+            const adoptionsSeries = adoptionRows.map(r => ({
+                ds: r.month,
+                y: r.month === currentMonthStr ? Math.round(r.count * scaleFactor) : r.count,
+            }));
+
+            const [uploadsResult, adoptionsResult] = await Promise.all([
+                callFlask(uploadsSeries),
+                callFlask(adoptionsSeries),
+            ]);
+
+            if (uploadsResult) {
+                forecastLabels      = uploadsResult.predictionDates.map(fmtPredDate);
+                forecastUploads     = uploadsResult.predictions;
+                forecastUploadsLower = uploadsResult.lower || [];
+                forecastUploadsUpper = uploadsResult.upper || [];
+                confidenceUploads   = uploadsResult.confidenceLevel || null;
+            }
+
+            if (adoptionsResult) {
+                if (forecastLabels.length === 0) {
+                    forecastLabels = adoptionsResult.predictionDates.map(fmtPredDate);
+                }
+                forecastAdoptions      = adoptionsResult.predictions;
+                forecastAdoptionsLower = adoptionsResult.lower || [];
+                forecastAdoptionsUpper = adoptionsResult.upper || [];
+                confidenceAdoptions    = adoptionsResult.confidenceLevel || null;
+                next30 = adoptionsResult.predictions[0] ?? null;
+                next90 = adoptionsResult.predictions.slice(0, 3).reduce((a, b) => a + b, 0);
+            }
+        }
 
         // Type-specific adoption rates
         const dogRate = dogRow.total > 0 ? Math.round((dogRow.adopted / dogRow.total) * 100) : null;
@@ -643,11 +642,17 @@ export const getPlatformAnalytics = async (req, res) => {
                     forecastLabels,
                     forecastUploads,
                     forecastAdoptions,
+                    forecastUploadsLower,
+                    forecastUploadsUpper,
+                    forecastAdoptionsLower,
+                    forecastAdoptionsUpper,
                     insufficient: insufficientForecast,
                 },
                 forecast: { next30, next90, insufficient: insufficientForecast },
                 metrics: { dog_adoption_rate: dogRate, cat_adoption_rate: catRate },
                 needleInsights,
+                confidenceUploads,
+                confidenceAdoptions,
             },
         });
     } catch (error) {

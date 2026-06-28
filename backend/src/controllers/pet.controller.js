@@ -3,6 +3,7 @@ import { PetModel } from '../models/pet.model.js';
 import { Adoption } from '../models/adoption.model.js';
 import { pool } from '../config/database/connectPostgresDB.js';
 import { User } from '../models/user.model.js';
+import { checkContent } from '../utils/contentFilter.js';
 
 export const getAllPets = async (req, res) => {
     try {
@@ -203,6 +204,18 @@ export const createPet = async (req, res) => {
             });
         }
 
+        const contentCheck = await checkContent([
+            req.body.name, req.body.description, req.body.story,
+            req.body.breed, req.body.found_how, req.body.type,
+            req.body.color, req.body.shelter_contact_email, req.body.shelter_contact_phone,
+        ]);
+        if (!contentCheck.ok) {
+            return res.status(400).json({
+                success: false,
+                message: "Your submission contains language that isn't allowed. Please revise and try again.",
+            });
+        }
+
         const petData = { ...req.body, uploader_id: req.userId };
         const newPet = await PetModel.create(petData);
 
@@ -245,6 +258,18 @@ export const updatePet = async (req, res) => {
         const isOwner = existing.uploader_id && existing.uploader_id === req.userId;
         if (!isOwner && !req.isAdmin) {
             return res.status(403).json({ success: false, message: 'Forbidden — only the uploader or an admin can edit this listing' });
+        }
+
+        const contentCheck = await checkContent([
+            req.body.name, req.body.description, req.body.story,
+            req.body.breed, req.body.found_how, req.body.type,
+            req.body.color, req.body.shelter_contact_email, req.body.shelter_contact_phone,
+        ]);
+        if (!contentCheck.ok) {
+            return res.status(400).json({
+                success: false,
+                message: "Your submission contains language that isn't allowed. Please revise and try again.",
+            });
         }
 
         // Non-admin uploaders always trigger re-moderation on edit

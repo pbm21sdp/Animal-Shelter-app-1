@@ -1,116 +1,103 @@
-// frontend/src/pages/Admin/StatisticsManagement.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { formatDate } from '../../utils/date';
 import { useAdoptionStore } from '../../store/adoptionStore';
-import { useDonationStore } from '../../store/donationStore';
-import { Edit, Trash2, Copy, Check } from 'lucide-react';
-
-
-import AdminTable from './shared/AdminTable';
-import AdminPagination from './shared/AdminPagination';
-import AdminModal from './shared/AdminModal';
-import AdminSearchBar from './shared/AdminSearchBar';
-
 import {
-    BarChart3,
-    TrendingUp,
-    TrendingDown,
-    Calendar,
-    Filter,
-    RefreshCw,
-    AlertCircle,
-    Info,
-    Banknote,
-    PawPrint,
-    Users,
-    ArrowUp,
-    ArrowDown
+    BarChart3, TrendingUp, Calendar, RefreshCw, AlertCircle, Info,
+    PawPrint, Users, ArrowUp, ArrowDown,
 } from 'lucide-react';
 import {
-    LineChart,
-    Line,
-    BarChart,
-    Bar,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-    Legend,
+    ComposedChart,
+    BarChart, Bar,
+    XAxis, YAxis, CartesianGrid, Tooltip, Legend,
     ResponsiveContainer,
-    Area,
-    AreaChart,
-    PieChart,
-    Pie,
-    Cell
+    PieChart, Pie, Cell,
 } from 'recharts';
+import { makeRechartsXAxisFormatter } from '../../utils/chartLabels';
 import axios from 'axios';
 
+const API   = 'http://localhost:5000/api';
+const serif = "'Cormorant Garamond', serif";
+const sans  = "'DM Sans', sans-serif";
+
+const C = {
+    cream:      '#FFFAF7',
+    espresso:   '#2D1F14',
+    terracotta: '#C97A4A',
+    muted:      '#7A5C44',
+    border:     'rgba(45,31,20,0.1)',
+    bg:         'rgba(45,31,20,0.03)',
+};
+
+const CHART_COLORS = ['#C97A4A', '#2D1F14', '#8B4E28', '#7A5C44', '#D4956A', '#B09880'];
+
+const card = {
+    backgroundColor: '#fff',
+    borderRadius: '8px',
+    boxShadow: '0 2px 8px rgba(45,31,20,0.06)',
+    padding: '24px',
+    border: '1px solid rgba(45,31,20,0.08)',
+};
+
+const statCard = {
+    backgroundColor: 'rgba(45,31,20,0.03)',
+    borderRadius: '8px',
+    padding: '20px',
+};
+
+const miniLabel = {
+    fontFamily: sans,
+    fontSize: '11px',
+    color: '#7A5C44',
+    marginBottom: '4px',
+};
+
+const Spinner = () => (
+    <div
+        className="animate-spin"
+        style={{
+            width: '32px', height: '32px', borderRadius: '50%',
+            borderTop: `2px solid ${C.terracotta}`,
+            borderBottom: `2px solid ${C.terracotta}`,
+            borderLeft: '2px solid transparent',
+            borderRight: '2px solid transparent',
+        }}
+    />
+);
+
+const PET_TYPES = ['dog', 'cat', 'rabbit', 'bird', 'other'];
+
 const StatisticsManagement = () => {
-    const { adoptions, getAllAdoptions, isLoading: adoptionsLoading } = useAdoptionStore();
+    const { adoptions, getAllAdoptions } = useAdoptionStore();
 
-    // State
-    const [predictionDays, setPredictionDays] = useState(90);
-    const [selectedPetType, setSelectedPetType] = useState('all');
-    const [viewMode, setViewMode] = useState('combined'); // 'combined', 'adoptions', 'donations'
-    const [error, setError] = useState(null);
+    const [selectedPetType,      setSelectedPetType]      = useState('all');
+    const [predictionViewMode,   setPredictionViewMode]   = useState('daily');
+    const [predictionData,       setPredictionData]       = useState(null);
+    const [isPredictionLoading,  setIsPredictionLoading]  = useState(false);
+    const [predictionError,      setPredictionError]      = useState(null);
 
-    // Moderation stats state
-    const [modStats, setModStats]           = useState(null);
-    const [modStatsLoading, setModStatsLoading] = useState(false);
-    const [modStatsError, setModStatsError] = useState(null);
+    const [animalStats,       setAnimalStats]       = useState(null);
+    const [modStats,          setModStats]          = useState(null);
+    const [modStatsLoading,   setModStatsLoading]   = useState(false);
+    const [modStatsError,     setModStatsError]     = useState(null);
 
-    // Add these state variables after your existing state
-    const [users, setUsers] = useState([]);
-    const [filteredUsers, setFilteredUsers] = useState([]);
-    const [selectedUser, setSelectedUser] = useState(null);
-    const [userSearchTerm, setUserSearchTerm] = useState('');
-    const [isLoadingUsers, setIsLoadingUsers] = useState(false);
-    const [currentUserPage, setCurrentUserPage] = useState(1);
-    const [usersPerPage] = useState(10);
-
-    // Add copy functionality state
-    const [copiedSessionId, setCopiedSessionId] = useState(null);
-    const [showCopyToast, setShowCopyToast] = useState(false);
-
-    // Add edit modal form state
-    const [donationFormData, setDonationFormData] = useState({
-        amount: '',
-        status: '',
-        date: ''
-    });
-    const [showDeleteModal, setShowDeleteModal] = useState(false);
-
-    // Donations state
-    const {
-        donations,
-        isLoading: donationsLoading,
-        pagination,
-        getAllDonations,
-        updateDonation,
-        deleteDonation
-    } = useDonationStore();
-
-    const [donationFilters, setDonationFilters] = useState({
-        page: 1,
-        limit: 10,
-        status: 'all'
-    });
-    const [selectedDonation, setSelectedDonation] = useState(null);
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-
-    // Fetch data on mount
     useEffect(() => {
         getAllAdoptions();
-        getAllDonations(donationFilters);
-        fetchUsers();
+        fetchAnimalStats();
         fetchModerationStats();
-    }, [getAllAdoptions, getAllDonations, donationFilters]);
+    }, []);
+
+    const fetchAnimalStats = async () => {
+        try {
+            const res = await axios.get(`${API}/animals/stats`, { withCredentials: true });
+            if (res.data.success) setAnimalStats(res.data.stats);
+        } catch { /* non-fatal */ }
+    };
 
     const fetchModerationStats = async () => {
         setModStatsLoading(true);
         setModStatsError(null);
         try {
-            const res = await axios.get('http://localhost:5000/api/pets/admin/moderation-stats', { withCredentials: true });
+            const res = await axios.get(`${API}/pets/admin/moderation-stats`, { withCredentials: true });
             if (res.data.success) setModStats(res.data.stats);
         } catch (err) {
             setModStatsError(err.response?.data?.message || 'Failed to load moderation statistics');
@@ -119,267 +106,45 @@ const StatisticsManagement = () => {
         }
     };
 
-    useEffect(() => {
-        if (users.length) {
-            setFilteredUsers(
-                users.filter(user =>
-                    user.name?.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
-                    user.email?.toLowerCase().includes(userSearchTerm.toLowerCase())
-                )
-            );
-        }
-    }, [userSearchTerm, users]);
-
-    // Fetch donations
-    const fetchDonations = async () => {
-        await getAllDonations(donationFilters);
-    };
-
-    // Add this function after your fetchDonations function
-    const fetchUsers = async () => {
-        setIsLoadingUsers(true);
-        try {
-            const response = await axios.get('http://localhost:5000/api/users/admin', {
-                withCredentials: true
-            });
-            if (response.data.success) {
-                setUsers(response.data.users);
-                setFilteredUsers(response.data.users);
-            }
-        } catch (error) {
-            console.error('Error fetching users:', error);
-        } finally {
-            setIsLoadingUsers(false);
-        }
-    };
-
-    const handleUserSelect = (user) => {
-        setSelectedUser(user);
-
-        if (user) {
-            // Fetch donations for specific user
-            setDonationFilters({
-                page: 1,
-                limit: 10,
-                status: 'all',
-                userId: user._id
-            });
-        } else {
-            // Fetch all donations
-            setDonationFilters({
-                page: 1,
-                limit: 10,
-                status: 'all',
-                userId: null
-            });
-        }
-    };
-
-    const copyToClipboard = (text) => {
-        navigator.clipboard.writeText(text)
-            .then(() => {
-                setCopiedSessionId(text);
-                setShowCopyToast(true);
-                setTimeout(() => {
-                    setShowCopyToast(false);
-                    setTimeout(() => setCopiedSessionId(null), 300);
-                }, 2000);
-            })
-            .catch(err => console.error('Failed to copy:', err));
-    };
-
-    const handleDeleteDonation = async (id) => {
-        if (window.confirm('Are you sure you want to delete this donation?')) {
-            const result = await deleteDonation(id);
-            if (result.success) {
-                getAllDonations(donationFilters);
-            }
-        }
-    };
-
-    const handleDonationEditClick = (donation) => {
-        setSelectedDonation(donation);
-        const donationDate = new Date(donation.createdAt);
-        const formattedDate = donationDate.toISOString().slice(0, 16);
-
-        setDonationFormData({
-            amount: donation.amount,
-            status: donation.status,
-            date: formattedDate
-        });
-        setIsEditModalOpen(true);
-    };
-
-    const handleDonationFormChange = (e) => {
-        const { name, value } = e.target;
-        setDonationFormData(prev => ({
-            ...prev,
-            [name]: value
-        }));
-    };
-
-    const handleUpdateDonation = async () => {
-        if (!selectedDonation) return;
-
-        const result = await updateDonation(selectedDonation._id, {
-            amount: parseFloat(donationFormData.amount),
-            status: donationFormData.status,
-            createdAt: new Date(donationFormData.date).toISOString()
-        });
-
-        if (result.success) {
-            getAllDonations(donationFilters);
-            setIsEditModalOpen(false);
-        }
-    };
-
-    // Calculate donation statistics
-    const donationStats = useMemo(() => {
-        if (!donations.length) return {
-            total: 0,
-            count: 0,
-            completed: 0,
-            pending: 0,
-            recent: 0,
-            averageAmount: 0
-        };
-
-        const total = donations.reduce((sum, d) => sum + d.amount, 0);
-        const completed = donations.filter(d => d.status === 'completed');
-        const pending = donations.filter(d => d.status === 'pending');
-
-        // Last 7 days
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        const recentDonations = donations.filter(d => new Date(d.createdAt) > weekAgo);
-
-        return {
-            total: total,
-            count: donations.length,
-            completed: completed.length,
-            pending: pending.length,
-            recent: recentDonations.length,
-            averageAmount: total / donations.length
-        };
-    }, [donations]);
-
-    // Calculate adoption statistics
-    const adoptionStats = useMemo(() => {
-        if (!adoptions || adoptions.length === 0) {
-            return { total: 0, avgDays: null, topCity: null, thisMonth: 0 };
-        }
-
-        const total = adoptions.length;
-
-        const withDays = adoptions.filter(a => a.daysToAdoption != null);
-        const avgDays = withDays.length > 0
-            ? Math.round(withDays.reduce((s, a) => s + a.daysToAdoption, 0) / withDays.length)
-            : null;
-
-        const cityCount = {};
-        for (const a of adoptions) {
-            if (a.city) cityCount[a.city] = (cityCount[a.city] || 0) + 1;
-        }
-        const topCity = Object.entries(cityCount).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
-
-        const now = new Date();
-        const thisMonth = adoptions.filter(a => {
-            if (!a.adoptedAt) return false;
-            const d = new Date(a.adoptedAt);
-            return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-        }).length;
-
-        return { total, avgDays, topCity, thisMonth };
-    }, [adoptions]);
-
-    // Generate predictions
-    const [predictionData, setPredictionData] = useState(null);
-    const [isPredictionLoading, setIsPredictionLoading] = useState(false);
-    const [predictionViewMode, setPredictionViewMode] = useState('daily'); // 'daily', 'weekly', 'monthly'
-
-// Fetch predictions from backend
     const fetchPredictions = async () => {
-        if (!adoptions || adoptions.length === 0) {
-            setPredictionData(null);
-            return;
-        }
-
         setIsPredictionLoading(true);
-        setError(null);
-
+        setPredictionError(null);
         try {
-            // ✅ FIXED: Don't send adoptions array - backend fetches them
             const response = await axios.post(
-                'http://localhost:5000/api/predictions/adoptions',
-                {
-                    viewMode: predictionViewMode,  // Only send view mode
-                    petType: selectedPetType       // And pet type filter
-                },
+                `${API}/predictions/adoptions`,
+                { viewMode: predictionViewMode, petType: selectedPetType },
                 { withCredentials: true }
             );
-
             if (response.data.success) {
                 const data = response.data.data;
-
-                // Prepare chart data
                 const chartData = [];
-
-                // Add historical data
-                data.historicalDates.forEach((date, index) => {
-                    chartData.push({
-                        date: date,
-                        actual: data.historical[index],
-                        predicted: null,
-                        type: 'historical'
-                    });
-                });
-
-                // Add prediction data
-                data.predictionDates.forEach((date, index) => {
-                    chartData.push({
-                        date: date,
-                        actual: null,
-                        predicted: data.predictions[index], // Already rounded in Python
-                        type: 'prediction'
-                    });
-                });
-
+                data.historicalDates.forEach((date, i) =>
+                    chartData.push({ date, actual: data.historical[i], predicted: null })
+                );
+                data.predictionDates.forEach((date, i) =>
+                    chartData.push({ date, actual: null, predicted: data.predictions[i] })
+                );
                 setPredictionData({
                     chartData,
                     statistics: data.statistics,
-                    raw: data
+                    confidenceLevel: data.confidenceLevel || null,
                 });
             }
-        } catch (error) {
-            const backendError = error.response?.data?.message || error.response?.data?.error;
-            console.error('Error fetching predictions:', backendError || error.message);
-
+        } catch (err) {
+            const msg = err.response?.data?.message || err.response?.data?.error;
             setPredictionData(null);
-            setError(
-                backendError
-                    ? `${backendError}`
-                    : 'Failed to generate predictions. Make sure Python ML service is running.'
-            );
+            setPredictionError(msg || 'Failed to generate predictions. Make sure Python ML service is running.');
         } finally {
             setIsPredictionLoading(false);
         }
     };
 
-// Call fetchPredictions when dependencies change
     useEffect(() => {
-        if (adoptions && adoptions.length > 0) {
-            fetchPredictions();
-        }
-    }, [adoptions, selectedPetType, predictionViewMode]); // ADD predictionViewMode
+        fetchPredictions();
+    }, [selectedPetType, predictionViewMode]);
 
-    // Get available pet types
-    const availablePetTypes = useMemo(() => {
-        if (!adoptions) return [];
-        const types = new Set(adoptions.map(a => a.petType).filter(Boolean));
-        return Array.from(types);
-    }, [adoptions]);
+    const availablePetTypes = PET_TYPES;
 
-    // Prepare pet type distribution data
     const petTypeDistribution = useMemo(() => {
         if (!adoptions || adoptions.length === 0) return [];
         const distribution = adoptions.reduce((acc, adoption) => {
@@ -393,239 +158,210 @@ const StatisticsManagement = () => {
         }));
     }, [adoptions]);
 
-    // City distribution
     const cityDistribution = useMemo(() => {
         if (!adoptions || adoptions.length === 0) return [];
-        const m = {};
+        const normalize = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+        const counts = {};
+        const display = {};
         for (const a of adoptions) {
             if (!a.city) continue;
-            m[a.city] = (m[a.city] || 0) + 1;
+            const key = normalize(a.city);
+            counts[key] = (counts[key] || 0) + 1;
+            if (!display[key]) display[key] = a.city;
         }
-        return Object.entries(m)
+        return Object.entries(counts)
             .sort((a, b) => b[1] - a[1])
             .slice(0, 8)
-            .map(([name, value]) => ({ name, value }));
+            .map(([key, value]) => ({ name: display[key], value }));
     }, [adoptions]);
 
-    const COLORS = ['#14b8a6', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
-    // Custom tooltip for the prediction chart
     const CustomTooltip = ({ active, payload, label }) => {
-        if (active && payload && payload.length) {
-            return (
-                <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-lg">
-                    <p className="font-semibold mb-2">{label}</p>
-                    {payload.map((entry, index) => (
-                        <p key={index} style={{ color: entry.color }}>
-                            {entry.name}: {entry.value?.toFixed(1)} adoptions
-                        </p>
-                    ))}
-                </div>
-            );
-        }
-        return null;
-    };
-
-    const isLoading = adoptionsLoading || donationsLoading;
-
-    if (isLoading && (!adoptions || !donations)) {
+        if (!active || !payload?.length) return null;
+        const visible = payload.filter(e => e.value != null && e.value !== 0);
+        if (!visible.length) return null;
         return (
-            <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-tealcustom"></div>
+            <div style={{
+                backgroundColor: '#fff', padding: '10px 14px',
+                border: '1px solid rgba(45,31,20,0.12)', borderRadius: '6px',
+                boxShadow: '0 4px 12px rgba(45,31,20,0.1)', fontFamily: sans,
+            }}>
+                <p style={{ fontWeight: 600, color: C.espresso, marginBottom: '4px', fontSize: '12px' }}>{label}</p>
+                {visible.map((entry, i) => (
+                    <p key={i} style={{ color: entry.color, fontSize: '12px' }}>
+                        {entry.name}: {Math.round(entry.value)} adoptions
+                    </p>
+                ))}
             </div>
         );
-    }
+    };
+
+    const periodLabel = predictionViewMode === 'daily' ? 'day' : predictionViewMode === 'weekly' ? 'week' : 'month';
 
     return (
-        <div className="w-full">
-            {/* Header */}
-            <div className="flex flex-wrap justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold mb-4 sm:mb-0 flex items-center">
-                    <BarChart3 className="h-6 w-6 mr-2 text-tealcustom" />
+        <div style={{ width: '100%' }}>
+
+            {/* ── Header ───────────────────────────────────────────────────── */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', gap: '12px' }}>
+                <h2 style={{ fontFamily: serif, fontSize: '26px', fontWeight: 600, color: C.espresso, display: 'flex', alignItems: 'center', gap: '10px', margin: 0 }}>
+                    <BarChart3 style={{ width: '22px', height: '22px', color: C.terracotta }} />
                     Statistics & Predictions
                 </h2>
-                <div className="flex items-center gap-4">
-                    <button
-                        onClick={() => {
-                            getAllAdoptions();
-                            getAllDonations(donationFilters);
-                        }}
-                        className="bg-tealcustom hover:bg-teal-700 text-white px-4 py-2 rounded-md flex items-center"
-                    >
-                        <RefreshCw className="h-5 w-5 mr-1" />
-                        Refresh
-                    </button>
-                </div>
+                <button
+                    onClick={() => { fetchAnimalStats(); fetchModerationStats(); }}
+                    style={{
+                        backgroundColor: C.espresso, color: C.cream,
+                        border: 'none', borderRadius: '6px',
+                        padding: '9px 18px', fontFamily: sans, fontSize: '13px', fontWeight: 500,
+                        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+                        transition: 'opacity 0.15s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.opacity = '0.85'; }}
+                    onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+                >
+                    <RefreshCw style={{ width: '14px', height: '14px' }} />
+                    Refresh
+                </button>
             </div>
 
-            {/* Error Display */}
-            {error && (
-                <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-2 text-yellow-800">
-                    <AlertCircle className="h-5 w-5 mt-0.5" />
-                    <div>
-                        <p className="font-medium">Predictions Unavailable</p>
-                        <p className="text-sm mt-1">{error}</p>
-                        {error.includes('minimum 7') && (
-                            <p className="text-sm mt-2">
-                                <strong>How to fix:</strong> Go to the Adoptions section and approve at least 7 applications.
-                            </p>
-                        )}
-                    </div>
-                </div>
-            )}
+            {/* ── Overview Cards — 3 columns ────────────────────────────── */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '20px' }}>
 
-            {/* Overview Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                {/* Animals found a home */}
-                <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-teal-500">
-                    <div className="flex justify-between items-start">
+                {/* Animals Found a Home — source: PostgreSQL pets.is_adopted */}
+                <div style={{ ...card, borderLeft: `4px solid ${C.terracotta}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div>
-                            <p className="text-gray-500 text-sm font-medium mb-1">Animals Found a Home</p>
-                            <p className="text-3xl font-bold text-gray-900">{adoptionStats.total}</p>
-                            <p className="text-sm text-gray-500 mt-1">
-                                {adoptionStats.thisMonth > 0 ? `${adoptionStats.thisMonth} this month` : 'all time'}
+                            <p style={{ fontFamily: sans, fontSize: '11px', fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>
+                                Animals Found a Home
                             </p>
+                            <p style={{ fontFamily: serif, fontSize: '38px', fontWeight: 600, color: C.espresso, lineHeight: 1 }}>
+                                {animalStats?.found_home ?? '—'}
+                            </p>
+                            <p style={{ fontFamily: sans, fontSize: '11px', color: C.muted, marginTop: '6px' }}>all time</p>
                         </div>
-                        <div className="bg-teal-100 p-3 rounded-full">
-                            <PawPrint className="h-6 w-6 text-teal-600" />
+                        <div style={{ backgroundColor: 'rgba(201,122,74,0.12)', borderRadius: '50%', padding: '10px', flexShrink: 0 }}>
+                            <PawPrint style={{ width: '20px', height: '20px', color: C.terracotta }} />
                         </div>
                     </div>
                 </div>
 
-                {/* Avg days to adoption */}
-                <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-500">
-                    <div className="flex justify-between items-start">
+                {/* Avg Time to Adoption — source: PostgreSQL adopted_at - created_at */}
+                <div style={{ ...card, borderLeft: `4px solid ${C.muted}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div>
-                            <p className="text-gray-500 text-sm font-medium mb-1">Avg. Time to Adoption</p>
-                            <p className="text-3xl font-bold text-gray-900">
-                                {adoptionStats.avgDays != null ? adoptionStats.avgDays : '—'}
+                            <p style={{ fontFamily: sans, fontSize: '11px', fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>
+                                Avg. Time to Adoption
                             </p>
-                            <p className="text-sm text-gray-500 mt-1">days from post to adopted</p>
+                            <p style={{ fontFamily: serif, fontSize: '38px', fontWeight: 600, color: C.espresso, lineHeight: 1 }}>
+                                {animalStats?.avg_days_adoption != null ? animalStats.avg_days_adoption : '—'}
+                            </p>
+                            <p style={{ fontFamily: sans, fontSize: '11px', color: C.muted, marginTop: '6px' }}>days from post to adopted</p>
                         </div>
-                        <div className="bg-green-100 p-3 rounded-full">
-                            <TrendingUp className="h-6 w-6 text-green-600" />
+                        <div style={{ backgroundColor: 'rgba(122,92,68,0.1)', borderRadius: '50%', padding: '10px', flexShrink: 0 }}>
+                            <TrendingUp style={{ width: '20px', height: '20px', color: C.muted }} />
                         </div>
                     </div>
                 </div>
 
-                {/* Total Donations */}
-                <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-500">
-                    <div className="flex justify-between items-start">
+                {/* Available now — source: PostgreSQL */}
+                <div style={{ ...card, borderLeft: `4px solid ${C.espresso}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div>
-                            <p className="text-gray-500 text-sm font-medium mb-1">Total Donations</p>
-                            <p className="text-3xl font-bold text-gray-900">€{donationStats.total.toFixed(2)}</p>
-                            <p className="text-sm text-gray-500 mt-1">
-                                {donationStats.count} donations
+                            <p style={{ fontFamily: sans, fontSize: '11px', fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>
+                                Available Now
                             </p>
-                        </div>
-                        <div className="bg-blue-100 p-3 rounded-full">
-                            <Banknote className="h-6 w-6 text-blue-600" />
-                        </div>
-                    </div>
-                </div>
-
-                {/* Top city */}
-                <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-yellow-500">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <p className="text-gray-500 text-sm font-medium mb-1">Top City</p>
-                            <p className="text-3xl font-bold text-gray-900" style={{ fontSize: adoptionStats.topCity && adoptionStats.topCity.length > 10 ? '20px' : undefined }}>
-                                {adoptionStats.topCity || '—'}
+                            <p style={{ fontFamily: serif, fontSize: '38px', fontWeight: 600, color: C.espresso, lineHeight: 1 }}>
+                                {animalStats?.available_count ?? '—'}
                             </p>
-                            <p className="text-sm text-gray-500 mt-1">most adoptions</p>
+                            <p style={{ fontFamily: sans, fontSize: '11px', color: C.muted, marginTop: '6px' }}>awaiting adoption</p>
                         </div>
-                        <div className="bg-yellow-100 p-3 rounded-full">
-                            <Calendar className="h-6 w-6 text-yellow-600" />
+                        <div style={{ backgroundColor: 'rgba(45,31,20,0.07)', borderRadius: '50%', padding: '10px', flexShrink: 0 }}>
+                            <Calendar style={{ width: '20px', height: '20px', color: C.espresso }} />
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Prediction Section */}
-            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-                <div className="flex flex-wrap justify-between items-center mb-6">
-                    <h3 className="text-xl font-semibold flex items-center">
-                        <TrendingUp className="h-5 w-5 mr-2 text-tealcustom" />
+            {/* ── Adoption Predictions ──────────────────────────────────── */}
+            <div style={{ ...card, marginBottom: '20px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '20px', gap: '16px' }}>
+                    <h3 style={{ fontFamily: serif, fontSize: '20px', fontWeight: 600, color: C.espresso, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                        <TrendingUp style={{ width: '18px', height: '18px', color: C.terracotta }} />
                         Adoption Predictions
                     </h3>
 
-                    {/* Controls - Always Visible */}
-                    <div className="flex flex-wrap items-center gap-4 mt-4 sm:mt-0">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                View Mode
-                            </label>
-                            <select
-                                value={predictionViewMode}
-                                onChange={(e) => setPredictionViewMode(e.target.value)}
-                                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                                disabled={isPredictionLoading}
-                            >
-                                <option value="daily">Daily (30 days ahead)</option>
-                                <option value="weekly">Weekly (12 weeks ahead)</option>
-                                <option value="monthly">Monthly (3 months ahead)</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Pet Type
-                            </label>
-                            <select
-                                value={selectedPetType}
-                                onChange={(e) => setSelectedPetType(e.target.value)}
-                                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                                disabled={isPredictionLoading}
-                            >
-                                <option value="all">All Types</option>
-                                {availablePetTypes.map(type => (
-                                    <option key={type} value={type}>
-                                        {type.charAt(0).toUpperCase() + type.slice(1)}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '16px' }}>
+                        {[
+                            {
+                                label: 'View Mode',
+                                value: predictionViewMode,
+                                onChange: setPredictionViewMode,
+                                options: [
+                                    { value: 'daily',   label: 'Daily (30 days ahead)' },
+                                    { value: 'weekly',  label: 'Weekly (12 weeks ahead)' },
+                                    { value: 'monthly', label: 'Monthly (3 months ahead)' },
+                                ],
+                            },
+                            {
+                                label: 'Pet Type',
+                                value: selectedPetType,
+                                onChange: setSelectedPetType,
+                                options: [
+                                    { value: 'all', label: 'All Types' },
+                                    ...availablePetTypes.map(t => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1) })),
+                                ],
+                            },
+                        ].map(({ label, value, onChange, options }) => (
+                            <div key={label}>
+                                <label style={{ fontFamily: sans, fontSize: '10px', fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '6px' }}>
+                                    {label}
+                                </label>
+                                <select
+                                    value={value}
+                                    onChange={e => onChange(e.target.value)}
+                                    disabled={isPredictionLoading}
+                                    style={{
+                                        fontFamily: sans, fontSize: '12px', color: C.espresso,
+                                        border: `1px solid ${C.border}`, borderRadius: '6px',
+                                        padding: '7px 12px', background: '#fff', cursor: 'pointer',
+                                        outline: 'none',
+                                    }}
+                                >
+                                    {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                </select>
+                            </div>
+                        ))}
                     </div>
                 </div>
 
-                {/* Loading State */}
                 {isPredictionLoading && (
-                    <div className="flex justify-center items-center py-12">
-                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-tealcustom"></div>
+                    <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
+                        <Spinner />
                     </div>
                 )}
 
-                {/* Error State - Show but keep controls visible */}
-                {!isPredictionLoading && error && (
-                    <div className="p-8 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <div className="flex items-start gap-3">
-                            <AlertCircle className="h-6 w-6 text-yellow-600 mt-0.5 flex-shrink-0" />
-                            <div className="w-full">
-                                <p className="font-medium text-yellow-900 mb-2">Predictions Not Available</p>
-                                <p className="text-sm text-yellow-800 mb-3">{error}</p>
-
-                                {(error.includes('Not enough time periods') || error.includes('Not enough data')) && (
-                                    <div className="bg-white p-4 rounded border border-yellow-300 mt-3">
-                                        <p className="text-sm font-medium text-gray-900 mb-2">💡 How to Fix:</p>
-                                        <ul className="text-sm text-gray-700 space-y-2 ml-4 list-disc">
-                                            <li>
-                                                <strong>For Daily predictions:</strong> Need at least 2 weeks of approved adoptions
-                                                <br />
-                                                <span className="text-gray-600">Currently works best with 1+ month of data</span>
-                                            </li>
-                                            <li>
-                                                <strong>For Weekly predictions:</strong> Need at least 8 weeks (2 months) of approved adoptions
-                                                <br />
-                                                <span className="text-gray-600">Currently works best with 3+ months of data</span>
-                                            </li>
-                                            <li>
-                                                <strong>For Monthly predictions:</strong> Need at least 3 months of approved adoptions
-                                                <br />
-                                                <span className="text-gray-600">Currently works best with 6+ months of data</span>
-                                            </li>
-                                            <li className="mt-3 pt-3 border-t border-gray-200">
-                                                <strong>Quick fix:</strong> Run the seed script to generate 6 months of test data
-                                                <br />
-                                                <code className="bg-gray-100 px-2 py-1 rounded text-xs mt-1 inline-block">
+                {!isPredictionLoading && predictionError && (
+                    <div style={{
+                        padding: '20px', backgroundColor: 'rgba(201,122,74,0.07)',
+                        border: '1px solid rgba(201,122,74,0.2)', borderRadius: '8px',
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                            <AlertCircle style={{ width: '18px', height: '18px', color: '#A85C32', marginTop: '2px', flexShrink: 0 }} />
+                            <div>
+                                <p style={{ fontFamily: sans, fontWeight: 600, color: C.espresso, marginBottom: '6px', fontSize: '13px' }}>
+                                    Predictions Not Available
+                                </p>
+                                <p style={{ fontFamily: sans, fontSize: '12px', color: C.muted }}>{predictionError}</p>
+                                {(predictionError.includes('Not enough time periods') || predictionError.includes('Not enough data')) && (
+                                    <div style={{ backgroundColor: '#fff', padding: '14px', borderRadius: '6px', border: `1px solid ${C.border}`, marginTop: '10px' }}>
+                                        <p style={{ fontFamily: sans, fontSize: '12px', fontWeight: 600, color: C.espresso, marginBottom: '6px' }}>How to Fix:</p>
+                                        <ul style={{ fontFamily: sans, fontSize: '12px', color: C.muted, paddingLeft: '18px', lineHeight: 1.9, margin: 0 }}>
+                                            <li><strong>Daily:</strong> Need at least 2 weeks of approved adoptions</li>
+                                            <li><strong>Weekly:</strong> Need at least 8 weeks (2 months)</li>
+                                            <li><strong>Monthly:</strong> Need at least 3 months of approved adoptions</li>
+                                            <li style={{ marginTop: '6px', paddingTop: '6px', borderTop: `1px solid ${C.border}` }}>
+                                                <strong>Quick fix:</strong>&nbsp;
+                                                <code style={{ backgroundColor: 'rgba(45,31,20,0.06)', padding: '1px 6px', borderRadius: '3px', fontSize: '11px' }}>
                                                     npm run seed:adoptions
                                                 </code>
                                             </li>
@@ -637,112 +373,93 @@ const StatisticsManagement = () => {
                     </div>
                 )}
 
-                {/* Success State - Show Predictions */}
-                {!isPredictionLoading && !error && predictionData && (
+                {!isPredictionLoading && !predictionError && predictionData && (
                     <>
-
-                    {/* Prediction Statistics */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                        <div className="bg-blue-50 p-4 rounded-lg">
-                            <p className="text-sm font-medium text-gray-600 mb-1">Current Average</p>
-                            <p className="text-2xl font-bold text-gray-900">
-                                {predictionData.statistics.averageHistorical}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                                adoptions/{predictionViewMode === 'daily' ? 'day' : predictionViewMode === 'weekly' ? 'week' : 'month'}
-                            </p>
-                        </div>
-                        <div className="bg-purple-50 p-4 rounded-lg">
-                            <p className="text-sm font-medium text-gray-600 mb-1">Predicted Average</p>
-                            <p className="text-2xl font-bold text-gray-900">
-                                {predictionData.statistics.averagePredicted}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                                adoptions/{predictionViewMode === 'daily' ? 'day' : predictionViewMode === 'weekly' ? 'week' : 'month'}
-                            </p>
-                        </div>
-                        <div className="bg-green-50 p-4 rounded-lg">
-                            <p className="text-sm font-medium text-gray-600 mb-1">Expected Total</p>
-                            <p className="text-2xl font-bold text-gray-900">
-                                {predictionData.statistics.totalPredicted}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                                in next {predictionViewMode === 'daily' ? '30 days' : predictionViewMode === 'weekly' ? '12 weeks' : '3 months'}
-                            </p>
-                        </div>
-                        <div className={`${predictionData.statistics.trend === 'increasing' ? 'bg-green-50' : 'bg-red-50'} p-4 rounded-lg`}>
-                            <p className="text-sm font-medium text-gray-600 mb-1">Trend</p>
-                            <div className="flex items-center">
-                                <p className="text-2xl font-bold text-gray-900">
-                                    {Math.abs(predictionData.statistics.trendPercentage)}%
-                                </p>
-                                {predictionData.statistics.trend === 'increasing' ? (
-                                    <ArrowUp className="h-5 w-5 text-green-600 ml-2" />
-                                ) : (
-                                    <ArrowDown className="h-5 w-5 text-red-600 ml-2" />
-                                )}
+                        {/* Mini stats */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+                            {[
+                                { label: 'Current Average',  value: Math.round(predictionData.statistics.averageHistorical), suffix: `adoptions/${periodLabel}`, bg: 'rgba(201,122,74,0.08)' },
+                                { label: 'Predicted Average', value: Math.round(predictionData.statistics.averagePredicted),  suffix: `adoptions/${periodLabel}`, bg: 'rgba(45,31,20,0.04)' },
+                                { label: 'Expected Total',    value: Math.round(predictionData.statistics.totalPredicted),    suffix: `in next ${predictionViewMode === 'daily' ? '30 days' : predictionViewMode === 'weekly' ? '12 weeks' : '3 months'}`, bg: 'rgba(45,31,20,0.04)' },
+                            ].map(c => (
+                                <div key={c.label} style={{ backgroundColor: c.bg, borderRadius: '8px', padding: '16px' }}>
+                                    <p style={{ ...miniLabel }}>{c.label}</p>
+                                    <p style={{ fontFamily: serif, fontSize: '28px', fontWeight: 600, color: C.espresso }}>{c.value}</p>
+                                    <p style={{ fontFamily: sans, fontSize: '10px', color: C.muted }}>{c.suffix}</p>
+                                </div>
+                            ))}
+                            <div style={{
+                                backgroundColor: predictionData.statistics.trend === 'increasing'
+                                    ? 'rgba(22,163,74,0.08)' : 'rgba(201,122,74,0.1)',
+                                borderRadius: '8px', padding: '16px',
+                            }}>
+                                <p style={{ ...miniLabel }}>Trend</p>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <p style={{ fontFamily: serif, fontSize: '28px', fontWeight: 600, color: C.espresso }}>
+                                        {Math.abs(predictionData.statistics.trendPercentage)}%
+                                    </p>
+                                    {predictionData.statistics.trend === 'increasing'
+                                        ? <ArrowUp style={{ width: '18px', height: '18px', color: '#16a34a' }} />
+                                        : <ArrowDown style={{ width: '18px', height: '18px', color: C.terracotta }} />
+                                    }
+                                </div>
+                                <p style={{ fontFamily: sans, fontSize: '10px', color: C.muted }}>{predictionData.statistics.trend}</p>
                             </div>
-                            <p className="text-xs text-gray-500">{predictionData.statistics.trend}</p>
                         </div>
-                    </div>
 
-                    {/* Info Box */}
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex items-start gap-3">
-                        <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                        <div className="text-sm text-blue-800">
-                            <p className="font-medium mb-1">About This Prediction</p>
-                            <p>
-                                This AI model uses SARIMA (Seasonal AutoRegressive Integrated Moving Average) to predict future adoption patterns.
-                                The <span className="font-medium text-blue-600">blue line</span> shows actual historical data,
-                                while the <span className="font-medium text-red-600">red dashed line</span> shows predicted adoptions
+                        {/* Info note */}
+                        <div style={{
+                            backgroundColor: 'rgba(201,122,74,0.06)', border: '1px solid rgba(201,122,74,0.18)',
+                            borderRadius: '8px', padding: '14px 16px',
+                            display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '20px',
+                        }}>
+                            <Info style={{ width: '15px', height: '15px', color: C.terracotta, marginTop: '1px', flexShrink: 0 }} />
+                            <p style={{ fontFamily: sans, fontSize: '12px', color: C.muted, lineHeight: 1.6, margin: 0 }}>
+                                <span style={{ fontWeight: 600, color: C.espresso }}>About this prediction: </span>
+                                Exponential Smoothing (Holt-Winters) model.{' '}
+                                <span style={{ fontWeight: 600, color: C.espresso }}>Dark bars</span> = actual historical data.{' '}
+                                <span style={{ fontWeight: 600, color: C.terracotta }}>Terracotta bars (lighter)</span> = predicted adoptions
                                 {predictionViewMode === 'daily' && ' for the next 30 days'}
                                 {predictionViewMode === 'weekly' && ' for the next 12 weeks'}
                                 {predictionViewMode === 'monthly' && ' for the next 3 months'}.
                             </p>
                         </div>
-                    </div>
 
-                    {/* Main Prediction Chart */}
-                        {/* Main Prediction Chart */}
-                        <div className="bg-gray-50 p-4 rounded-lg">
-                            <h4 className="text-sm font-medium text-gray-700 mb-4">Adoption Timeline & Predictions</h4>
-                            <ResponsiveContainer width="100%" height={400}>
-                                <LineChart data={predictionData.chartData}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        {/* Low confidence warning */}
+                        {predictionData.confidenceLevel === 'low' && (
+                            <p style={{
+                                fontFamily: sans, fontSize: '11px', fontStyle: 'italic',
+                                color: C.terracotta, marginBottom: '12px',
+                            }}>
+                                Low confidence — limited historical data. Predictions will improve as more data is recorded.
+                            </p>
+                        )}
+
+                        {/* Chart */}
+                        <div style={{ backgroundColor: C.bg, padding: '16px', borderRadius: '8px' }}>
+                            <p style={{ fontFamily: sans, fontSize: '11px', fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '16px' }}>
+                                Adoption Timeline & Predictions
+                            </p>
+                            <ResponsiveContainer width="100%" height={380}>
+                                <ComposedChart data={predictionData.chartData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(45,31,20,0.07)" />
                                     <XAxis
                                         dataKey="date"
-                                        tick={{ fontSize: 12 }}
-                                        tickFormatter={(value) => {
-                                            const date = new Date(value);
-                                            if (predictionViewMode === 'monthly') {
-                                                return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-                                            }
-                                            return `${date.getMonth() + 1}/${date.getDate()}`;
-                                        }}
+                                        tick={{ fontSize: 11, fontFamily: sans, fill: C.muted }}
+                                        tickFormatter={makeRechartsXAxisFormatter(predictionData.chartData, predictionViewMode)}
                                     />
-                                    <YAxis tick={{ fontSize: 12 }} />
+                                    <YAxis
+                                        tick={{ fontSize: 11, fontFamily: sans, fill: C.muted }}
+                                        allowDecimals={false}
+                                        tickFormatter={v => Math.round(v)}
+                                    />
                                     <Tooltip content={<CustomTooltip />} />
-                                    <Legend />
-                                    <Line
-                                        type="monotone"
-                                        dataKey="actual"
-                                        stroke="#3b82f6"
-                                        strokeWidth={3}
-                                        name="Actual Adoptions"
-                                        dot={{ fill: '#3b82f6', r: 4 }}
-                                        connectNulls={false}
-                                    />
-                                    <Line
-                                        type="monotone"
-                                        dataKey="predicted"
-                                        stroke="#ef4444"
-                                        strokeWidth={3}
-                                        strokeDasharray="5 5"
-                                        name="Predicted Adoptions"
-                                        dot={{ fill: '#ef4444', r: 4 }}
-                                        connectNulls={false}
-                                    />
-                                </LineChart>
+                                    <Legend wrapperStyle={{ fontFamily: sans, fontSize: '12px' }} />
+                                    <Bar dataKey="actual" fill={C.espresso} stackId="bars"
+                                        name="Actual Adoptions" maxBarSize={18} radius={[3, 3, 0, 0]} />
+                                    <Bar dataKey="predicted" fill="rgba(201,122,74,0.75)" stackId="bars"
+                                        name="Predicted Adoptions" maxBarSize={18} radius={[3, 3, 0, 0]} />
+                                </ComposedChart>
                             </ResponsiveContainer>
                         </div>
                     </>
@@ -752,15 +469,14 @@ const StatisticsManagement = () => {
 
             {/* Adoptions breakdown — pet type + city */}
             {(petTypeDistribution.length > 0 || cityDistribution.length > 0) && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                    {/* Pet type pie */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', marginBottom: '20px' }}>
                     {petTypeDistribution.length > 0 && (
-                        <div className="bg-white rounded-lg shadow-md p-6">
-                            <h3 className="text-xl font-semibold mb-4 flex items-center">
-                                <PawPrint className="h-5 w-5 mr-2 text-tealcustom" />
+                        <div style={{ ...card }}>
+                            <h3 style={{ fontFamily: serif, fontSize: '20px', fontWeight: 600, color: C.espresso, display: 'flex', alignItems: 'center', gap: '8px', margin: '0 0 20px 0' }}>
+                                <PawPrint style={{ width: '18px', height: '18px', color: C.terracotta }} />
                                 Adoptions by Pet Type
                             </h3>
-                            <ResponsiveContainer width="100%" height={280}>
+                            <ResponsiveContainer width="100%" height={260}>
                                 <PieChart>
                                     <Pie
                                         data={petTypeDistribution}
@@ -769,33 +485,34 @@ const StatisticsManagement = () => {
                                         labelLine={true}
                                         label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                                         outerRadius={90}
-                                        fill="#8884d8"
                                         dataKey="value"
                                     >
                                         {petTypeDistribution.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                                         ))}
                                     </Pie>
-                                    <Tooltip />
+                                    <Tooltip
+                                        contentStyle={{ fontFamily: sans, fontSize: '12px', borderRadius: '6px', border: `1px solid ${C.border}` }}
+                                    />
                                 </PieChart>
                             </ResponsiveContainer>
                         </div>
                     )}
-
-                    {/* City distribution bar */}
                     {cityDistribution.length > 0 && (
-                        <div className="bg-white rounded-lg shadow-md p-6">
-                            <h3 className="text-xl font-semibold mb-4 flex items-center">
-                                <Users className="h-5 w-5 mr-2 text-tealcustom" />
+                        <div style={{ ...card }}>
+                            <h3 style={{ fontFamily: serif, fontSize: '20px', fontWeight: 600, color: C.espresso, display: 'flex', alignItems: 'center', gap: '8px', margin: '0 0 20px 0' }}>
+                                <Users style={{ width: '18px', height: '18px', color: C.terracotta }} />
                                 Adoptions by City
                             </h3>
-                            <ResponsiveContainer width="100%" height={280}>
-                                <BarChart data={cityDistribution} layout="vertical" margin={{ left: 16, right: 16 }}>
-                                    <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
-                                    <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={80} />
-                                    <Tooltip />
-                                    <Bar dataKey="value" name="Adoptions" fill="#14b8a6" radius={[0, 3, 3, 0]} />
+                            <ResponsiveContainer width="100%" height={260}>
+                                <BarChart data={cityDistribution} layout="vertical" margin={{ left: 8, right: 16, top: 4, bottom: 4 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(45,31,20,0.07)" />
+                                    <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fontFamily: sans, fill: C.muted }} />
+                                    <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fontFamily: sans, fill: C.muted }} width={90} />
+                                    <Tooltip
+                                        contentStyle={{ fontFamily: sans, fontSize: '12px', borderRadius: '6px', border: `1px solid ${C.border}` }}
+                                    />
+                                    <Bar dataKey="value" name="Adoptions" fill={C.terracotta} radius={[0, 3, 3, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
@@ -803,268 +520,42 @@ const StatisticsManagement = () => {
                 </div>
             )}
 
-            {/* Donation Statistics */}
-            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-                <h3 className="text-xl font-semibold mb-4 flex items-center">
-                    <Banknote className="h-5 w-5 mr-2 text-tealcustom" />
-                    Donation Statistics
-                </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-                    {[
-                        { label: 'Total',       value: `€${donationStats.total.toFixed(2)}`,          bg: 'bg-gray-50' },
-                        { label: 'Count',        value: donationStats.count,                            bg: 'bg-gray-50' },
-                        { label: 'Average',      value: `€${donationStats.averageAmount.toFixed(2)}`,  bg: 'bg-gray-50' },
-                        { label: 'Completed',    value: donationStats.completed,                        bg: 'bg-green-50', color: 'text-green-600' },
-                        { label: 'Pending',      value: donationStats.pending,                          bg: 'bg-yellow-50', color: 'text-yellow-600' },
-                        { label: 'Last 7 days',  value: donationStats.recent,                           bg: 'bg-blue-50', color: 'text-blue-600' },
-                    ].map(({ label, value, bg, color }) => (
-                        <div key={label} className={`flex flex-col items-center p-4 ${bg} rounded-lg`}>
-                            <span className="text-gray-500 text-xs mb-1">{label}</span>
-                            <span className={`font-bold text-xl ${color || 'text-gray-900'}`}>{value}</span>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* Donations Management Section - 2 Column Layout */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-semibold flex items-center">
-                        <Banknote className="h-5 w-5 mr-2 text-tealcustom" />
-                        Donations Management
-                    </h3>
-                </div>
-
-                {/* 2-Column Grid: Users | Donations */}
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                    {/* LEFT: Users List */}
-                    <div className="lg:col-span-1 border rounded-lg">
-                        <div className="p-4 bg-gray-50 border-b font-semibold flex justify-between">
-                            <span>Users</span>
-                            <span className="text-sm text-gray-500">{filteredUsers.length} total</span>
-                        </div>
-
-                        <div className="p-4">
-                            <AdminSearchBar
-                                value={userSearchTerm}
-                                onChange={(e) => setUserSearchTerm(e.target.value)}
-                                placeholder="Search users..."
-                            />
-                        </div>
-
-                        <div className="overflow-y-auto" style={{ maxHeight: '600px' }}>
-                            {isLoadingUsers ? (
-                                <div className="p-6 text-center">Loading users...</div>
-                            ) : (
-                                <ul className="divide-y divide-gray-200">
-                                    {/* "All Users" Option */}
-                                    <li
-                                        className={`p-4 hover:bg-gray-50 cursor-pointer ${!selectedUser ? 'bg-teal-50 border-l-4 border-tealcustom' : ''}`}
-                                        onClick={() => handleUserSelect(null)}
-                                    >
-                                        <div className="flex items-center">
-                                            <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
-                                                <Users className="h-6 w-6 text-gray-500" />
-                                            </div>
-                                            <div className="ml-4">
-                                                <div className="font-medium text-gray-900">All Users</div>
-                                                <div className="text-sm text-gray-500">View all donations</div>
-                                            </div>
-                                        </div>
-                                    </li>
-
-                                    {/* User List */}
-                                    {filteredUsers
-                                        .slice((currentUserPage - 1) * usersPerPage, currentUserPage * usersPerPage)
-                                        .map(user => (
-                                            <li
-                                                key={user._id}
-                                                onClick={() => handleUserSelect(user)}
-                                                className={`p-4 hover:bg-gray-50 cursor-pointer ${selectedUser?._id === user._id ? 'bg-teal-50 border-l-4 border-tealcustom' : ''}`}
-                                            >
-                                                <div className="flex items-center">
-                                                    <div className="h-10 w-10 rounded-full bg-teal-100 flex items-center justify-center">
-                                            <span className="text-tealcustom font-semibold">
-                                                {user.name?.charAt(0) || user.email?.charAt(0) || '?'}
-                                            </span>
-                                                    </div>
-                                                    <div className="ml-4">
-                                                        <div className="font-medium text-gray-900">{user.name || 'Unnamed'}</div>
-                                                        <div className="text-sm text-gray-500">{user.email}</div>
-                                                    </div>
-                                                </div>
-                                            </li>
-                                        ))}
-                                </ul>
-                            )}
-                        </div>
-
-                        {filteredUsers.length > usersPerPage && (
-                            <div className="border-t p-3">
-                                <AdminPagination
-                                    itemsPerPage={usersPerPage}
-                                    totalItems={filteredUsers.length}
-                                    currentPage={currentUserPage}
-                                    paginate={setCurrentUserPage}
-                                />
-                            </div>
-                        )}
-                    </div>
-
-                    {/* RIGHT: Donations Table */}
-                    <div className="lg:col-span-3">
-                        <div className="mb-4 flex justify-between items-center">
-                            <div>
-                                {selectedUser ? (
-                                    <span className="text-lg font-medium">
-                            Donations for {selectedUser.name || selectedUser.email}
-                        </span>
-                                ) : (
-                                    <span className="text-lg font-medium">All Donations</span>
-                                )}
-                            </div>
-                            <select
-                                value={donationFilters.status}
-                                onChange={(e) => setDonationFilters(prev => ({
-                                    ...prev,
-                                    status: e.target.value,
-                                    page: 1
-                                }))}
-                                className="px-3 py-2 border rounded"
-                            >
-                                <option value="all">All Status</option>
-                                <option value="completed">Completed</option>
-                                <option value="pending">Pending</option>
-                                <option value="canceled">Canceled</option>
-                            </select>
-                        </div>
-
-                        <AdminTable
-                            columns={[
-                                {
-                                    header: 'Date',
-                                    render: (donation) => (
-                                        <div className="flex items-center">
-                                            <Calendar className="h-4 w-4 text-gray-400 mr-2" />
-                                            <span className="text-sm">{formatDate(donation.createdAt, 'short')}</span>
-                                        </div>
-                                    )
-                                },
-                                {
-                                    header: 'Amount',
-                                    render: (donation) => (
-                                        <div className="flex items-center">
-                                            <Banknote className="h-4 w-4 text-gray-400 mr-1" />
-                                            <span className="font-medium">€{donation.amount.toFixed(2)}</span>
-                                        </div>
-                                    )
-                                },
-                                {
-                                    header: 'Status',
-                                    render: (donation) => (
-                                        <span className={`px-2 py-1 rounded text-xs ${
-                                            donation.status === 'completed' ? 'bg-green-100 text-green-800' :
-                                                donation.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                                    'bg-gray-100 text-gray-800'
-                                        }`}>
-                                {donation.status}
-                            </span>
-                                    )
-                                },
-                                ...(!selectedUser ? [{
-                                    header: 'User',
-                                    render: (donation) => (
-                                        <div>
-                                            <div className="font-medium">{donation.userName}</div>
-                                            <div className="text-sm text-gray-500">{donation.userEmail}</div>
-                                        </div>
-                                    )
-                                }] : []),
-                                {
-                                    header: 'Session ID',
-                                    render: (donation) => (
-                                        <div className="flex items-center">
-                                            <div className="text-sm text-gray-500 max-w-xs truncate mr-2">
-                                                {donation.stripeSessionId}
-                                            </div>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    copyToClipboard(donation.stripeSessionId);
-                                                }}
-                                                className={`${copiedSessionId === donation.stripeSessionId ? 'text-green-500' : 'text-gray-400 hover:text-tealcustom'} p-1`}
-                                            >
-                                                {copiedSessionId === donation.stripeSessionId ?
-                                                    <Check className="h-4 w-4" /> :
-                                                    <Copy className="h-4 w-4" />
-                                                }
-                                            </button>
-                                        </div>
-                                    )
-                                },
-                                {
-                                    header: 'Actions',
-                                    render: (donation) => (
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDonationEditClick(donation);
-                                                }}
-                                                className="text-blue-600 hover:text-blue-800"
-                                            >
-                                                <Edit className="h-4 w-4" />
-                                            </button>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDeleteDonation(donation._id);
-                                                }}
-                                                className="text-red-600 hover:text-red-800"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </button>
-                                        </div>
-                                    )
-                                }
-                            ]}
-                            data={donations}
-                            isLoading={donationsLoading}
-                            emptyMessage="No donations found"
-                        />
-
-                        <AdminPagination
-                            currentPage={pagination.currentPage}
-                            totalItems={pagination.totalItems}
-                            itemsPerPage={pagination.itemsPerPage}
-                            paginate={(page) => setDonationFilters(prev => ({ ...prev, page }))}
-                        />
-                    </div>
-                </div>
-            </div>
-
-            {/* ── Moderation Statistics ──────────────────────────────────────────────── */}
-            <div className="bg-white rounded-lg shadow-md p-6 mt-6">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-semibold flex items-center">
-                        <AlertCircle className="h-5 w-5 mr-2 text-tealcustom" />
+            {/* ── Moderation Statistics ──────────────────────────────────── */}
+            <div style={{ ...card, marginBottom: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <h3 style={{ fontFamily: serif, fontSize: '20px', fontWeight: 600, color: C.espresso, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                        <AlertCircle style={{ width: '18px', height: '18px', color: C.terracotta }} />
                         Moderation Statistics
                     </h3>
                     <button
                         onClick={fetchModerationStats}
-                        className="text-sm text-tealcustom hover:underline flex items-center gap-1"
+                        style={{
+                            fontFamily: sans, fontSize: '12px', color: C.terracotta,
+                            background: 'none', border: 'none', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: '5px',
+                            padding: '5px 8px', borderRadius: '4px', transition: 'background 0.12s',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(201,122,74,0.08)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'none'; }}
                     >
-                        <RefreshCw className="h-4 w-4" /> Refresh
+                        <RefreshCw style={{ width: '13px', height: '13px' }} />
+                        Refresh
                     </button>
                 </div>
 
                 {modStatsLoading && (
-                    <div className="flex justify-center py-10">
-                        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-tealcustom" />
+                    <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
+                        <Spinner />
                     </div>
                 )}
                 {modStatsError && !modStatsLoading && (
-                    <div className="p-4 bg-red-50 border border-red-200 rounded text-sm text-red-700">{modStatsError}</div>
+                    <div style={{
+                        padding: '14px 16px', backgroundColor: 'rgba(201,122,74,0.07)',
+                        border: '1px solid rgba(201,122,74,0.2)', borderRadius: '6px',
+                        fontFamily: sans, fontSize: '13px', color: '#7A3010',
+                    }}>
+                        {modStatsError}
+                    </div>
                 )}
 
                 {modStats && !modStatsLoading && (() => {
@@ -1073,167 +564,163 @@ const StatisticsManagement = () => {
                     const oldestDays = oldestDate ? Math.floor((Date.now() - oldestDate.getTime()) / 86400000) : null;
 
                     return (
-                        <div className="space-y-6">
-                            {/* ── 9. Overview card ── */}
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+
+                            {/* Overview totals */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '12px' }}>
                                 {[
-                                    { label: 'Total postings', value: overview.total,    bg: 'bg-gray-50',   color: 'text-gray-900' },
-                                    { label: 'Approved',       value: overview.approved,  bg: 'bg-green-50',  color: 'text-green-700' },
-                                    { label: 'Rejected',       value: overview.rejected,  bg: 'bg-red-50',    color: 'text-red-700' },
-                                    { label: 'Pending now',    value: overview.pending,   bg: 'bg-yellow-50', color: 'text-yellow-700' },
+                                    { label: 'Total postings', value: overview.total,    color: C.espresso,  bg: 'rgba(45,31,20,0.04)' },
+                                    { label: 'Approved',       value: overview.approved, color: '#16a34a',   bg: 'rgba(22,163,74,0.07)' },
+                                    { label: 'Rejected',       value: overview.rejected, color: '#b91c1c',   bg: 'rgba(185,28,28,0.06)' },
+                                    { label: 'Pending now',    value: overview.pending,  color: '#a16207',   bg: 'rgba(161,98,7,0.07)' },
                                 ].map(c => (
-                                    <div key={c.label} className={`${c.bg} rounded-lg p-4 text-center`}>
-                                        <p className="text-xs text-gray-500 mb-1">{c.label}</p>
-                                        <p className={`text-3xl font-bold ${c.color}`}>{c.value}</p>
+                                    <div key={c.label} style={{ ...statCard, backgroundColor: c.bg, textAlign: 'center' }}>
+                                        <p style={{ ...miniLabel }}>{c.label}</p>
+                                        <p style={{ fontFamily: serif, fontSize: '32px', fontWeight: 600, color: c.color }}>{c.value}</p>
                                     </div>
                                 ))}
                             </div>
 
-                            {/* ── 1. Approval / rejection rate + 3. Avg review time ── */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="bg-gray-50 rounded-lg p-5">
-                                    <p className="text-sm font-semibold text-gray-700 mb-3">Approval vs Rejection Rate</p>
-                                    <div className="flex items-end gap-4 mb-3">
+                            {/* Approval rate + Review performance */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
+                                <div style={statCard}>
+                                    <p style={{ fontFamily: sans, fontSize: '12px', fontWeight: 600, color: C.espresso, marginBottom: '12px' }}>Approval vs Rejection Rate</p>
+                                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '20px', marginBottom: '12px' }}>
                                         <div>
-                                            <p className="text-3xl font-bold text-green-600">{approvalRate.approvalPercent}%</p>
-                                            <p className="text-xs text-gray-500">approved</p>
+                                            <p style={{ fontFamily: serif, fontSize: '30px', fontWeight: 600, color: '#16a34a' }}>{approvalRate.approvalPercent}%</p>
+                                            <p style={miniLabel}>approved</p>
                                         </div>
                                         <div>
-                                            <p className="text-3xl font-bold text-red-600">{approvalRate.total > 0 ? 100 - approvalRate.approvalPercent : 0}%</p>
-                                            <p className="text-xs text-gray-500">rejected</p>
+                                            <p style={{ fontFamily: serif, fontSize: '30px', fontWeight: 600, color: '#b91c1c' }}>
+                                                {approvalRate.total > 0 ? 100 - approvalRate.approvalPercent : 0}%
+                                            </p>
+                                            <p style={miniLabel}>rejected</p>
                                         </div>
                                     </div>
                                     {approvalRate.total > 0 && (
-                                        <div className="w-full bg-red-200 rounded-full h-2">
-                                            <div
-                                                className="bg-green-500 h-2 rounded-full"
-                                                style={{ width: `${approvalRate.approvalPercent}%` }}
-                                            />
+                                        <div style={{ width: '100%', backgroundColor: 'rgba(185,28,28,0.15)', borderRadius: '100px', height: '6px' }}>
+                                            <div style={{ width: `${approvalRate.approvalPercent}%`, backgroundColor: '#16a34a', borderRadius: '100px', height: '6px', transition: 'width 0.3s' }} />
                                         </div>
                                     )}
-                                    <p className="text-xs text-gray-400 mt-2">{approvalRate.approved} approved · {approvalRate.rejected} rejected</p>
+                                    <p style={{ fontFamily: sans, fontSize: '11px', color: C.muted, marginTop: '8px' }}>
+                                        {approvalRate.approved} approved · {approvalRate.rejected} rejected
+                                    </p>
                                 </div>
 
-                                <div className="bg-gray-50 rounded-lg p-5">
-                                    <p className="text-sm font-semibold text-gray-700 mb-3">Review Performance</p>
-                                    <div className="space-y-3">
+                                <div style={statCard}>
+                                    <p style={{ fontFamily: sans, fontSize: '12px', fontWeight: 600, color: C.espresso, marginBottom: '12px' }}>Review Performance</p>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                         <div>
-                                            <p className="text-xs text-gray-500">Avg. time to review</p>
-                                            <p className="text-2xl font-bold text-gray-900">
+                                            <p style={miniLabel}>Avg. time to review</p>
+                                            <p style={{ fontFamily: serif, fontSize: '26px', fontWeight: 600, color: C.espresso }}>
                                                 {avgReviewHours != null
-                                                    ? avgReviewHours < 24
-                                                        ? `${avgReviewHours}h`
-                                                        : `${(avgReviewHours / 24).toFixed(1)}d`
+                                                    ? avgReviewHours < 24 ? `${avgReviewHours}h` : `${(avgReviewHours / 24).toFixed(1)}d`
                                                     : '—'}
                                             </p>
                                         </div>
                                         <div>
-                                            <p className="text-xs text-gray-500">Current queue size</p>
-                                            <p className="text-2xl font-bold text-yellow-600">{queue.pendingCount}</p>
+                                            <p style={miniLabel}>Current queue size</p>
+                                            <p style={{ fontFamily: serif, fontSize: '26px', fontWeight: 600, color: '#a16207' }}>{queue.pendingCount}</p>
                                         </div>
                                         {oldestDate && oldestDays != null && (
                                             <div>
-                                                <p className="text-xs text-gray-500">Oldest pending — waiting</p>
-                                                <p className="text-sm font-semibold text-red-600">
+                                                <p style={miniLabel}>Oldest pending — waiting</p>
+                                                <p style={{ fontFamily: sans, fontSize: '13px', fontWeight: 600, color: '#b91c1c' }}>
                                                     {oldestDays === 0 ? 'Today' : oldestDays === 1 ? '1 day' : `${oldestDays} days`}
                                                 </p>
-                                                <p className="text-xs text-gray-400">{formatDate(queue.oldestPending, 'short')}</p>
+                                                <p style={{ fontFamily: sans, fontSize: '11px', color: C.muted }}>{formatDate(queue.oldestPending, 'short')}</p>
                                             </div>
                                         )}
                                     </div>
                                 </div>
                             </div>
 
-                            {/* ── 2. Rejection reasons ── */}
-                            {rejectionReasons.length > 0 && (
-                                <div className="bg-gray-50 rounded-lg p-5">
-                                    <p className="text-sm font-semibold text-gray-700 mb-3">Most Common Rejection Reasons</p>
-                                    <div className="space-y-2">
+                            {/* Rejection reasons */}
+                            {rejectionReasons.length > 0 ? (
+                                <div style={statCard}>
+                                    <p style={{ fontFamily: sans, fontSize: '12px', fontWeight: 600, color: C.espresso, marginBottom: '12px' }}>Most Common Rejection Reasons</p>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                         {rejectionReasons.map((r, i) => (
-                                            <div key={i} className="flex items-center gap-3">
-                                                <div className="flex-1">
-                                                    <div className="flex justify-between mb-1">
-                                                        <span className="text-xs text-gray-700 truncate max-w-xs">{r.rejection_reason}</span>
-                                                        <span className="text-xs font-semibold text-gray-600 ml-2 flex-shrink-0">{r.count}</span>
-                                                    </div>
-                                                    <div className="w-full bg-gray-200 rounded-full h-1.5">
-                                                        <div
-                                                            className="bg-red-400 h-1.5 rounded-full"
-                                                            style={{ width: `${Math.round((r.count / rejectionReasons[0].count) * 100)}%` }}
-                                                        />
-                                                    </div>
+                                            <div key={i}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                                    <span style={{ fontFamily: sans, fontSize: '12px', color: C.muted }}>{r.rejection_reason}</span>
+                                                    <span style={{ fontFamily: sans, fontSize: '12px', fontWeight: 600, color: C.espresso }}>{r.count}</span>
+                                                </div>
+                                                <div style={{ width: '100%', backgroundColor: 'rgba(45,31,20,0.1)', borderRadius: '100px', height: '4px' }}>
+                                                    <div style={{
+                                                        width: `${Math.round((r.count / rejectionReasons[0].count) * 100)}%`,
+                                                        backgroundColor: C.terracotta, borderRadius: '100px', height: '4px',
+                                                    }} />
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
-                            )}
-                            {rejectionReasons.length === 0 && (
-                                <div className="bg-gray-50 rounded-lg p-5 text-sm text-gray-500 italic">No rejection reasons recorded yet.</div>
+                            ) : (
+                                <div style={{ ...statCard, fontFamily: sans, fontSize: '13px', color: C.muted, fontStyle: 'italic' }}>
+                                    No rejection reasons recorded yet.
+                                </div>
                             )}
 
-                            {/* ── 6. Recent activity ── */}
-                            <div className="bg-gray-50 rounded-lg p-5">
-                                <p className="text-sm font-semibold text-gray-700 mb-3">Recent Posting Activity</p>
-                                <div className="grid grid-cols-3 gap-4 text-center">
+                            {/* Recent posting activity */}
+                            <div style={statCard}>
+                                <p style={{ fontFamily: sans, fontSize: '12px', fontWeight: 600, color: C.espresso, marginBottom: '12px' }}>Recent Posting Activity</p>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', textAlign: 'center' }}>
                                     {[
                                         { label: 'Today',      value: recentActivity.today },
                                         { label: 'This week',  value: recentActivity.this_week },
                                         { label: 'This month', value: recentActivity.this_month },
                                     ].map(item => (
-                                        <div key={item.label} className="bg-white rounded-lg p-3 shadow-sm">
-                                            <p className="text-2xl font-bold text-teal-600">{item.value}</p>
-                                            <p className="text-xs text-gray-500 mt-1">{item.label}</p>
+                                        <div key={item.label} style={{ backgroundColor: '#fff', borderRadius: '6px', padding: '14px', boxShadow: '0 1px 4px rgba(45,31,20,0.06)' }}>
+                                            <p style={{ fontFamily: serif, fontSize: '30px', fontWeight: 600, color: C.terracotta }}>{item.value}</p>
+                                            <p style={{ fontFamily: sans, fontSize: '11px', color: C.muted, marginTop: '4px' }}>{item.label}</p>
                                         </div>
                                     ))}
                                 </div>
                             </div>
 
-                            {/* ── 7. Active users + 8. Top uploaders ── */}
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                <div className="bg-gray-50 rounded-lg p-5">
-                                    <p className="text-sm font-semibold text-gray-700 mb-3">User Activity</p>
-                                    <div className="flex items-end gap-6 mb-3">
+                            {/* User activity + Top uploaders */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
+                                <div style={statCard}>
+                                    <p style={{ fontFamily: sans, fontSize: '12px', fontWeight: 600, color: C.espresso, marginBottom: '12px' }}>User Activity</p>
+                                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '24px', marginBottom: '12px' }}>
                                         <div>
-                                            <p className="text-3xl font-bold text-teal-600">{userActivity.activePercent}%</p>
-                                            <p className="text-xs text-gray-500">active uploaders</p>
+                                            <p style={{ fontFamily: serif, fontSize: '30px', fontWeight: 600, color: C.terracotta }}>{userActivity.activePercent}%</p>
+                                            <p style={miniLabel}>active uploaders</p>
                                         </div>
                                         <div>
-                                            <p className="text-lg font-semibold text-gray-700">{userActivity.activeUploaders}</p>
-                                            <p className="text-xs text-gray-500">posted at least 1 animal</p>
+                                            <p style={{ fontFamily: sans, fontSize: '18px', fontWeight: 600, color: C.espresso }}>{userActivity.activeUploaders}</p>
+                                            <p style={miniLabel}>posted at least 1 animal</p>
                                         </div>
                                         <div>
-                                            <p className="text-lg font-semibold text-gray-400">{userActivity.inactiveCount}</p>
-                                            <p className="text-xs text-gray-400">never posted</p>
+                                            <p style={{ fontFamily: sans, fontSize: '18px', fontWeight: 600, color: C.muted }}>{userActivity.inactiveCount}</p>
+                                            <p style={miniLabel}>never posted</p>
                                         </div>
                                     </div>
                                     {userActivity.totalUsers > 0 && (
-                                        <div className="w-full bg-gray-200 rounded-full h-2">
-                                            <div
-                                                className="bg-teal-500 h-2 rounded-full"
-                                                style={{ width: `${userActivity.activePercent}%` }}
-                                            />
+                                        <div style={{ width: '100%', backgroundColor: C.border, borderRadius: '100px', height: '6px' }}>
+                                            <div style={{ width: `${userActivity.activePercent}%`, backgroundColor: C.terracotta, borderRadius: '100px', height: '6px', transition: 'width 0.3s' }} />
                                         </div>
                                     )}
-                                    <p className="text-xs text-gray-400 mt-2">{userActivity.totalUsers} total registered users</p>
+                                    <p style={{ fontFamily: sans, fontSize: '11px', color: C.muted, marginTop: '8px' }}>{userActivity.totalUsers} total registered users</p>
                                 </div>
 
-                                <div className="bg-gray-50 rounded-lg p-5">
-                                    <p className="text-sm font-semibold text-gray-700 mb-3">Top Uploaders</p>
+                                <div style={statCard}>
+                                    <p style={{ fontFamily: sans, fontSize: '12px', fontWeight: 600, color: C.espresso, marginBottom: '12px' }}>Top Uploaders</p>
                                     {topUploaders.length === 0 ? (
-                                        <p className="text-sm text-gray-400 italic">No data yet.</p>
+                                        <p style={{ fontFamily: sans, fontSize: '13px', color: C.muted, fontStyle: 'italic' }}>No data yet.</p>
                                     ) : (
-                                        <div className="space-y-2">
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                             {topUploaders.slice(0, 7).map((u, i) => (
-                                                <div key={i} className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2 min-w-0">
-                                                        <span className="text-xs text-gray-400 w-4 flex-shrink-0">{i + 1}.</span>
-                                                        <div className="min-w-0">
-                                                            <p className="text-xs font-medium text-gray-800 truncate">{u.name}</p>
-                                                            {u.email && <p className="text-xs text-gray-400 truncate">{u.email}</p>}
+                                                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                                                        <span style={{ fontFamily: sans, fontSize: '11px', color: C.muted, width: '16px', flexShrink: 0 }}>{i + 1}.</span>
+                                                        <div style={{ minWidth: 0 }}>
+                                                            <p style={{ fontFamily: sans, fontSize: '12px', fontWeight: 500, color: C.espresso, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name}</p>
+                                                            {u.email && <p style={{ fontFamily: sans, fontSize: '11px', color: C.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email}</p>}
                                                         </div>
                                                     </div>
-                                                    <span className="text-xs font-bold text-teal-600 ml-2 flex-shrink-0">{u.petCount}</span>
+                                                    <span style={{ fontFamily: sans, fontSize: '12px', fontWeight: 700, color: C.terracotta, marginLeft: '8px', flexShrink: 0 }}>{u.petCount}</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -1241,30 +728,42 @@ const StatisticsManagement = () => {
                                 </div>
                             </div>
 
-                            {/* ── 5. Incomplete animals ── */}
-                            <div className="bg-gray-50 rounded-lg p-5">
-                                <p className="text-sm font-semibold text-gray-700 mb-1">
+                            {/* Incomplete listings */}
+                            <div style={statCard}>
+                                <p style={{ fontFamily: sans, fontSize: '12px', fontWeight: 600, color: C.espresso, marginBottom: '4px' }}>
                                     Incomplete Approved Listings
-                                    <span className="ml-2 text-xs font-normal text-gray-400">(no photos or missing description)</span>
+                                    <span style={{ fontFamily: sans, fontSize: '11px', fontWeight: 400, color: C.muted, marginLeft: '8px' }}>(no photos or missing description)</span>
                                 </p>
                                 {incompleteAnimals.length === 0 ? (
-                                    <p className="text-sm text-green-600 mt-2 font-medium">All approved listings look complete.</p>
+                                    <p style={{ fontFamily: sans, fontSize: '13px', color: '#16a34a', marginTop: '8px', fontWeight: 500 }}>
+                                        All approved listings look complete.
+                                    </p>
                                 ) : (
                                     <>
-                                        <p className="text-xs text-gray-500 mb-3">{incompleteAnimals.length} listing{incompleteAnimals.length !== 1 ? 's' : ''} need attention</p>
-                                        <div className="space-y-1 max-h-48 overflow-y-auto">
+                                        <p style={{ fontFamily: sans, fontSize: '11px', color: C.muted, marginBottom: '10px' }}>
+                                            {incompleteAnimals.length} listing{incompleteAnimals.length !== 1 ? 's' : ''} need attention
+                                        </p>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '192px', overflowY: 'auto' }}>
                                             {incompleteAnimals.map(a => (
-                                                <div key={a.id} className="flex items-center justify-between bg-white rounded p-2 shadow-sm">
-                                                    <div>
-                                                        <span className="text-xs font-medium text-gray-800">{a.name || '(unnamed)'}</span>
-                                                        <span className="text-xs text-gray-400 ml-2">{a.type}</span>
-                                                        {a.photo_count === 0 && <span className="ml-2 text-xs text-red-500">no photos</span>}
+                                                <div key={a.id} style={{
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                                    backgroundColor: '#fff', borderRadius: '6px', padding: '8px 12px',
+                                                    boxShadow: '0 1px 3px rgba(45,31,20,0.06)',
+                                                }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <span style={{ fontFamily: sans, fontSize: '12px', fontWeight: 500, color: C.espresso }}>{a.name || '(unnamed)'}</span>
+                                                        <span style={{ fontFamily: sans, fontSize: '11px', color: C.muted }}>{a.type}</span>
+                                                        {a.photo_count === 0 && (
+                                                            <span style={{ fontFamily: sans, fontSize: '10px', color: '#b91c1c', fontWeight: 500 }}>no photos</span>
+                                                        )}
                                                     </div>
                                                     <a
                                                         href={`/pet/${a.id}`}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        className="text-xs text-tealcustom hover:underline ml-4 flex-shrink-0"
+                                                        style={{ fontFamily: sans, fontSize: '11px', color: C.terracotta, textDecoration: 'none', marginLeft: '16px', flexShrink: 0 }}
+                                                        onMouseEnter={e => { e.currentTarget.style.textDecoration = 'underline'; }}
+                                                        onMouseLeave={e => { e.currentTarget.style.textDecoration = 'none'; }}
                                                     >
                                                         View →
                                                     </a>
@@ -1279,13 +778,6 @@ const StatisticsManagement = () => {
                 })()}
             </div>
 
-            {/* Copy Toast */}
-            {showCopyToast && (
-                <div className="fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded-md shadow-lg flex items-center">
-                    <Check className="h-4 w-4 text-green-400 mr-2" />
-                    <span>Session ID copied to clipboard</span>
-                </div>
-            )}
         </div>
     );
 };

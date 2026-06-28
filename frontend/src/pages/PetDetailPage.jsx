@@ -396,7 +396,7 @@ export default function PetDetailPage() {
                                                         onClick={() => setActivePhoto(i)}
                                                         style={{ width: '72px', height: '72px', flexShrink: 0, borderRadius: '2px', overflow: 'hidden', cursor: 'pointer', border: `2px solid ${active ? '#C07A4A' : 'transparent'}`, opacity: active ? 1 : 0.55, transition: 'opacity 0.15s, border-color 0.15s', backgroundColor: '#F0E8E0' }}
                                                     >
-                                                        {src && <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', display: 'block' }} onError={e => { e.target.style.display = 'none'; }} />}
+                                                        {src && <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center center', display: 'block' }} onError={e => { e.target.style.display = 'none'; }} />}
                                                     </div>
                                                 );
                                             })}
