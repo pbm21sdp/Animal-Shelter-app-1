@@ -128,8 +128,21 @@ const seedAdoptions = async () => {
             }
         }
 
-        // Clear existing adoptions
-        console.log('Clearing existing adoptions...');
+        // Safety check: abort if any real (non-seed) document exists
+        const SEED_PATTERN = /^.+ #\d+$/;
+        const totalCount = await Adoption.countDocuments({});
+        const seedCount = await Adoption.countDocuments({ petName: SEED_PATTERN });
+        const realCount = totalCount - seedCount;
+
+        if (realCount > 0) {
+            console.error(`\n❌ ABORT: Found ${realCount} real adoption(s) that do not match the seed pattern.`);
+            console.error('   Refusing to delete real data. Clear the collection manually if you are sure.\n');
+            mongoose.connection.close();
+            process.exit(1);
+        }
+
+        // Clear existing seed adoptions
+        console.log('Clearing existing seed adoptions...');
         await Adoption.deleteMany({});
 
         // Generate adoptions over the last 6 months for better patterns
