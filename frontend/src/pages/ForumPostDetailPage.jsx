@@ -94,18 +94,13 @@ export default function ForumPostDetailPage() {
                         {/* Divider */}
                         <div style={{ height: '1px', backgroundColor: C.border, margin: '0 0 28px' }} />
 
-                        {/* Photos */}
+                        {/* Hero photo (first) */}
                         {post.photos && post.photos.length > 0 && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '28px' }}>
-                                {post.photos.map(photo => (
-                                    <img
-                                        key={photo.id}
-                                        src={`${API}/forum/posts/${post.id}/photos/${photo.id}`}
-                                        alt=""
-                                        style={{ width: '100%', borderRadius: '6px', objectFit: 'cover' }}
-                                    />
-                                ))}
-                            </div>
+                            <img
+                                src={`${API}/forum/posts/${post.id}/photos/${post.photos[0].id}`}
+                                alt=""
+                                style={{ width: '100%', maxHeight: '420px', objectFit: 'cover', borderRadius: '6px', marginBottom: '28px' }}
+                            />
                         )}
 
                         {/* Content */}
@@ -115,6 +110,25 @@ export default function ForumPostDetailPage() {
                         }}>
                             {post.content}
                         </div>
+
+                        {/* Additional photos grid */}
+                        {post.photos && post.photos.length > 1 && (
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: post.photos.length === 2 ? '1fr 1fr' : 'repeat(3, 1fr)',
+                                gap: '8px',
+                                marginTop: '32px',
+                            }}>
+                                {post.photos.slice(1).map(photo => (
+                                    <img
+                                        key={photo.id}
+                                        src={`${API}/forum/posts/${post.id}/photos/${photo.id}`}
+                                        alt=""
+                                        style={{ width: '100%', aspectRatio: '4/3', objectFit: 'cover', borderRadius: '6px' }}
+                                    />
+                                ))}
+                            </div>
+                        )}
                     </>
                 )}
             </div>
