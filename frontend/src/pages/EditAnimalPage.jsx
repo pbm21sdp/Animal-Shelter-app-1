@@ -71,6 +71,8 @@ const NEUTERED_MAP      = { 'Yes': 'yes', 'No': 'no', "Don't know": 'unknown' };
 const NEUTERED_REVERSE  = { yes: 'Yes', no: 'No', unknown: "Don't know" };
 const VACCINATION_MAP   = { 'Yes, fully': 'fully', 'Partially': 'partially', 'No': 'no', "Don't know": 'unknown' };
 const VACCINATION_REVERSE = { fully: 'Yes, fully', partially: 'Partially', no: 'No', unknown: "Don't know" };
+const DEWORMING_MAP     = { 'Yes': 'yes', 'No': 'no', "Don't know": 'unknown' };
+const DEWORMING_REVERSE = { yes: 'Yes', no: 'No', unknown: "Don't know" };
 
 // ── Shared UI primitives ─────────────────────────────────────────────────────
 function PillToggle({ options, value, onChange, large }) {
@@ -103,10 +105,10 @@ function SectionLabel({ children }) {
     );
 }
 
-function FieldLabel({ children }) {
+function FieldLabel({ children, required }) {
     return (
         <div style={{ fontFamily: sans, fontSize: '11px', fontWeight: 500, color: '#2D1F14', marginBottom: '7px' }}>
-            {children}
+            {children}{required && <span style={{ color: '#993C1D', marginLeft: '2px' }}>*</span>}
         </div>
     );
 }
@@ -124,10 +126,13 @@ export default function EditAnimalPage() {
     const { user }     = useAuthStore();
     const { getPetById, clearSelectedPet } = usePetStore();
 
-    const fileInputRef          = useRef(null);
-    const descTextareaRef       = useRef(null);
-    const leadPhotoContainerRef = useRef(null);
-    const dragStateRef          = useRef(null);
+    const fileInputRef            = useRef(null);
+    const descTextareaRef         = useRef(null);
+    const leadPhotoContainerRef   = useRef(null);
+    const dragStateRef            = useRef(null);
+    const extraDragStateRef       = useRef(null); // { source: 'existing'|'new', key, startX, startY, startFX, startFY, w, h }
+    const existingExtraRefs       = useRef({});   // keyed by photo.id
+    const newPhotoRefs            = useRef([]);   // indexed by newPreviews index
 
     // Loading / saving
     const [isLoading,  setIsLoading]  = useState(true);
@@ -135,8 +140,15 @@ export default function EditAnimalPage() {
     const [saveError,  setSaveError]  = useState('');
 
     // Lead photo focal point
-    const [leadFocalPoint,    setLeadFocalPoint]    = useState({ x: 50, y: 50 });
-    const [focalPointChanged, setFocalPointChanged] = useState(false);
+    const [leadFocalPoint,       setLeadFocalPoint]       = useState({ x: 50, y: 50 });
+    const [focalPointChanged,    setFocalPointChanged]    = useState(false);
+    // Focal points for existing secondary photos (keyed by photo.id → {x,y})
+    const [existingExtraFP,      setExistingExtraFP]      = useState({});
+    const [existingExtraChanged, setExistingExtraChanged] = useState(new Set());
+    // Focal points for new (not yet uploaded) preview photos
+    const [newPhotoFP,           setNewPhotoFP]           = useState([
+        { x: 50, y: 50 }, { x: 50, y: 50 }, { x: 50, y: 50 }, { x: 50, y: 50 },
+    ]);
 
     // Step-1 fields
     const [foundHow,         setFoundHow]         = useState('');
@@ -147,6 +159,7 @@ export default function EditAnimalPage() {
     const [hasMicrochip,     setHasMicrochip]     = useState('');
     const [isVaccinated,     setIsVaccinated]     = useState('');
     const [isNeutered,       setIsNeutered]       = useState('');
+    const [isDewormed,       setIsDewormed]       = useState('');
     const [approxAge,        setApproxAge]        = useState('');
     const [exactAge,         setExactAge]         = useState('');
     const [approxSize,       setApproxSize]       = useState('');
@@ -196,18 +209,30 @@ export default function EditAnimalPage() {
     ];
     const totalPhotos = existingPhotos.length + newPreviews.length;
 
-    // ── Drag-to-reposition for lead photo ─────────────────────────────────────
+    // ── Drag-to-reposition for lead photo and extra photos ────────────────────
     useEffect(() => {
         const onMove = (e) => {
-            if (!dragStateRef.current) return;
-            const { startX, startY, startFocalX, startFocalY, w, h } = dragStateRef.current;
-            setLeadFocalPoint({
-                x: Math.max(0, Math.min(100, startFocalX - ((e.clientX - startX) / w) * 100)),
-                y: Math.max(0, Math.min(100, startFocalY - ((e.clientY - startY) / h) * 100)),
-            });
-            setFocalPointChanged(true);
+            if (dragStateRef.current) {
+                const { startX, startY, startFocalX, startFocalY, w, h } = dragStateRef.current;
+                setLeadFocalPoint({
+                    x: Math.max(0, Math.min(100, startFocalX - ((e.clientX - startX) / w) * 100)),
+                    y: Math.max(0, Math.min(100, startFocalY - ((e.clientY - startY) / h) * 100)),
+                });
+                setFocalPointChanged(true);
+            }
+            if (extraDragStateRef.current) {
+                const { source, key, startX, startY, startFX, startFY, w, h } = extraDragStateRef.current;
+                const nx = Math.max(0, Math.min(100, startFX - ((e.clientX - startX) / w) * 100));
+                const ny = Math.max(0, Math.min(100, startFY - ((e.clientY - startY) / h) * 100));
+                if (source === 'existing') {
+                    setExistingExtraFP(prev => ({ ...prev, [key]: { x: nx, y: ny } }));
+                    setExistingExtraChanged(prev => new Set(prev).add(key));
+                } else {
+                    setNewPhotoFP(prev => { const next = [...prev]; next[key] = { x: nx, y: ny }; return next; });
+                }
+            }
         };
-        const onUp = () => { dragStateRef.current = null; };
+        const onUp = () => { dragStateRef.current = null; extraDragStateRef.current = null; };
         window.addEventListener('mousemove', onMove);
         window.addEventListener('mouseup', onUp);
         return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
@@ -283,6 +308,7 @@ export default function EditAnimalPage() {
         setHasMicrochip(MICROCHIP_REVERSE[p.microchip_status] || '');
         setIsNeutered(NEUTERED_REVERSE[p.neutered_spayed_status] || '');
         setIsVaccinated(VACCINATION_REVERSE[p.vaccination_status] || '');
+        setIsDewormed(DEWORMING_REVERSE[p.deworming_status] || '');
 
         // Contact — prefer email, then phone; if neither, offer user's own email
         const existingContact = p.shelter_contact_email || p.shelter_contact_phone || '';
@@ -373,6 +399,12 @@ export default function EditAnimalPage() {
             if (idx === 0) { setClipResults(null); setClipError(''); setClipApplied(false); }
             return prev.filter((_, i) => i !== idx);
         });
+        setNewPhotoFP(prev => {
+            const next = [...prev];
+            next.splice(idx, 1);
+            next.push({ x: 50, y: 50 });
+            return next;
+        });
     };
 
     // ── AI description ─────────────────────────────────────────────────────────
@@ -391,6 +423,7 @@ export default function EditAnimalPage() {
                 vaccinated:    isVaccinated,
                 neutered:      isNeutered,
                 microchip:     hasMicrochip,
+                dewormed:      isDewormed,
                 foundHow:      actualFoundHow || foundHow,
                 breed, breedUnsure,
                 color: effectiveColors.join(', '), coat: coatType,
@@ -466,6 +499,7 @@ export default function EditAnimalPage() {
         if (!hasMicrochip)                 missing.push('microchip status');
         if (!isNeutered)                   missing.push('neutered/spayed status');
         if (!isVaccinated)                 missing.push('vaccination status');
+        if (!isDewormed)                   missing.push('deworming status');
         if (!locValue.city && !locValue.county) missing.push('location (city or county)');
         if (missing.length > 0) {
             setSaveError(`Please fill in: ${missing.join(', ')}.`);
@@ -503,6 +537,7 @@ export default function EditAnimalPage() {
                 microchip_status:      MICROCHIP_MAP[hasMicrochip] || null,
                 neutered_spayed_status: NEUTERED_MAP[isNeutered] || null,
                 vaccination_status:    VACCINATION_MAP[isVaccinated] || null,
+                deworming_status:      DEWORMING_MAP[isDewormed] || null,
                 breed_unsure:          breedUnsure,
             };
 
@@ -525,11 +560,31 @@ export default function EditAnimalPage() {
                 await axios.delete(`${API}/pets/${id}/photos/${leadExistingPhoto.id}`, { withCredentials: true });
             }
 
+            // Re-crop changed existing secondary photos (re-download → crop → re-upload → delete old)
+            const secondary = existingPhotos.filter(p => !p.is_primary);
+            for (const photo of secondary) {
+                if (!existingExtraChanged.has(photo.id)) continue;
+                const fp = existingExtraFP[photo.id] || { x: 50, y: 50 };
+                const resp = await fetch(`${API}/pets/photos/${photo.id}`, { credentials: 'include' });
+                const blob = await resp.blob();
+                const file = new File([blob], `extra-${photo.id}.jpg`, { type: 'image/jpeg' });
+                const cropped = await cropToFocalPoint(file, fp.x, fp.y);
+                const cropForm = new FormData();
+                cropForm.append('photo', cropped);
+                await axios.post(`${API}/pets/${id}/photos`, cropForm, {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                    withCredentials: true,
+                });
+                await axios.delete(`${API}/pets/${id}/photos/${photo.id}`, { withCredentials: true });
+            }
+
             await axios.patch(`${API}/pets/${id}`, payload, { withCredentials: true });
 
-            for (const preview of newPreviews) {
+            for (let i = 0; i < newPreviews.length; i++) {
+                const fp = newPhotoFP[i] || { x: 50, y: 50 };
+                const croppedFile = await cropToFocalPoint(newPreviews[i].file, fp.x, fp.y);
                 const form = new FormData();
-                form.append('photo', preview.file);
+                form.append('photo', croppedFile);
                 await axios.post(`${API}/pets/${id}/photos`, form, {
                     headers: { 'Content-Type': 'multipart/form-data' },
                     withCredentials: true,
@@ -621,7 +676,7 @@ export default function EditAnimalPage() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
 
                         <div>
-                            <FieldLabel>What's this animal's situation?</FieldLabel>
+                            <FieldLabel required>What's this animal's situation?</FieldLabel>
                             <PillToggle large options={FOUND_HOW_OPTIONS} value={foundHow} onChange={setFoundHow} />
                             {foundHow === 'Other' && (
                                 <input type="text" placeholder="Please describe…" value={foundHowOther} onChange={e => setFoundHowOther(e.target.value)} autoFocus
@@ -630,7 +685,7 @@ export default function EditAnimalPage() {
                         </div>
 
                         <div>
-                            <FieldLabel>Current status</FieldLabel>
+                            <FieldLabel required>Current status</FieldLabel>
                             <PillToggle large options={ANIMAL_STATUS_OPTIONS} value={animalStatus} onChange={setAnimalStatus} />
                         </div>
 
@@ -642,18 +697,22 @@ export default function EditAnimalPage() {
                     <SectionLabel>Health</SectionLabel>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
                         <div>
-                            <FieldLabel>Microchip</FieldLabel>
+                            <FieldLabel required>Microchip</FieldLabel>
                             <PillToggle large options={['Yes', 'No', "Don't know"]} value={hasMicrochip} onChange={setHasMicrochip} />
                         </div>
                         <div>
-                            <FieldLabel>
+                            <FieldLabel required>
                                 {gender === 'Male' ? 'Neutered' : gender === 'Female' ? 'Spayed' : 'Neutered / spayed'}
                             </FieldLabel>
                             <PillToggle large options={['Yes', 'No', "Don't know"]} value={isNeutered} onChange={setIsNeutered} />
                         </div>
                         <div>
-                            <FieldLabel>Vaccinated</FieldLabel>
+                            <FieldLabel required>Vaccinated</FieldLabel>
                             <PillToggle large options={['Yes, fully', 'Partially', 'No', "Don't know"]} value={isVaccinated} onChange={setIsVaccinated} />
+                        </div>
+                        <div>
+                            <FieldLabel required>Dewormed</FieldLabel>
+                            <PillToggle large options={['Yes', 'No', "Don't know"]} value={isDewormed} onChange={setIsDewormed} />
                         </div>
                     </div>
 
@@ -664,7 +723,7 @@ export default function EditAnimalPage() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
 
                         <div>
-                            <FieldLabel>Gender</FieldLabel>
+                            <FieldLabel required>Gender</FieldLabel>
                             <PillToggle large options={['Male', 'Female', 'Unknown']} value={gender} onChange={setGender} />
                         </div>
 
@@ -741,7 +800,7 @@ export default function EditAnimalPage() {
                     <SectionDivider />
 
                     {/* ── LOCATION ────────────────────────────────────────── */}
-                    <SectionLabel>Location</SectionLabel>
+                    <SectionLabel>Location <span style={{ color: '#993C1D' }}>*</span></SectionLabel>
                     <div style={{ marginBottom: '24px' }}>
                         <LocationPicker value={locValue} onChange={setLocValue} />
                         {locValue.address && locValue.city &&
@@ -795,43 +854,77 @@ export default function EditAnimalPage() {
                                         </div>
                                     )}
 
-                                    {/* Secondary photos — thumbnails */}
+                                    {/* Secondary photos — repositionable widgets */}
                                     {secondary.length > 0 && (
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                                            {secondary.map((photo) => (
-                                                <div key={photo.id} style={{ position: 'relative', flexShrink: 0 }}>
-                                                    <img
-                                                        src={`${API}/pets/photos/${photo.id}`}
-                                                        alt=""
-                                                        style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '3px', border: '1px solid rgba(45,31,20,0.1)', display: 'block' }}
-                                                        onError={e => { e.target.style.display = 'none'; }}
-                                                    />
-                                                    <button type="button" onClick={() => handleDeleteExistingPhoto(photo.id)}
-                                                        style={{ position: 'absolute', top: '-6px', right: '-6px', width: '18px', height: '18px', borderRadius: '50%', background: '#2D1F14', color: '#FAF7F4', border: 'none', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
-                                                        ×
-                                                    </button>
-                                                </div>
-                                            ))}
+                                            {secondary.map((photo) => {
+                                                const fp = existingExtraFP[photo.id] || { x: 50, y: 50 };
+                                                return (
+                                                    <div key={photo.id} style={{ position: 'relative', flexShrink: 0 }}>
+                                                        <div
+                                                            ref={el => { existingExtraRefs.current[photo.id] = el; }}
+                                                            style={{ position: 'relative', width: '130px', height: '130px', borderRadius: '3px', overflow: 'hidden', cursor: 'grab', userSelect: 'none', border: '1px solid rgba(45,31,20,0.1)' }}
+                                                            onMouseDown={e => {
+                                                                e.preventDefault();
+                                                                const rect = existingExtraRefs.current[photo.id]?.getBoundingClientRect();
+                                                                if (!rect) return;
+                                                                extraDragStateRef.current = { source: 'existing', key: photo.id, startX: e.clientX, startY: e.clientY, startFX: fp.x, startFY: fp.y, w: rect.width, h: rect.height };
+                                                            }}
+                                                        >
+                                                            <img
+                                                                src={`${API}/pets/photos/${photo.id}`}
+                                                                alt=""
+                                                                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${fp.x}% ${fp.y}%`, display: 'block', pointerEvents: 'none' }}
+                                                                onError={e => { e.target.style.display = 'none'; }}
+                                                            />
+                                                            <div style={{ position: 'absolute', bottom: '4px', left: '50%', transform: 'translateX(-50%)', fontFamily: sans, fontSize: '8px', color: 'rgba(250,247,244,0.9)', background: 'rgba(45,31,20,0.5)', padding: '2px 6px', borderRadius: '100px', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
+                                                                Drag to reposition
+                                                            </div>
+                                                        </div>
+                                                        <button type="button" onClick={() => handleDeleteExistingPhoto(photo.id)}
+                                                            style={{ position: 'absolute', top: '-6px', right: '-6px', width: '18px', height: '18px', borderRadius: '50%', background: '#2D1F14', color: '#FAF7F4', border: 'none', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
+                                                            ×
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     )}
                                 </div>
                             );
                         })()}
 
-                        {/* New previews */}
+                        {/* New previews — repositionable widgets */}
                         {newPreviews.length > 0 && (
                             <div style={{ marginBottom: '10px' }}>
                                 <div style={{ fontFamily: sans, fontSize: '10px', color: '#B09880', marginBottom: '8px' }}>New photos (not yet saved)</div>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'flex-start' }}>
-                                    {newPreviews.map((p, i) => (
-                                        <div key={i} style={{ position: 'relative', flexShrink: 0 }}>
-                                            <img src={p.url} alt="" style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '3px', border: '1px solid rgba(45,31,20,0.1)', display: 'block' }} />
-                                            <button type="button" onClick={() => removeNewPreview(i)}
-                                                style={{ position: 'absolute', top: '-6px', right: '-6px', width: '16px', height: '16px', borderRadius: '50%', background: '#993C1D', color: '#fff', border: 'none', cursor: 'pointer', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                ×
-                                            </button>
-                                        </div>
-                                    ))}
+                                    {newPreviews.map((p, i) => {
+                                        const fp = newPhotoFP[i] || { x: 50, y: 50 };
+                                        return (
+                                            <div key={i} style={{ position: 'relative', flexShrink: 0 }}>
+                                                <div
+                                                    ref={el => { newPhotoRefs.current[i] = el; }}
+                                                    style={{ position: 'relative', width: '130px', height: '130px', borderRadius: '3px', overflow: 'hidden', cursor: 'grab', userSelect: 'none', border: '1px solid rgba(45,31,20,0.1)' }}
+                                                    onMouseDown={e => {
+                                                        e.preventDefault();
+                                                        const rect = newPhotoRefs.current[i]?.getBoundingClientRect();
+                                                        if (!rect) return;
+                                                        extraDragStateRef.current = { source: 'new', key: i, startX: e.clientX, startY: e.clientY, startFX: fp.x, startFY: fp.y, w: rect.width, h: rect.height };
+                                                    }}
+                                                >
+                                                    <img src={p.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${fp.x}% ${fp.y}%`, display: 'block', pointerEvents: 'none' }} />
+                                                    <div style={{ position: 'absolute', bottom: '4px', left: '50%', transform: 'translateX(-50%)', fontFamily: sans, fontSize: '8px', color: 'rgba(250,247,244,0.9)', background: 'rgba(45,31,20,0.5)', padding: '2px 6px', borderRadius: '100px', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
+                                                        Drag to reposition
+                                                    </div>
+                                                </div>
+                                                <button type="button" onClick={() => removeNewPreview(i)}
+                                                    style={{ position: 'absolute', top: '-6px', right: '-6px', width: '16px', height: '16px', borderRadius: '50%', background: '#993C1D', color: '#fff', border: 'none', cursor: 'pointer', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    ×
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
 
                                 {/* CLIP — only when there is a new lead preview */}
@@ -910,7 +1003,7 @@ export default function EditAnimalPage() {
                     {/* ── DESCRIPTION ─────────────────────────────────────── */}
                     <div style={{ marginBottom: '28px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-                            <SectionLabel style={{ marginBottom: 0 }}>Description</SectionLabel>
+                            <SectionLabel style={{ marginBottom: 0 }}>Description <span style={{ color: '#993C1D' }}>*</span></SectionLabel>
                             <button type="button" onClick={handleAiGenerate} disabled={aiLoading}
                                 style={{ fontFamily: sans, fontSize: '11px', fontWeight: 500, background: 'rgba(192,122,74,0.1)', border: '1px solid rgba(192,122,74,0.25)', color: '#8B4E28', borderRadius: '100px', padding: '4px 12px', cursor: aiLoading ? 'default' : 'pointer', opacity: aiLoading ? 0.7 : 1, transition: 'opacity 0.15s' }}>
                                 {aiLoading ? 'Generating...' : aiGenerated ? '✓ Regenerate' : '✨ Generate with AI'}

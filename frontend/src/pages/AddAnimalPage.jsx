@@ -34,9 +34,10 @@ const CURRENT_STATUS_MAP = {
     'Quarantine': 'quarantine',
     'Unknown': 'unknown',
 };
-const MICROCHIP_MAP = { 'Yes': 'yes', 'No': 'no', "Don't know": 'unknown' };
-const NEUTERED_MAP  = { 'Yes': 'yes', 'No': 'no', "Don't know": 'unknown' };
+const MICROCHIP_MAP   = { 'Yes': 'yes', 'No': 'no', "Don't know": 'unknown' };
+const NEUTERED_MAP    = { 'Yes': 'yes', 'No': 'no', "Don't know": 'unknown' };
 const VACCINATION_MAP = { 'Yes, fully': 'fully', 'Partially': 'partially', 'No': 'no', "Don't know": 'unknown' };
+const DEWORMING_MAP   = { 'Yes': 'yes', 'No': 'no', "Don't know": 'unknown' };
 
 // ── Pill toggle (single-select) ───────────────────────────────────────────────
 function PillToggle({ options, value, onChange, large }) {
@@ -155,6 +156,8 @@ export default function AddAnimalPage() {
     const pageContainerRef      = useRef(null);
     const leadPhotoContainerRef = useRef(null);
     const dragStateRef          = useRef(null);
+    const extraDragStateRef     = useRef(null); // { photoIdx, startX, startY, startFX, startFY, w, h }
+    const extraPhotoRefs        = useRef([]);   // container refs for extra photos
 
     // ── Step state ────────────────────────────────────────────────────────────
     const [step, setStep] = useState(1);
@@ -163,17 +166,29 @@ export default function AddAnimalPage() {
         if (pageContainerRef.current) pageContainerRef.current.scrollTop = 0;
     }, [step]);
 
-    // ── Drag-to-reposition for lead photo ─────────────────────────────────────
+    // ── Drag-to-reposition for lead photo and extra photos ────────────────────
     useEffect(() => {
         const onMove = (e) => {
-            if (!dragStateRef.current) return;
-            const { startX, startY, startFocalX, startFocalY, w, h } = dragStateRef.current;
-            setLeadFocalPoint({
-                x: Math.max(0, Math.min(100, startFocalX - ((e.clientX - startX) / w) * 100)),
-                y: Math.max(0, Math.min(100, startFocalY - ((e.clientY - startY) / h) * 100)),
-            });
+            if (dragStateRef.current) {
+                const { startX, startY, startFocalX, startFocalY, w, h } = dragStateRef.current;
+                setLeadFocalPoint({
+                    x: Math.max(0, Math.min(100, startFocalX - ((e.clientX - startX) / w) * 100)),
+                    y: Math.max(0, Math.min(100, startFocalY - ((e.clientY - startY) / h) * 100)),
+                });
+            }
+            if (extraDragStateRef.current) {
+                const { photoIdx, startX, startY, startFX, startFY, w, h } = extraDragStateRef.current;
+                setExtraFocalPoints(prev => {
+                    const next = [...prev];
+                    next[photoIdx] = {
+                        x: Math.max(0, Math.min(100, startFX - ((e.clientX - startX) / w) * 100)),
+                        y: Math.max(0, Math.min(100, startFY - ((e.clientY - startY) / h) * 100)),
+                    };
+                    return next;
+                });
+            }
         };
-        const onUp = () => { dragStateRef.current = null; };
+        const onUp = () => { dragStateRef.current = null; extraDragStateRef.current = null; };
         window.addEventListener('mousemove', onMove);
         window.addEventListener('mouseup', onUp);
         return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
@@ -195,6 +210,7 @@ export default function AddAnimalPage() {
     const [hasMicrochip,    setHasMicrochip]    = useState('');
     const [isVaccinated,    setIsVaccinated]    = useState('');
     const [isNeutered,      setIsNeutered]      = useState('');
+    const [isDewormed,      setIsDewormed]      = useState('');
     const [approxAge,       setApproxAge]       = useState('');
     const [exactAge,        setExactAge]        = useState('');
     const [approxSize,      setApproxSize]      = useState('');
@@ -208,9 +224,12 @@ export default function AddAnimalPage() {
 
     // ── Step 2 state ──────────────────────────────────────────────────────────
     const [headline,        setHeadline]        = useState('');
-    const [previews,        setPreviews]        = useState([]);
-    const [caption,         setCaption]         = useState('');
-    const [leadFocalPoint,  setLeadFocalPoint]  = useState({ x: 50, y: 50 });
+    const [previews,          setPreviews]          = useState([]);
+    const [caption,           setCaption]           = useState('');
+    const [leadFocalPoint,    setLeadFocalPoint]    = useState({ x: 50, y: 50 });
+    const [extraFocalPoints,  setExtraFocalPoints]  = useState([
+        { x: 50, y: 50 }, { x: 50, y: 50 }, { x: 50, y: 50 }, { x: 50, y: 50 },
+    ]);
     const [status,      setStatus]      = useState('');
     const [description, setDescription] = useState('');
     const [descVersion, setDescVersion] = useState(0);
@@ -257,6 +276,7 @@ export default function AddAnimalPage() {
         if (!hasMicrochip)  e.hasMicrochip = 'Please select one option.';
         if (!isNeutered)    e.isNeutered   = 'Please select one option.';
         if (!isVaccinated)  e.isVaccinated = 'Please select one option.';
+        if (!isDewormed)    e.isDewormed   = 'Please select one option.';
         if (!gender)        e.gender       = 'Please select a gender.';
         if (!locValue.city && !locValue.county) e.location = 'Please add at least a city or county.';
         if (Object.keys(e).length > 0) { setErrors(e); return; }
@@ -288,6 +308,7 @@ export default function AddAnimalPage() {
                 vaccinated:    isVaccinated,
                 neutered:      isNeutered,
                 microchip:     hasMicrochip,
+                dewormed:      isDewormed,
                 foundHow:      actualFoundHow || foundHow,
                 breed:         breed || '',
                 breedUnsure:   breedUnsure,
@@ -379,7 +400,16 @@ export default function AddAnimalPage() {
             setClipResults(null);
             setClipError('');
             setClipApplied(false);
-            setLeadFocalPoint({ x: 50, y: 50 });
+            // Promote extra[0] focal point to lead (if there was an extra photo becoming the new lead)
+            setLeadFocalPoint(prev => extraFocalPoints[0] || { x: 50, y: 50 });
+            setExtraFocalPoints(prev => [...prev.slice(1), { x: 50, y: 50 }]);
+        } else {
+            setExtraFocalPoints(prev => {
+                const next = [...prev];
+                next.splice(idx - 1, 1);
+                next.push({ x: 50, y: 50 });
+                return next;
+            });
         }
     };
 
@@ -436,6 +466,7 @@ export default function AddAnimalPage() {
                 microchip_status:      MICROCHIP_MAP[hasMicrochip] || null,
                 neutered_spayed_status: NEUTERED_MAP[isNeutered] || null,
                 vaccination_status:    VACCINATION_MAP[isVaccinated] || null,
+                deworming_status:      DEWORMING_MAP[isDewormed] || null,
                 breed_unsure:          breedUnsure,
             };
 
@@ -443,9 +474,8 @@ export default function AddAnimalPage() {
             const petId = response.data.pet?.id || response.data.id;
 
             for (let i = 0; i < previews.length; i++) {
-                const fileToUpload = i === 0
-                    ? await cropToFocalPoint(previews[i].file, leadFocalPoint.x, leadFocalPoint.y)
-                    : previews[i].file;
+                const fp = i === 0 ? leadFocalPoint : (extraFocalPoints[i - 1] || { x: 50, y: 50 });
+                const fileToUpload = await cropToFocalPoint(previews[i].file, fp.x, fp.y);
                 const form = new FormData();
                 form.append('photo', fileToUpload);
                 await axios.post(`http://localhost:5000/api/pets/${petId}/photos`, form, {
@@ -609,6 +639,12 @@ export default function AddAnimalPage() {
                             <FieldLabel>Vaccinated <span style={{ color: '#C07A4A' }}>*</span></FieldLabel>
                             <PillToggle large options={['Yes, fully', 'Partially', 'No', "Don't know"]} value={isVaccinated} onChange={v => { setIsVaccinated(v); if (errors.isVaccinated) setErrors(prev => ({ ...prev, isVaccinated: undefined })); }} />
                             {errors.isVaccinated && <div style={{ fontFamily: sans, fontSize: '11px', color: '#C07A4A', marginTop: '6px' }}>{errors.isVaccinated}</div>}
+                        </div>
+
+                        <div>
+                            <FieldLabel>Dewormed <span style={{ color: '#C07A4A' }}>*</span></FieldLabel>
+                            <PillToggle large options={['Yes', 'No', "Don't know"]} value={isDewormed} onChange={v => { setIsDewormed(v); if (errors.isDewormed) setErrors(prev => ({ ...prev, isDewormed: undefined })); }} />
+                            {errors.isDewormed && <div style={{ fontFamily: sans, fontSize: '11px', color: '#C07A4A', marginTop: '6px' }}>{errors.isDewormed}</div>}
                         </div>
 
                     </div>
@@ -960,18 +996,35 @@ export default function AddAnimalPage() {
                             )}
 
                             {(extraPhotos.length > 0 || previews.length < 5) && (
-                                <div style={{ display: 'flex', gap: '8px', marginTop: '10px', alignItems: 'center' }}>
-                                    {extraPhotos.map((p, i) => (
-                                        <div key={i} style={{ position: 'relative' }}>
-                                            <img src={p.url} alt="" style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '2px', border: '1px solid rgba(45,31,20,0.1)', display: 'block' }} />
-                                            <button type="button" onClick={() => removePreview(i + 1)} style={{ position: 'absolute', top: '-5px', right: '-5px', width: '16px', height: '16px', borderRadius: '50%', backgroundColor: '#993C1D', color: '#fff', border: 'none', cursor: 'pointer', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
-                                        </div>
-                                    ))}
+                                <div style={{ display: 'flex', gap: '8px', marginTop: '10px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                                    {extraPhotos.map((p, i) => {
+                                        const fp = extraFocalPoints[i] || { x: 50, y: 50 };
+                                        return (
+                                            <div key={i} style={{ position: 'relative', flexShrink: 0 }}>
+                                                <div
+                                                    ref={el => { extraPhotoRefs.current[i] = el; }}
+                                                    style={{ position: 'relative', width: '130px', height: '130px', borderRadius: '2px', overflow: 'hidden', cursor: 'grab', userSelect: 'none', border: '1px solid rgba(45,31,20,0.1)' }}
+                                                    onMouseDown={e => {
+                                                        e.preventDefault();
+                                                        const rect = extraPhotoRefs.current[i]?.getBoundingClientRect();
+                                                        if (!rect) return;
+                                                        extraDragStateRef.current = { photoIdx: i, startX: e.clientX, startY: e.clientY, startFX: fp.x, startFY: fp.y, w: rect.width, h: rect.height };
+                                                    }}
+                                                >
+                                                    <img src={p.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${fp.x}% ${fp.y}%`, display: 'block', pointerEvents: 'none' }} />
+                                                    <div style={{ position: 'absolute', bottom: '4px', left: '50%', transform: 'translateX(-50%)', fontFamily: sans, fontSize: '8px', color: 'rgba(250,247,244,0.9)', background: 'rgba(45,31,20,0.5)', padding: '2px 6px', borderRadius: '100px', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
+                                                        Drag to reposition
+                                                    </div>
+                                                </div>
+                                                <button type="button" onClick={() => removePreview(i + 1)} style={{ position: 'absolute', top: '-5px', right: '-5px', width: '16px', height: '16px', borderRadius: '50%', backgroundColor: '#993C1D', color: '#fff', border: 'none', cursor: 'pointer', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                                            </div>
+                                        );
+                                    })}
                                     {previews.length < 5 && (
                                         <button
                                             type="button"
                                             onClick={() => fileInputRef.current?.click()}
-                                            style={{ width: '80px', height: '80px', border: '1px dashed rgba(45,31,20,0.2)', borderRadius: '2px', background: 'none', cursor: 'pointer', fontFamily: sans, fontSize: '10px', color: '#B09880', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                                            style={{ width: '80px', height: '80px', border: '1px dashed rgba(45,31,20,0.2)', borderRadius: '2px', background: 'none', cursor: 'pointer', fontFamily: sans, fontSize: '10px', color: '#B09880', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', flexShrink: 0 }}
                                         >
                                             <span style={{ fontSize: '20px', lineHeight: 1 }}>+</span>
                                             <span>Add photo</span>

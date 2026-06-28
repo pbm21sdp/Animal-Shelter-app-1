@@ -20,6 +20,12 @@ export const MICROCHIP_LABELS = {
     no:  'No chip',
 };
 
+export const DEWORMING_LABELS = {
+    yes:     'Dewormed',
+    no:      'Not dewormed',
+    unknown: 'Deworming unknown',
+};
+
 function getNeuteredLabel(status, gender) {
     const g = (gender || '').toLowerCase();
     if (status === 'yes') {
@@ -83,6 +89,12 @@ export function buildPetTags(pet) {
     // 6. Vaccination — skip unknown
     if (pet.vaccination_status && pet.vaccination_status !== 'unknown') {
         const label = VACCINATION_LABELS[pet.vaccination_status];
+        if (label) tags.push({ label, variant: 'default' });
+    }
+
+    // 7. Deworming — skip unknown (consistent with other health fields)
+    if (pet.deworming_status && pet.deworming_status !== 'unknown') {
+        const label = DEWORMING_LABELS[pet.deworming_status];
         if (label) tags.push({ label, variant: 'default' });
     }
 
