@@ -309,7 +309,8 @@ export const PetModel = {
                 shelter_contact_phone, traits, photos, zip_code,
                 uploader_id, latitude, longitude, found_how,
                 situation, current_status, microchip_status,
-                neutered_spayed_status, vaccination_status, deworming_status, breed_unsure
+                neutered_spayed_status, vaccination_status, deworming_status, breed_unsure,
+                fur_pattern
             } = petData;
 
             // Insert pet
@@ -320,8 +321,8 @@ export const PetModel = {
                     location_city, location_country, shelter_contact_email,
                     shelter_contact_phone, zip_code, uploader_id, latitude, longitude, found_how,
                     situation, current_status, microchip_status, neutered_spayed_status,
-                    vaccination_status, deworming_status, breed_unsure
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29)
+                    vaccination_status, deworming_status, breed_unsure, fur_pattern
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)
                     RETURNING *
             `;
 
@@ -333,7 +334,7 @@ export const PetModel = {
                 latitude || null, longitude || null, found_how || null,
                 situation || null, current_status || null, microchip_status || null,
                 neutered_spayed_status || null, vaccination_status || null,
-                deworming_status || null, breed_unsure ?? false
+                deworming_status || null, breed_unsure ?? false, fur_pattern || null
             ];
 
             const petResult = await client.query(petQuery, petValues);

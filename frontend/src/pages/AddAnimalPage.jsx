@@ -218,6 +218,7 @@ export default function AddAnimalPage() {
     const [coatColors,      setCoatColors]      = useState([]);
     const [coatColorOther,  setCoatColorOther]  = useState('');
     const [coatType,        setCoatType]        = useState('');
+    const [furPattern,      setFurPattern]      = useState('');
     const [breed,           setBreed]           = useState('');
     const [breedUnsure,     setBreedUnsure]     = useState(false);
     const [gender,          setGender]          = useState('');
@@ -314,6 +315,7 @@ export default function AddAnimalPage() {
                 breedUnsure:   breedUnsure,
                 color:         effectiveColors.join(', ') || '',
                 coat:          coatType || '',
+                furPattern:    furPattern || '',
                 gender:        gender || '',
                 city:          locValue.city || locValue.county || '',
                 address:       locValue.address || '',
@@ -358,7 +360,11 @@ export default function AddAnimalPage() {
                 setClipSelected(sel);
             }
         } catch (err) {
-            setClipError('Analysis unavailable — please fill in manually');
+            if (err.response?.status === 401) {
+                setClipError('Session expired — please log in again to use AI analysis');
+            } else {
+                setClipError('Analysis unavailable — please fill in manually');
+            }
         } finally {
             setClipLoading(false);
         }
@@ -371,11 +377,12 @@ export default function AddAnimalPage() {
             setAnimalType(typeMap[clipResults.type.toLowerCase()] || 'Other');
             if (!typeMap[clipResults.type.toLowerCase()]) setAnimalTypeOther(sentenceCase(clipResults.type));
         }
-        if (clipSelected.size  && clipResults.size)  setApproxSize(clipResults.size);
-        if (clipSelected.age   && clipResults.age)   setApproxAge(clipResults.age);
-        if (clipSelected.breed && clipResults.breed) setBreed(sentenceCase(clipResults.breed));
-        if (clipSelected.color && clipResults.color) setCoatColors([sentenceCase(clipResults.color)]);
-        if (clipSelected.fur   && clipResults.fur)   setCoatType(sentenceCase(clipResults.fur));
+        if (clipSelected.size        && clipResults.size)        setApproxSize(clipResults.size);
+        if (clipSelected.age         && clipResults.age)         setApproxAge(clipResults.age);
+        if (clipSelected.breed       && clipResults.breed)       setBreed(sentenceCase(clipResults.breed));
+        if (clipSelected.color       && clipResults.color)       setCoatColors([sentenceCase(clipResults.color)]);
+        if (clipSelected.fur         && clipResults.fur)         setCoatType(sentenceCase(clipResults.fur));
+        if (clipSelected.fur_pattern && clipResults.fur_pattern) setFurPattern(clipResults.fur_pattern);
         setClipApplied(true);
     };
 
@@ -447,6 +454,7 @@ export default function AddAnimalPage() {
                 size:                  exactWeight ? `${approxSize ? `${approxSize} — ` : ''}${exactWeight}` : (approxSize || ''),
                 color:                 effectiveColors.join(', ') || '',
                 coat:                  coatType || '',
+                fur_pattern:           furPattern || '',
                 fee:                   0,
                 description:           description.trim(),
                 traits:                selectedTraits,
@@ -527,8 +535,9 @@ export default function AddAnimalPage() {
     // STEP 1 — QUICK QUESTIONS (sectioned layout)
     // ══════════════════════════════════════════════════════════════════════════
     if (step === 1) {
-        const COAT_COLOR_OPTIONS = ['Black', 'White', 'Brown', 'Tan / Fawn', 'Gray', 'Silver', 'Golden', 'Cream', 'Orange / Red', 'Chocolate', 'Sable', 'Black & white', 'Brindle', 'Tricolor', 'Calico', 'Merle', 'Spotted', 'Other'];
-        const COAT_TYPE_OPTIONS  = ['Short', 'Medium', 'Long', 'Curly', 'Wire-haired', 'Hairless', 'Unknown'];
+        const COAT_COLOR_OPTIONS   = ['Black', 'White', 'Brown', 'Tan / Fawn', 'Gray', 'Silver', 'Golden', 'Cream', 'Orange / Red', 'Chocolate', 'Sable', 'Black & white', 'Brindle', 'Tricolor', 'Calico', 'Merle', 'Spotted', 'Other'];
+        const COAT_TYPE_OPTIONS    = ['Short', 'Medium', 'Long', 'Curly', 'Wire-haired', 'Hairless', 'Unknown'];
+        const FUR_PATTERN_OPTIONS  = ['Solid', 'Tabby / Striped', 'Spotted', 'Calico', 'Tuxedo', 'Bicolor', 'Tricolor'];
 
         return (
             <div ref={pageContainerRef} style={{ position: 'fixed', inset: 0, zIndex: 10, display: 'flex', flexDirection: 'column', backgroundColor: '#FAF7F4', overflowY: 'auto' }}>
@@ -748,6 +757,11 @@ export default function AddAnimalPage() {
                         </div>
 
                         <div>
+                            <FieldLabel>Fur pattern</FieldLabel>
+                            <PillToggle large options={FUR_PATTERN_OPTIONS} value={furPattern} onChange={setFurPattern} />
+                        </div>
+
+                        <div>
                             <FieldLabel>Breed (if known)</FieldLabel>
                             <input
                                 type="text"
@@ -949,12 +963,13 @@ export default function AddAnimalPage() {
                                     {/* Horizontal tile grid */}
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
                                         {[
-                                            { key: 'breed', label: 'Breed' },
-                                            { key: 'color', label: 'Color' },
-                                            { key: 'fur',   label: 'Coat'  },
-                                            { key: 'age',   label: 'Age'   },
-                                            { key: 'size',  label: 'Size'  },
-                                            { key: 'type',  label: 'Type'  },
+                                            { key: 'breed',       label: 'Breed'   },
+                                            { key: 'color',       label: 'Color'   },
+                                            { key: 'fur',         label: 'Coat'    },
+                                            { key: 'fur_pattern', label: 'Pattern' },
+                                            { key: 'age',         label: 'Age'     },
+                                            { key: 'size',        label: 'Size'    },
+                                            { key: 'type',        label: 'Type'    },
                                         ].map(({ key, label }) => {
                                             const val = clipResults[key];
                                             if (!val) return null;
