@@ -171,6 +171,11 @@ export default function DonationsPage() {
                                             <div style={{ fontFamily: sans, fontSize: '14px', fontWeight: 500, color: C.espresso }}>
                                                 {donor.displayName}
                                             </div>
+                                            {donor.note && (
+                                                <div style={{ fontFamily: sans, fontSize: '12px', color: C.muted, fontStyle: 'italic', marginTop: '2px', lineHeight: 1.4 }}>
+                                                    "{donor.note}"
+                                                </div>
+                                            )}
                                             <div style={{ fontFamily: sans, fontSize: '11px', color: C.lightMuted, marginTop: '2px' }}>
                                                 {formatDate(donor.createdAt, 'short')}
                                             </div>

@@ -94,7 +94,7 @@ const Team = () => {
         setIsMessageModalOpen(false);
     };
 
-    const handleDonate = async (amountInCents) => {
+    const handleDonate = async (amountInCents, note) => {
         console.log('Handling donation with amount (cents):', amountInCents);
 
         if (!user || !user._id) {
@@ -105,7 +105,7 @@ const Team = () => {
 
         try {
             console.log('Calling createDonation with:', user._id, user.email, amountInCents);
-            const success = await createDonation(user._id, user.email, amountInCents);
+            const success = await createDonation(user._id, user.email, amountInCents, note);
 
             console.log('Donation creation result:', success);
 
