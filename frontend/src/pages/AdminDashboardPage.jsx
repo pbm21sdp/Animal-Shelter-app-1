@@ -6,7 +6,6 @@ import Navbar from '../components/Navbar';
 
 import PetsManagement from './Admin/PetsManagement';
 import UsersManagement from './Admin/UsersManagement';
-import DonationsStats from './Admin/DonationsStats';
 import AdoptionsManagement from './Admin/AdoptionsManagement';
 import AdminSettings from './Admin/AdminSettings';
 import StatisticsManagement from './Admin/StatisticsManagement';
