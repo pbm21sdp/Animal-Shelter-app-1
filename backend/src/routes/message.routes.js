@@ -1,6 +1,7 @@
 import express from 'express';
 import { verifyToken } from '../middleware/verifyToken.js';
 import { isAdmin } from '../middleware/adminCheck.js';
+import { authLimiter } from '../middleware/rateLimiter.js';
 import {
     createMessage,
     getAllMessages,
@@ -14,7 +15,7 @@ import {
 const router = express.Router();
 
 // Public route - anyone can send a message
-router.post('/', createMessage);
+router.post('/', authLimiter, createMessage);
 router.get('/user', verifyToken, getUserMessages);
 
 // Admin routes - require authentication and admin role

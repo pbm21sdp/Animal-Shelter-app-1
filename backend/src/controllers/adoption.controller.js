@@ -198,7 +198,6 @@ export const getAdoptionDetails = async (req, res) => {
 
         // Admin access check
         if (req.isAdmin === true) {
-            console.log('User is admin, granting access');
             return res.status(200).json({
                 success: true,
                 adoption
