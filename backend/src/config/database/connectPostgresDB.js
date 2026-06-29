@@ -23,6 +23,7 @@ export const connectPostgresDB = async () => {
         return pool;
     } catch (error) {
         console.error('PostgreSQL connection error:', error);
+        if (process.env.NODE_ENV === 'test') throw error;
         process.exit(1);
     }
 }
