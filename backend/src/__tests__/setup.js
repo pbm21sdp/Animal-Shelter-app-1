@@ -26,6 +26,14 @@ process.env.MAILTRAP_TOKEN = 'fake_mailtrap_token_for_testing';
 // ML service
 process.env.ML_SERVICE_URL = process.env.TEST_ML_SERVICE_URL || 'http://localhost:5001';
 
+// OAuth — passport.js registers strategies at import time; fake values prevent the TypeError
+process.env.GOOGLE_CLIENT_ID     = process.env.GOOGLE_CLIENT_ID     || 'fake-google-client-id-for-testing';
+process.env.GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || 'fake-google-client-secret-for-testing';
+process.env.FACEBOOK_APP_ID      = process.env.FACEBOOK_APP_ID      || 'fake-facebook-app-id-for-testing';
+process.env.FACEBOOK_APP_SECRET  = process.env.FACEBOOK_APP_SECRET  || 'fake-facebook-app-secret-for-testing';
+process.env.SESSION_SECRET       = process.env.SESSION_SECRET        || 'test-session-secret-for-testing';
+process.env.CLIENT_URL           = process.env.CLIENT_URL            || 'http://localhost:5173';
+
 // Set test timeout (handled in jest.config.js instead)
 // jest.setTimeout(10000); // 10 seconds
 

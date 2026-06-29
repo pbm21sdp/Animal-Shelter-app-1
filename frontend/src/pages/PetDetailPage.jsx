@@ -11,7 +11,7 @@ import { useAuthStore } from '../store/authStore';
 import UserAdoptionForm from '../components/UserAdoptionForm';
 import NotFoundPage from './NotFoundPage';
 import { buildPetTags } from '../utils/petTags';
-import { formatDate, formatPostedOn } from '../utils/date';
+import { formatDate, formatPostedOn, formatMemberSince } from '../utils/date';
 
 const API   = 'http://localhost:5000/api';
 const BASE  = 'http://localhost:5000';
@@ -32,11 +32,6 @@ function resolveAvatar(avatar) {
     return `${BASE}${avatar.startsWith('/') ? avatar : `/${avatar}`}`;
 }
 
-
-function fmtMemberSince(d) {
-    if (!d) return '';
-    return new Date(d).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-}
 
 function cap(str) {
     if (!str) return '';
@@ -433,7 +428,7 @@ export default function PetDetailPage() {
                                         {uploader?.name || 'Community member'}
                                     </div>
                                     <div style={{ fontFamily: sans, fontSize: '11px', color: '#9A7A60' }}>
-                                        Found this animal{uploader?.createdAt ? ` · Member since ${fmtMemberSince(uploader.createdAt)}` : ''}
+                                        Found this animal{uploader?.createdAt ? ` · Member since ${formatMemberSince(uploader.createdAt)}` : ''}
                                     </div>
                                 </div>
 

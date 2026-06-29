@@ -166,7 +166,7 @@ describe('Auth Controller', () => {
       // Arrange
       req.body = validSignupData;
 
-      const existingUser = createMockUser({ email: 'newuser@example.com' });
+      const existingUser = createMockUser({ email: 'newuser@example.com', isVerified: true });
       User.findOne = jest.fn().mockResolvedValue(existingUser);
 
       // Act

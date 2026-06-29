@@ -43,8 +43,8 @@ export default {
   // Verbose output
   verbose: true,
 
-  // Test timeout
-  testTimeout: 10000,
+  // Test timeout — integration tests hit real DBs, allow more time
+  testTimeout: 30000,
 
   // Transform settings for ES modules
   transform: {},

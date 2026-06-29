@@ -51,6 +51,22 @@ export function formatTime(dateStr) {
     });
 }
 
+// "January 2025" — month + year, used for member-since labels
+export function formatMemberSince(d) {
+    if (!d) return '';
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return '';
+    return dt.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}
+
+// "Jan 27" — short month + day, no year
+export function formatShortDate(d) {
+    if (!d) return '';
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return '';
+    return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
 // "just now", "5m ago", "3h ago", "2d ago"
 export function formatTimeAgo(dateStr) {
     if (!dateStr) return '';

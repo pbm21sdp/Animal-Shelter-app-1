@@ -1,3 +1,13 @@
+// ARCHIVED — one-off data preparation script, already applied to production DB.
+// What it did: redistributed adopted_at / created_at / reviewed_at timestamps
+// for the 9 adopted animals over a ~3-month window so the SARIMA/ETS ML model
+// had enough realistic historical data to generate predictions. Ran once with
+// --confirm after ML predictions were returning "insufficient data". Do NOT run
+// again — timestamps in DB are now authoritative training data for the model.
+//
+// The script also updated linked notification.created_at values to keep strict
+// chronological order: created_at < reviewed_at < notifications < adopted_at.
+
 /**
  * redistributeAdoptionDates.js
  *
@@ -33,7 +43,7 @@ import path from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
-dotenv.config({ path: path.join(__dirname, '../.env') });
+dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
@@ -196,7 +206,6 @@ const main = async () => {
     console.log('─'.repeat(100));
 
     updates.forEach(u => {
-        // Verify strict order
         const ok = u.newCreatedAt < u.newReviewedAt && u.newReviewedAt < u.newAdoptedAt;
         const badge = ok ? '✓' : '✗';
         console.log(
@@ -212,7 +221,6 @@ const main = async () => {
     });
     console.log('─'.repeat(100));
 
-    // ── Preview: notifications fix table ─────────────────────────────────────
     const allNotifUpdates = updates.flatMap(u => u.notifUpdates);
 
     console.log('\nNOTIFICATIONS — BEFORE → AFTER');
@@ -247,7 +255,6 @@ const main = async () => {
     }
     console.log('─'.repeat(95));
 
-    // ── Full chronology verification ──────────────────────────────────────────
     console.log('\nFULL CHRONOLOGY CHECK  (created_at < reviewed_at < notifications < adopted_at)');
     console.log('─'.repeat(95));
     let allOk = true;
@@ -277,7 +284,6 @@ const main = async () => {
         ? '  ✅ All chronologies valid.'
         : '  ❌ Some entries have chronology violations — do NOT run --confirm.');
 
-    // ── Distribution summary ──────────────────────────────────────────────────
     const months       = [...new Set(updates.map(u => u.newAdoptedAt.toISOString().substring(0, 7)))].sort();
     const distinctDays = new Set(updates.map(u => u.newAdoptedAt.toISOString().substring(0, 10))).size;
     const recent       = updates.filter(u => u.daysAgo <= 30).length;
@@ -292,14 +298,6 @@ const main = async () => {
     console.log(`  30-60 days ago   : ${middle} animal(s)  (${Math.round(middle/updates.length*100)}%)`);
     console.log(`  60-88 days ago   : ${older}  animal(s)  (${Math.round(older/updates.length*100)}%)`);
 
-    // ── ML model readiness ────────────────────────────────────────────────────
-    console.log('\nML MODEL READINESS (projected)');
-    console.log('─'.repeat(60));
-    console.log(`  ${updates.length >= 7  ? '✓' : '✗'} Total adopted : ${updates.length}  (need ≥7 for predictions endpoint)`);
-    console.log(`  ${distinctDays  >= 14  ? '✓' : distinctDays >= 7 ? '~' : '✗'} Distinct days : ${distinctDays}  (≥14 ideal for daily; ≥7 for weekly)`);
-    console.log(`  ${months.length >= 3   ? '✓' : '~'} Months        : ${months.length}  (need ≥3 for platform analytics forecast)`);
-
-    // ── Exit or apply ─────────────────────────────────────────────────────────
     if (!CONFIRM) {
         console.log('\n' + '═'.repeat(80));
         console.log('  DRY RUN COMPLETE — nothing written to DB.');
@@ -317,7 +315,6 @@ const main = async () => {
         process.exit(1);
     }
 
-    // ── Apply updates ─────────────────────────────────────────────────────────
     console.log('\n' + '─'.repeat(60));
     console.log('  APPLYING UPDATES...');
     console.log('─'.repeat(60));
@@ -357,7 +354,6 @@ const main = async () => {
         client.release();
     }
 
-    // ── Post-update verification query ────────────────────────────────────────
     const { rows: v } = await pool.query(
         `SELECT
              COUNT(*)::int                                          AS total,
@@ -381,11 +377,6 @@ const main = async () => {
     console.log(`  Calendar months    : ${r.months}  ${r.months >= 3 ? '✓' : '~'}`);
     console.log(`  Date range         : ${r.earliest} → ${r.latest}`);
     console.log(`  Avg days to adopt  : ${r.avg_days} days`);
-    console.log('');
-    console.log('  Next steps to verify:');
-    console.log('  1. POST /api/predictions/adoptions  — expect predictions, not "insufficient data"');
-    console.log('  2. GET  /api/analytics/platform     — time series should span 3 months');
-    console.log('  3. GET  /api/animals/stats          — avg_days_adoption should show realistic value');
     console.log('═'.repeat(80) + '\n');
 
     await pool.end();

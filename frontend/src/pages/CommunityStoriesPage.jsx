@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import Navbar from '../components/Navbar';
+import { formatMemberSince as formatDate } from '../utils/date';
 
 const API   = 'http://localhost:5000/api';
 const serif = "'Cormorant Garamond', serif";
@@ -14,13 +15,6 @@ const C = {
     muted:   '#7A5C44',
     border:  'rgba(45,31,20,0.1)',
 };
-
-function formatDate(dateStr) {
-    if (!dateStr) return null;
-    const d = new Date(dateStr);
-    if (isNaN(d)) return null;
-    return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-}
 
 export default function CommunityStoriesPage() {
     const [pets, setPets]     = useState([]);

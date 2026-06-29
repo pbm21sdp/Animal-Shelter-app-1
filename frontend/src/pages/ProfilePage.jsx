@@ -4,6 +4,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import Navbar from '../components/Navbar';
 import { useAuthStore } from '../store/authStore';
+import { formatMemberSince as fmtMemberSince, formatShortDate as fmtShortDate } from '../utils/date';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const API      = 'http://localhost:5000/api';
@@ -21,16 +22,6 @@ function photoUrl(id) {
 function resolveAvatar(avatar) {
     if (!avatar) return null;
     return avatar.startsWith('http') ? avatar : `${BASE_URL}${avatar.startsWith('/') ? avatar : `/${avatar}`}`;
-}
-
-function fmtMemberSince(d) {
-    if (!d) return '—';
-    return new Date(d).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-}
-
-function fmtShortDate(d) {
-    if (!d) return '';
-    return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 function fmtMemberFor(d) {

@@ -306,4 +306,8 @@ async function start() {
     });
 }
 
-start();
+export { app };
+
+if (process.env.NODE_ENV !== 'test') {
+    start();
+}

@@ -306,7 +306,7 @@ export const PetModel = {
                 name, type, breed, age_category, gender, size, color, coat,
                 fee, description, health_status, story, location_address,
                 location_city, location_country, shelter_contact_email,
-                shelter_contact_phone, traits, photos, zip_code,
+                shelter_contact_phone, traits, zip_code,
                 uploader_id, latitude, longitude, found_how,
                 situation, current_status, microchip_status,
                 neutered_spayed_status, vaccination_status, deworming_status, breed_unsure,
@@ -348,18 +348,6 @@ export const PetModel = {
                 `;
                 for (const trait of traits) {
                     await client.query(traitQuery, [newPet.id, trait]);
-                }
-            }
-
-            // Insert photos if provided
-            if (photos && photos.length > 0) {
-                const photoQuery = `
-                    INSERT INTO pet_photos (pet_id, photo_url, is_primary)
-                    VALUES ($1, $2, $3)
-                `;
-                for (let i = 0; i < photos.length; i++) {
-                    const isPrimary = i === 0; // First photo is primary
-                    await client.query(photoQuery, [newPet.id, photos[i], isPrimary]);
                 }
             }
 
@@ -420,24 +408,6 @@ export const PetModel = {
                     `;
                     for (const trait of updateData.traits) {
                         await client.query(traitQuery, [id, trait]);
-                    }
-                }
-            }
-
-            // Update photos if provided
-            if (updateData.photos) {
-                // Remove existing photos
-                await client.query('DELETE FROM pet_photos WHERE pet_id = $1', [id]);
-
-                // Add new photos
-                if (updateData.photos.length > 0) {
-                    const photoQuery = `
-                        INSERT INTO pet_photos (pet_id, photo_url, is_primary)
-                        VALUES ($1, $2, $3)
-                    `;
-                    for (let i = 0; i < updateData.photos.length; i++) {
-                        const isPrimary = i === 0;
-                        await client.query(photoQuery, [id, updateData.photos[i], isPrimary]);
                     }
                 }
             }
@@ -640,24 +610,19 @@ export const PetModel = {
 
     updateAdoptionStatus: async (id, adoptionStatus) => {
         try {
-            // Update both adoption_status and is_available fields
-            let isAvailable = true; // Default to available
-
-            // Set isAvailable based on adoption status
-            if (adoptionStatus === 'adopted' || adoptionStatus === 'pending' || adoptionStatus === 'unavailable') {
-                isAvailable = false;
-            }
-
+            // is_available is intentionally NOT set here: the DB trigger
+            // set_pet_availability handles it automatically based on adoption_status.
+            // Rule: pending/in_review/adopted/unavailable → is_available=false;
+            // available/returned → is_available=true. This prevents adoption collisions.
             const query = `
             UPDATE pets
-            SET adoption_status = $1, 
-                is_available = $2, 
+            SET adoption_status = $1,
                 updated_at = CURRENT_TIMESTAMP
-            WHERE id = $3
+            WHERE id = $2
             RETURNING *
         `;
 
-            const result = await pool.query(query, [adoptionStatus, isAvailable, id]);
+            const result = await pool.query(query, [adoptionStatus, id]);
             return result.rows[0];
         } catch (error) {
             console.error('Error in PetModel.updateAdoptionStatus:', error);
