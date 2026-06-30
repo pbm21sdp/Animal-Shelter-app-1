@@ -1,0 +1,228 @@
+{
+  "base_clip": {
+    "1_species": {
+      "correct": 83,
+      "total": 88,
+      "accuracy": 94.3,
+      "per_class": {
+        "cat": 94.7,
+        "dog": 100.0,
+        "puppy": 70.0,
+        "kitten": 93.3,
+        "rabbit": 100.0,
+        "guinea_pig": 100.0,
+        "hamster": 100.0
+      }
+    },
+    "2_dog_breed": {
+      "correct": 257,
+      "total": 282,
+      "accuracy": 91.1,
+      "per_class": {
+        "beagle": 100.0,
+        "boxer": 95.8,
+        "chihuahua": 95.7,
+        "english_cocker_spaniel": 83.3,
+        "german_shepherd": 91.7,
+        "golden_retriever": 65.0,
+        "havanese": 87.0,
+        "husky": 95.8,
+        "labrador": 95.8,
+        "maltese": 83.3,
+        "newfoundland": 100.0,
+        "yorkshire_terrier": 95.8
+      }
+    },
+    "3_cat_breed": {
+      "correct": 215,
+      "total": 288,
+      "accuracy": 74.7,
+      "per_class": {
+        "bengal": 50.0,
+        "birman": 91.7,
+        "bombay": 100.0,
+        "british_shorthair": 79.2,
+        "domestic_shorthair": 50.0,
+        "maine_coon": 91.7,
+        "persian": 83.3,
+        "ragdoll": 25.0,
+        "russian_blue": 91.7,
+        "siamese": 79.2,
+        "sphynx": 100.0,
+        "tabby": 54.2
+      }
+    },
+    "4_color": {
+      "correct": 166,
+      "total": 195,
+      "accuracy": 85.1,
+      "per_class": {
+        "brown": 87.5,
+        "white": 95.8,
+        "black": 87.5,
+        "gray": 96.0,
+        "orange": 100.0,
+        "golden": 100.0,
+        "black_and_white": 95.8,
+        "multicolor": 16.7
+      }
+    },
+    "5_size": {
+      "correct": 44,
+      "total": 96,
+      "accuracy": 45.8,
+      "per_class": {
+        "very_small": 66.7,
+        "small": 8.3,
+        "medium": 16.7,
+        "large": 91.7
+      }
+    },
+    "6_age": {
+      "correct": 51,
+      "total": 134,
+      "accuracy": 38.1,
+      "per_class": {
+        "baby_under_3months": 45.0,
+        "young_3_12months": 14.3,
+        "adult_1_3years": 39.3,
+        "mature_3_7years": 0.0,
+        "senior_over_7years": 100.0
+      }
+    },
+    "7_fur_length": {
+      "correct": 24,
+      "total": 24,
+      "accuracy": 100.0,
+      "per_class": {
+        "hairless": 100.0
+      }
+    },
+    "8_fur_pattern": {
+      "correct": 75,
+      "total": 136,
+      "accuracy": 55.1,
+      "per_class": {
+        "bicolor": 0.0,
+        "calico": 95.5,
+        "solid": 62.5,
+        "spotted": 63.6,
+        "tricolor": 9.1,
+        "tuxedo": 95.8
+      }
+    }
+  },
+  "finetuned_clip": {
+    "1_species": {
+      "correct": 76,
+      "total": 88,
+      "accuracy": 86.4,
+      "per_class": {
+        "cat": 94.7,
+        "dog": 95.0,
+        "puppy": 60.0,
+        "kitten": 80.0,
+        "rabbit": 100.0,
+        "guinea_pig": 87.5,
+        "hamster": 75.0
+      }
+    },
+    "2_dog_breed": {
+      "correct": 247,
+      "total": 282,
+      "accuracy": 87.6,
+      "per_class": {
+        "beagle": 100.0,
+        "boxer": 95.8,
+        "chihuahua": 87.0,
+        "english_cocker_spaniel": 62.5,
+        "german_shepherd": 91.7,
+        "golden_retriever": 40.0,
+        "havanese": 87.0,
+        "husky": 87.5,
+        "labrador": 95.8,
+        "maltese": 100.0,
+        "newfoundland": 100.0,
+        "yorkshire_terrier": 95.8
+      }
+    },
+    "3_cat_breed": {
+      "correct": 205,
+      "total": 288,
+      "accuracy": 71.2,
+      "per_class": {
+        "bengal": 66.7,
+        "birman": 83.3,
+        "bombay": 100.0,
+        "british_shorthair": 29.2,
+        "domestic_shorthair": 58.3,
+        "maine_coon": 95.8,
+        "persian": 83.3,
+        "ragdoll": 25.0,
+        "russian_blue": 75.0,
+        "siamese": 66.7,
+        "sphynx": 100.0,
+        "tabby": 70.8
+      }
+    },
+    "4_color": {
+      "correct": 186,
+      "total": 195,
+      "accuracy": 95.4,
+      "per_class": {
+        "brown": 95.8,
+        "white": 87.5,
+        "black": 100.0,
+        "gray": 88.0,
+        "orange": 100.0,
+        "golden": 100.0,
+        "black_and_white": 100.0,
+        "multicolor": 91.7
+      }
+    },
+    "5_size": {
+      "correct": 78,
+      "total": 96,
+      "accuracy": 81.2,
+      "per_class": {
+        "very_small": 100.0,
+        "small": 70.8,
+        "medium": 66.7,
+        "large": 87.5
+      }
+    },
+    "6_age": {
+      "correct": 77,
+      "total": 134,
+      "accuracy": 57.5,
+      "per_class": {
+        "baby_under_3months": 90.0,
+        "young_3_12months": 67.9,
+        "adult_1_3years": 21.4,
+        "mature_3_7years": 45.2,
+        "senior_over_7years": 74.1
+      }
+    },
+    "7_fur_length": {
+      "correct": 24,
+      "total": 24,
+      "accuracy": 100.0,
+      "per_class": {
+        "hairless": 100.0
+      }
+    },
+    "8_fur_pattern": {
+      "correct": 128,
+      "total": 136,
+      "accuracy": 94.1,
+      "per_class": {
+        "bicolor": 86.4,
+        "calico": 95.5,
+        "solid": 87.5,
+        "spotted": 100.0,
+        "tricolor": 95.5,
+        "tuxedo": 100.0
+      }
+    }
+  }
+}
