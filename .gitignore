@@ -158,6 +158,8 @@ PLANNING.md
 PRD.md
 TASKS.md
 thesis_context.md
+arhitectura_context.md
+security_audit.md
 
 # Test generated filed
 /backend/coverage/*
@@ -166,5 +168,8 @@ thesis_context.md
 backend/db/backup_*.sql
 backend/db/mongo_backup_*/
 backend/db/*_backup_*/
+
+# Database dumps
+schema_completa.sql
 
 .env
