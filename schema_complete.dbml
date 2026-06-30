@@ -1,0 +1,233 @@
+// ============================================================
+// PAWS SHELTER — Full Database Schema
+// MongoDB (prefixed mongo_) + PostgreSQL (unprefixed)
+// Cross-database refs are application-level (varchar FK)
+// and are not enforced by either DB.
+// Generated: June 2026
+// ============================================================
+
+
+// ============================================================
+// MONGODB COLLECTIONS
+// ============================================================
+
+Table mongo_users [note: 'MongoDB — auth & user profiles'] {
+  _id                        varchar(24)  [pk, note: 'ObjectId']
+  email                      varchar      [unique, not null]
+  password                   varchar      [not null, note: 'bcrypt hash']
+  name                       varchar      [not null]
+  avatar                     varchar      [null, note: 'path under uploads/avatars/']
+  lastLogin                  timestamp
+  isVerified                 boolean      [default: false]
+  isAdmin                    boolean      [default: false]
+  bio                        varchar(500) [null]
+  city                       varchar(100) [null]
+  contactAvailability        varchar      [null, note: 'embedded: { days[], from, to }']
+  privacySettings            varchar      [null, note: 'embedded: 8 boolean visibility flags']
+  resetPasswordToken         varchar      [null]
+  resetPasswordExpiresAt     timestamp    [null]
+  verificationToken          varchar      [null]
+  verificationTokenExpiresAt timestamp    [null]
+  createdAt                  timestamp
+  updatedAt                  timestamp
+}
+
+Table mongo_donations [note: 'MongoDB — Stripe payment records'] {
+  _id               varchar(24)  [pk, note: 'ObjectId']
+  user              varchar(24)  [null, ref: > mongo_users._id, note: 'null for anonymous']
+  email             varchar      [null]
+  amount            int          [not null, note: 'euro cents']
+  currency          varchar      [default: 'eur']
+  stripeSessionId   varchar      [null]
+  paymentIntentId   varchar      [null]
+  status            varchar      [note: 'pending | completed | canceled | failed']
+  displayPreference varchar      [note: 'name | anonymous | hidden']
+  displayName       varchar      [null]
+  note              varchar(200) [null]
+  createdAt         timestamp
+  updatedAt         timestamp
+}
+
+
+// ============================================================
+// POSTGRESQL TABLES
+// ============================================================
+
+Table pets [note: 'PostgreSQL — core animal listings'] {
+  id                     int           [pk, increment]
+  name                   varchar(100)  [not null]
+  type                   varchar(50)   [not null, note: 'dog | cat | bird | rabbit | other']
+  breed                  varchar(100)  [null]
+  age_category           varchar(50)   [null, note: 'baby | young | adult | senior']
+  gender                 varchar(50)   [null]
+  size                   varchar(50)   [null]
+  color                  varchar(100)  [null]
+  coat                   varchar(100)  [null]
+  fur_pattern            varchar(30)   [null]
+  fee                    decimal(10,2) [default: 0]
+  description            text          [null]
+  health_status          text          [null]
+  story                  text          [null]
+  ai_breed_detected      varchar(100)  [null]
+  ai_color_detected      varchar(50)   [null]
+  ai_size_detected       varchar(50)   [null]
+  ai_age_detected        varchar(50)   [null]
+  ai_confidence          decimal(5,2)  [null]
+  ai_analyzed_at         timestamp     [null]
+  location_address       varchar(255)  [null]
+  location_city          varchar(100)  [null]
+  location_country       varchar(100)  [null]
+  zip_code               varchar(20)   [null]
+  latitude               decimal(10,8) [null]
+  longitude              decimal(11,8) [null]
+  shelter_contact_email  varchar(255)  [null]
+  shelter_contact_phone  varchar(50)   [null]
+  is_available           boolean       [default: true, note: 'auto-managed by trigger set_pet_availability']
+  adoption_status        varchar(50)   [default: 'available', note: 'available | pending | in_review | adopted | unavailable']
+  status                 varchar(20)   [not null, default: 'pending', note: 'moderation: pending | approved | rejected']
+  rejection_reason       text          [null]
+  reviewed_by            varchar(24)   [null, ref: > mongo_users._id]
+  reviewed_at            timestamp     [null]
+  is_adopted             boolean       [not null, default: false]
+  adopted_at             timestamp     [null]
+  adopted_by             varchar(24)   [null, ref: > mongo_users._id]
+  adopter_external_name  varchar(150)  [null]
+  adoption_status_label  varchar(20)   [null]
+  uploader_id            varchar(24)   [null, ref: > mongo_users._id]
+  found_how              varchar(120)  [null]
+  situation              varchar(50)   [null]
+  current_status         varchar(30)   [null]
+  microchip_status       varchar(20)   [null]
+  neutered_spayed_status varchar(20)   [null]
+  vaccination_status     varchar(20)   [null]
+  deworming_status       varchar(20)   [null]
+  breed_unsure           boolean       [default: false]
+  created_at             timestamp     [default: `CURRENT_TIMESTAMP`]
+  updated_at             timestamp     [default: `CURRENT_TIMESTAMP`]
+}
+
+Table pet_photos {
+  id           int          [pk, increment]
+  pet_id       int          [not null, ref: > pets.id]
+  photo_data   bytea        [null, note: 'binary blob; null when photo_url is set']
+  photo_name   varchar(255) [null]
+  content_type varchar(100) [null]
+  photo_url    varchar(255) [null]
+  is_primary   boolean      [default: false]
+  created_at   timestamp    [default: `CURRENT_TIMESTAMP`]
+}
+
+Table pet_traits {
+  id         int          [pk, increment]
+  pet_id     int          [not null, ref: > pets.id]
+  trait      varchar(100) [not null]
+  created_at timestamp    [default: `CURRENT_TIMESTAMP`]
+}
+
+Table conversations [note: 'PostgreSQL — direct messages between users, including adoption requests'] {
+  id                  int          [pk, increment]
+  pet_id              int          [null, ref: > pets.id]
+  participant_one     varchar(24)  [not null, ref: > mongo_users._id]
+  participant_two     varchar(24)  [not null, ref: > mongo_users._id]
+  is_adoption_request boolean      [default: false, note: 'true when created via Adopt button']
+  deleted_by_one      boolean      [default: false]
+  deleted_by_two      boolean      [default: false]
+  deleted_at_one      timestamp    [null]
+  deleted_at_two      timestamp    [null]
+  created_at          timestamp    [default: `now()`]
+  updated_at          timestamp    [default: `now()`]
+}
+
+Table conversation_messages {
+  id              int         [pk, increment]
+  conversation_id int         [not null, ref: > conversations.id]
+  sender_id       varchar(24) [not null, ref: > mongo_users._id]
+  content         text        [not null]
+  is_read         boolean     [default: false]
+  created_at      timestamp   [default: `now()`]
+  replied_at      timestamp   [null]
+}
+
+Table forum_posts {
+  id         int          [pk, increment]
+  author_id  varchar(24)  [not null, ref: > mongo_users._id]
+  category   varchar(30)  [not null]
+  title      varchar(150) [not null]
+  content    text         [not null]
+  created_at timestamp    [default: `now()`]
+  updated_at timestamp    [default: `now()`]
+}
+
+Table forum_post_photos {
+  id         int       [pk, increment]
+  post_id    int       [not null, ref: > forum_posts.id]
+  photo_data bytea     [not null]
+  created_at timestamp [default: `now()`]
+}
+
+Table notifications [note: 'PostgreSQL — moderation event notifications'] {
+  id                int         [pk, increment]
+  user_id           varchar(24) [not null, ref: > mongo_users._id]
+  type              varchar(30) [not null, note: 'animal_approved | animal_rejected']
+  related_animal_id int         [null, ref: > pets.id]
+  message           text        [null]
+  is_read           boolean     [default: false]
+  created_at        timestamp   [default: `CURRENT_TIMESTAMP`]
+}
+
+Table saved_animals {
+  id         int         [pk, increment]
+  user_id    varchar(24) [not null, ref: > mongo_users._id]
+  pet_id     int         [null, ref: > pets.id]
+  created_at timestamp   [default: `now()`]
+
+  indexes {
+    (user_id, pet_id) [unique]
+  }
+}
+
+Table reject_reasons [note: 'PostgreSQL — configurable rejection labels for moderation UI'] {
+  id            int     [pk, increment]
+  label         text    [not null]
+  is_active     boolean [not null, default: true]
+  display_order int     [not null, default: 0]
+}
+
+Table forbidden_words [note: 'PostgreSQL — moderation word blocklist'] {
+  id         int          [pk, increment]
+  word       varchar(100) [not null, unique]
+  created_at timestamp    [default: `now()`]
+}
+
+
+// ============================================================
+// TABLE GROUPS
+// ============================================================
+
+TableGroup "MongoDB" {
+  mongo_users
+  mongo_donations
+}
+
+TableGroup "PostgreSQL — Animals" {
+  pets
+  pet_photos
+  pet_traits
+}
+
+TableGroup "PostgreSQL — Messaging" {
+  conversations
+  conversation_messages
+}
+
+TableGroup "PostgreSQL — Community" {
+  forum_posts
+  forum_post_photos
+}
+
+TableGroup "PostgreSQL — System" {
+  notifications
+  saved_animals
+  reject_reasons
+  forbidden_words
+}

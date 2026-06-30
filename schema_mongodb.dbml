@@ -1,0 +1,98 @@
+// ============================================================
+// PAWS SHELTER — MongoDB Collections
+// Reflects actual runtime state (June 2026)
+// ============================================================
+
+// ─── ACTIVE ─────────────────────────────────────────────────
+
+Table mongo_users [note: 'Core auth & user profiles — used by every feature'] {
+  _id                        varchar(24)  [pk, note: 'ObjectId']
+  email                      varchar      [unique, not null]
+  password                   varchar      [not null, note: 'bcrypt hash — never returned in API responses']
+  name                       varchar      [not null]
+  avatar                     varchar      [null, note: 'file path under uploads/avatars/']
+  lastLogin                  timestamp
+  isVerified                 boolean      [default: false]
+  isAdmin                    boolean      [default: false]
+  bio                        varchar(500) [null]
+  city                       varchar(100) [null]
+  contactAvailability        varchar      [null, note: 'embedded: { days: string[], from: string, to: string }']
+  privacySettings            varchar      [null, note: 'embedded: 8 boolean visibility flags']
+  resetPasswordToken         varchar      [null]
+  resetPasswordExpiresAt     timestamp    [null]
+  verificationToken          varchar      [null]
+  verificationTokenExpiresAt timestamp    [null]
+  createdAt                  timestamp
+  updatedAt                  timestamp
+}
+
+Table mongo_donations [note: 'Stripe payment records — written by webhook, read by admin & user'] {
+  _id               varchar(24)  [pk, note: 'ObjectId']
+  user              varchar(24)  [null, ref: > mongo_users._id, note: 'null for anonymous donations']
+  email             varchar      [null]
+  amount            int          [not null, note: 'in euro cents (e.g. 1000 = €10)']
+  currency          varchar      [default: 'eur']
+  stripeSessionId   varchar      [null]
+  paymentIntentId   varchar      [null]
+  status            varchar      [note: 'pending | completed | canceled | failed']
+  displayPreference varchar      [note: 'name | anonymous | hidden']
+  displayName       varchar      [null]
+  note              varchar(200) [null]
+  createdAt         timestamp
+  updatedAt         timestamp
+}
+
+// ─── ORPHAN — written but not read ──────────────────────────
+
+Table mongo_messages [note: 'Contact form submissions. ORPHAN: messages are written via form in Footer/Team/Partnerships pages but the admin inbox was removed from the dashboard — no UI reads this collection anymore.'] {
+  _id       varchar(24)   [pk, note: 'ObjectId']
+  name      varchar       [null]
+  email     varchar       [not null]
+  message   varchar(1800) [not null]
+  read      boolean       [default: false]
+  userId    varchar(24)   [null, ref: > mongo_users._id, note: 'null for unauthenticated senders']
+  createdAt timestamp
+  updatedAt timestamp
+}
+
+// ─── LEGACY — dead code ──────────────────────────────────────
+
+Table mongo_adoptions [note: 'LEGACY. The adoption form was replaced by a direct conversation flow (POST /api/conversations). The submit endpoint (POST /api/adoptions) exists in the backend but is never called from the frontend. No new documents are written. Existing documents are still read by admin endpoints but carry only historical data.'] {
+  _id                   varchar(24) [pk, note: 'ObjectId']
+  user                  varchar(24) [not null, ref: > mongo_users._id]
+  petId                 int         [not null, note: 'application-level ref → PostgreSQL pets.id']
+  petName               varchar     [not null]
+  petType               varchar     [not null]
+  petBreed              varchar     [null]
+  status                varchar     [note: 'pending | in_review | approved | rejected']
+  applicationDate       timestamp
+  notes                 varchar     [null]
+  adminNotes            varchar     [null]
+  livingArrangement     varchar     [null]
+  hasChildren           boolean     [null]
+  hasOtherPets          boolean     [null]
+  otherPetsDetails      varchar     [null]
+  adoptionReason        varchar     [null]
+  fullName              varchar     [null]
+  email                 varchar     [null]
+  phone                 varchar     [null]
+  address               varchar     [null]
+  city                  varchar     [null]
+  postalCode            varchar     [null]
+  housingType           varchar     [null]
+  hasYard               varchar     [null]
+  previousPetExperience varchar     [null]
+  message               varchar     [null]
+  createdAt             timestamp
+  updatedAt             timestamp
+}
+
+TableGroup MongoDB_Active {
+  mongo_users
+  mongo_donations
+}
+
+TableGroup MongoDB_Inactive {
+  mongo_messages
+  mongo_adoptions
+}
