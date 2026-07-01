@@ -8,7 +8,6 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import { usePetStore } from '../store/petStore';
 import { useAuthStore } from '../store/authStore';
-import UserAdoptionForm from '../components/UserAdoptionForm';
 import NotFoundPage from './NotFoundPage';
 import { buildPetTags } from '../utils/petTags';
 import { formatDate, formatPostedOn, formatMemberSince } from '../utils/date';
@@ -130,8 +129,6 @@ export default function PetDetailPage() {
     const [askSent,        setAskSent]        = useState(false);
     const [askSending,     setAskSending]     = useState(false);
     const [adoptSending,   setAdoptSending]   = useState(false);
-    const [showAdoptForm,  setShowAdoptForm]  = useState(false);
-    const [adoptSuccess,   setAdoptSuccess]   = useState(false);
     const [isSaved,        setIsSaved]        = useState(false);
     const [saveLoading,    setSaveLoading]    = useState(false);
     const askRef = useRef(null);
@@ -702,25 +699,6 @@ export default function PetDetailPage() {
                 </div>{/* end main grid */}
             </div>{/* end inner */}
 
-            {/* ── ADOPTION FORM MODAL ───────────────────────── */}
-            {showAdoptForm && (
-                <UserAdoptionForm
-                    pet={pet}
-                    onClose={() => setShowAdoptForm(false)}
-                    onSuccess={() => {
-                        setShowAdoptForm(false);
-                        setAdoptSuccess(true);
-                        setTimeout(() => setAdoptSuccess(false), 3500);
-                    }}
-                />
-            )}
-
-            {/* ── SUCCESS TOAST ─────────────────────────────── */}
-            {adoptSuccess && (
-                <div style={{ position: 'fixed', bottom: '32px', left: '50%', transform: 'translateX(-50%)', zIndex: 200, background: '#2D1F14', color: '#FAF7F4', fontFamily: sans, fontSize: '13px', padding: '12px 24px', borderRadius: '100px', boxShadow: '0 4px 20px rgba(45,31,20,0.2)', whiteSpace: 'nowrap' }}>
-                    ✓ Application submitted successfully!
-                </div>
-            )}
         </div>
     );
 }

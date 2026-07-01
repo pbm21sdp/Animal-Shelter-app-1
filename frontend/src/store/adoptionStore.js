@@ -11,29 +11,6 @@ export const useAdoptionStore = create((set, get) => ({
     isLoading: false,
     error: null,
 
-    // Submit adoption application
-    submitAdoption: async (adoptionData) => {
-        set({ isLoading: true, error: null });
-        try {
-            const response = await axios.post(API_URL, adoptionData, {
-                withCredentials: true
-            });
-
-            set({
-                isLoading: false
-            });
-
-            return { success: true, adoption: response.data.adoption };
-        } catch (error) {
-            console.error('Error submitting adoption application:', error);
-            set({
-                error: error.response?.data?.message || 'Error submitting adoption application',
-                isLoading: false
-            });
-            return { success: false, error: error.response?.data?.message || 'Error submitting adoption application' };
-        }
-    },
-
     // Get current user's adoptions
     getUserAdoptions: async () => {
         set({ isLoading: true, error: null });
